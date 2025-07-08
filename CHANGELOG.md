@@ -1,5 +1,11 @@
 # opentool
 
+## 0.0.3
+
+### Patch Changes
+
+- 12be6c2: updated readme
+
 ## 0.0.2
 
 ### Patch Changes
