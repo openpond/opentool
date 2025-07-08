@@ -1,5 +1,5 @@
 ---
-"opentool": major
+"opentool": patch
 ---
 
 Initial release of OpenTool framework
