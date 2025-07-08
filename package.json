@@ -1,0 +1,69 @@
+{
+  "name": "opentool",
+  "version": "0.0.1",
+  "description": "OpenTool framework for building serverless MCP tools",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "opentool": "./dist/cli/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/cli/dev.ts",
+    "lint": "eslint src --ext .ts",
+    "lint:fix": "eslint src --ext .ts --fix",
+    "typecheck": "tsc --noEmit",
+    "test": "jest",
+    "prepublishOnly": "npm run build",
+    "changeset": "changeset",
+    "changeset:version": "changeset version",
+    "changeset:publish": "changeset publish",
+    "release": "npm run build && npm run changeset:publish"
+  },
+  "files": [
+    "dist/**/*",
+    "README.md",
+    "LICENSE"
+  ],
+  "keywords": [
+    "opentool",
+    "mcp",
+    "tools", 
+    "serverless",
+    "lambda"
+  ],
+  "author": "OpenTool",
+  "homepage": "https://opentool.dev",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/openpond/opentool.git"
+  },
+  "bugs": {
+    "url": "https://github.com/openpond/opentool/issues"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "@aws/run-mcp-servers-with-aws-lambda": "^0.2.2",
+    "@modelcontextprotocol/sdk": "^1.12.3",
+    "commander": "^11.0.0",
+    "zod": "^3.24.1",
+    "zod-to-json-schema": "^3.24.6"
+  },
+  "devDependencies": {
+    "@changesets/cli": "^2.29.5",
+    "@types/node": "^20.0.0",
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "@typescript-eslint/parser": "^6.0.0",
+    "eslint": "^8.0.0",
+    "jest": "^29.0.0",
+    "ts-node": "^10.9.2",
+    "tsx": "^4.0.0",
+    "typescript": "^5.0.0"
+  },
+  "peerDependencies": {
+    "typescript": "^5.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
