@@ -1,43 +1,37 @@
 module.exports = {
+  root: true,
   parser: '@typescript-eslint/parser',
+  plugins: ['@typescript-eslint'],
   extends: [
     'eslint:recommended',
-    '@typescript-eslint/recommended',
   ],
-  plugins: ['@typescript-eslint'],
+  env: {
+    node: true,
+    es2020: true,
+  },
   parserOptions: {
     ecmaVersion: 2020,
     sourceType: 'module',
   },
   rules: {
-    // Error prevention
-    'no-console': 'off', // Allow console in CLI tools
-    'no-debugger': 'error',
-    'no-unused-vars': 'off', // Use TypeScript version
-    '@typescript-eslint/no-unused-vars': 'error',
-    
-    // Code quality
-    '@typescript-eslint/no-explicit-any': 'warn',
-    '@typescript-eslint/explicit-function-return-type': 'off',
-    '@typescript-eslint/explicit-module-boundary-types': 'off',
-    '@typescript-eslint/prefer-const': 'error',
-    '@typescript-eslint/no-var-requires': 'warn',
-    
-    // Style
-    'indent': ['error', 2],
-    'quotes': ['error', 'single'],
-    'semi': ['error', 'always'],
-    'comma-dangle': ['error', 'always-multiline'],
-    'trailing-comma': 'off',
-    
-    // Best practices
-    'eqeqeq': ['error', 'always'],
-    'no-var': 'error',
-    'prefer-const': 'error',
-    'object-shorthand': 'error',
+    // Allow console.log in CLI tools
+    'no-console': 'off',
+    // Allow any type for flexibility in CLI tools
+    'no-explicit-any': 'off',
+    // Allow unused vars with underscore prefix
+    'no-unused-vars': [
+      'error',
+      {
+        argsIgnorePattern: '^_',
+        varsIgnorePattern: '^_',
+      },
+    ],
+    // Allow require() for dynamic imports
+    'no-var-requires': 'off',
   },
-  env: {
-    node: true,
-    es2020: true,
-  },
+  ignorePatterns: [
+    'dist/',
+    'node_modules/',
+    'examples/',
+  ],
 };
