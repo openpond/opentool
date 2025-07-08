@@ -3,18 +3,18 @@
 [![npm version](https://badge.fury.io/js/opentool.svg)](https://badge.fury.io/js/opentool)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-🔗 **[opentool.dev](https://opentool.dev)** | 📖 **[Documentation](https://opentool.dev/docs)** | 🚀 **[Get Started](https://opentool.dev/get-started)**
+**[opentool.dev](https://opentool.dev)** | **[Documentation](https://opentool.dev/docs)** | **[Get Started](https://opentool.dev/get-started)**
 
 A TypeScript framework for building serverless MCP (Model Context Protocol) tools that automatically deploy to AWS Lambda using [OpenPond](https://openpond.ai) hosting.
 
 ## Features
 
-- 🚀 **Serverless-first**: Tools automatically deploy to AWS Lambda
-- 🔧 **Type-safe**: Full TypeScript support with Zod schema validation
-- 🛠️ **CLI Tools**: Build, develop, and validate your tools
-- 📦 **MCP Compatible**: Works with any MCP client
-- 🔍 **Automatic Detection**: Detected by OpenPond hosting platform
-- 🌍 **Local Development**: Test your tools locally before deployment
+- **Serverless-first**: Tools automatically deploy to AWS Lambda
+- **Type-safe**: Full TypeScript support with Zod schema validation
+- **CLI Tools**: Build, develop, and validate your tools
+- **MCP Compatible**: Works with any MCP client
+- **Automatic Detection**: Detected by OpenPond hosting platform
+- **Local Development**: Test your tools locally before deployment
 
 ## Installation
 
@@ -125,25 +125,10 @@ Each tool is defined by exporting three things:
 ```typescript
 import { z } from "zod";
 
-// Define the input schema
 export const schema = z.object({
-  // Define your parameters here
+  // Define your input parameters here
 });
 
-// Define tool metadata
-export const metadata = {
-  name: "my-tool",
-  description: "What this tool does",
-  annotations: {
-    title: "Tool Title",
-    readOnlyHint: true,
-    destructiveHint: false,
-    idempotentHint: true,
-    openWorldHint: false,
-  },
-};
-
-// Implement the tool
 export async function TOOL(params: z.infer<typeof schema>) {
   // Implement your tool logic here
   // Just return a string - it will be wrapped in MCP format automatically
