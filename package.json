@@ -10,8 +10,8 @@
   "scripts": {
     "build": "tsc",
     "dev": "tsx src/cli/dev.ts",
-    "lint": "eslint src --ext .ts",
-    "lint:fix": "eslint src --ext .ts --fix",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
     "typecheck": "tsc --noEmit",
     "test": "echo \"No tests configured\" && exit 0",
     "prepublishOnly": "npm run build",

@@ -5,8 +5,8 @@ import { ToolDefinition, LambdaEvent, LambdaResponse } from '../types';
 /**
  * Create Lambda handler for OpenPond tools
  */
-export function createLambdaHandler(tools?: ToolDefinition[]): (event: LambdaEvent) => Promise<LambdaResponse> {
-  return async (event: LambdaEvent): Promise<LambdaResponse> => {
+export function createLambdaHandler(tools?: ToolDefinition[]): (_event: LambdaEvent) => Promise<LambdaResponse> {
+  return async (_event: LambdaEvent): Promise<LambdaResponse> => {
     try {
       // Load tools if not provided
       const toolDefinitions = tools || await loadToolsFromDirectory();
@@ -55,7 +55,7 @@ export function createLambdaHandler(tools?: ToolDefinition[]): (event: LambdaEve
       });
 
       // Handle HTTP request
-      const response = await handleHttpRequest(event);
+      const response = await handleHttpRequest(_event);
       
       return {
         statusCode: response.statusCode,
