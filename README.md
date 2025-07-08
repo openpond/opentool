@@ -126,7 +126,7 @@ Each tool is defined by exporting three things:
 import { z } from "zod";
 
 export const schema = z.object({
-  // Define your parameters here
+  // Define your input parameters here
 });
 
 export async function TOOL(params: z.infer<typeof schema>) {
