@@ -5,7 +5,7 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {
-    "opentool": "./dist/cli/index.js"
+    "opentool": "dist/cli/index.js"
   },
   "scripts": {
     "build": "tsc",
@@ -36,7 +36,7 @@
   "homepage": "https://opentool.dev",
   "repository": {
     "type": "git",
-    "url": "https://github.com/openpond/opentool.git"
+    "url": "git+https://github.com/openpond/opentool.git"
   },
   "bugs": {
     "url": "https://github.com/openpond/opentool/issues"
