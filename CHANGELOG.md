@@ -1,5 +1,11 @@
 # opentool
 
+## 0.0.4
+
+### Patch Changes
+
+- d885539: fix ts requirement
+
 ## 0.0.3
 
 ### Patch Changes
