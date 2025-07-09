@@ -42,6 +42,9 @@
     "url": "https://github.com/openpond/opentool/issues"
   },
   "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
   "dependencies": {
     "@aws/run-mcp-servers-with-aws-lambda": "^0.2.2",
     "@modelcontextprotocol/sdk": "^1.12.3",
