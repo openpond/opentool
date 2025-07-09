@@ -8,6 +8,11 @@ export const schema = z.object({
   b: z.number().describe("Second number"),
 });
 
+export const metadata = {
+  name: "calculate",
+  description: "Perform basic mathematical operations on two numbers",
+};
+
 export async function TOOL(params: z.infer<typeof schema>) {
   const { operation, a, b } = params;
 

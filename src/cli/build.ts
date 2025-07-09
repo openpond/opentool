@@ -7,12 +7,7 @@ import {
   ToolDefinition,
 } from "../types";
 
-// Register ts-node for TypeScript file execution
-try {
-  require("ts-node/register");
-} catch {
-  // ts-node not available, continue without it
-}
+// TypeScript compilation is handled directly in the build process
 
 export interface BuildOptions {
   input: string;
@@ -72,63 +67,118 @@ async function loadTools(toolsDir: string): Promise<ToolDefinition[]> {
   const tools: ToolDefinition[] = [];
   const files = fs.readdirSync(toolsDir);
 
-  for (const file of files) {
-    if (file.endsWith(".ts") || file.endsWith(".js")) {
-      const toolPath = path.join(toolsDir, file);
-      try {
-        let toolModule;
+  // First, compile any TypeScript files to a temp directory
+  const tempDir = path.join(toolsDir, ".opentool-temp");
+  if (fs.existsSync(tempDir)) {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+  fs.mkdirSync(tempDir, { recursive: true });
 
-        if (file.endsWith(".ts")) {
-          // For TypeScript files, use dynamic import with ts-node
-          delete require.cache[require.resolve(toolPath)];
-          toolModule = await import(toolPath);
-        } else {
-          // For JavaScript files, use require
-          delete require.cache[require.resolve(toolPath)];
-          toolModule = require(toolPath);
-        }
+  const { exec } = require("child_process");
+  const { promisify } = require("util");
+  const execAsync = promisify(exec);
 
-        // Check for required exports (schema and TOOL function, metadata is optional)
-        if (toolModule.TOOL && toolModule.schema) {
-          let completeMetadata: any = null;
-          const baseName = file.replace(/\.(ts|js)$/, "");
-
-          // Only create metadata if user provided some metadata
-          if (toolModule.metadata) {
-            const partialMetadata: PartialToolMetadata = toolModule.metadata;
-            completeMetadata = createToolMetadata(partialMetadata, file);
-          }
-
-          const tool: ToolDefinition = {
-            schema: toolModule.schema,
-            metadata: completeMetadata,
-            filename: baseName,
-            handler: async (params) => {
-              const result = await toolModule.TOOL(params);
-              // Handle both string and object returns
-              if (typeof result === "string") {
-                return {
-                  content: [{ type: "text", text: result }],
-                  isError: false,
-                };
-              }
-              return result;
-            },
-          };
-          tools.push(tool);
-
-          const toolName =
-            completeMetadata?.name || file.replace(/\.(ts|js)$/, "");
-          const toolDesc = completeMetadata?.description || `${toolName} tool`;
-          console.log(`  ✓ ${toolName} - ${toolDesc}`);
-        } else {
-          console.warn(
-            `  ⚠ ${file} - Invalid tool format. Must export: schema and TOOL function (metadata is optional)`
+  try {
+    // Compile TypeScript files if any exist
+    const tsFiles = files.filter(file => file.endsWith(".ts"));
+    if (tsFiles.length > 0) {
+      console.log(`📝 Compiling ${tsFiles.length} TypeScript files...`);
+      
+      // Copy all files to temp directory
+      for (const file of files) {
+        if (file.endsWith(".ts") || file.endsWith(".js")) {
+          fs.copyFileSync(
+            path.join(toolsDir, file),
+            path.join(tempDir, file)
           );
         }
-      } catch (error) {
-        console.warn(`  ❌ ${file} - Failed to load: ${error}`);
       }
+
+      // Compile TypeScript files
+      try {
+        await execAsync(
+          `npx tsc --target es2020 --module commonjs --esModuleInterop --skipLibCheck --moduleResolution node --outDir ${tempDir} ${tsFiles.map(f => path.join(tempDir, f)).join(' ')}`
+        );
+      } catch (tscError) {
+        console.warn("TypeScript compilation failed, trying with relaxed settings...");
+        // Fallback with more permissive settings
+        await execAsync(
+          `npx tsc --target es2020 --module commonjs --esModuleInterop --skipLibCheck --moduleResolution node --noImplicitAny false --strict false --outDir ${tempDir} ${tsFiles.map(f => path.join(tempDir, f)).join(' ')}`
+        );
+      }
+    }
+
+    // Load tools from temp directory (compiled JS) or original directory (for JS files)
+    for (const file of files) {
+      if (file.endsWith(".ts") || file.endsWith(".js")) {
+        try {
+          let toolPath: string;
+          let toolModule: any;
+
+          if (file.endsWith(".ts")) {
+            // Use compiled JavaScript version
+            const jsFile = file.replace(".ts", ".js");
+            toolPath = path.join(tempDir, jsFile);
+            if (!fs.existsSync(toolPath)) {
+              throw new Error("TypeScript compilation failed - no output file");
+            }
+          } else {
+            // Use original JavaScript file
+            toolPath = path.join(toolsDir, file);
+          }
+
+          // Clear require cache and load module
+          delete require.cache[require.resolve(toolPath)];
+          toolModule = require(toolPath);
+
+          // Check for required exports (schema and TOOL function, metadata is optional)
+          if (toolModule.TOOL && toolModule.schema) {
+            let completeMetadata: any = null;
+            const baseName = file.replace(/\.(ts|js)$/, "");
+
+            // Only create metadata if user provided some metadata
+            if (toolModule.metadata) {
+              const partialMetadata: PartialToolMetadata = toolModule.metadata;
+              completeMetadata = createToolMetadata(partialMetadata, file);
+            }
+
+            const tool: ToolDefinition = {
+              schema: toolModule.schema,
+              metadata: completeMetadata,
+              filename: baseName,
+              handler: async (params) => {
+                const result = await toolModule.TOOL(params);
+                // Handle both string and object returns
+                if (typeof result === "string") {
+                  return {
+                    content: [{ type: "text", text: result }],
+                    isError: false,
+                  };
+                }
+                return result;
+              },
+            };
+            tools.push(tool);
+
+            const toolName =
+              completeMetadata?.name || file.replace(/\.(ts|js)$/, "");
+            const toolDesc = completeMetadata?.description || `${toolName} tool`;
+            console.log(`  ✓ ${toolName} - ${toolDesc}`);
+          } else {
+            console.warn(
+              `  ⚠ ${file} - Invalid tool format. Must export: schema and TOOL function (metadata is optional)`
+            );
+          }
+        } catch (error) {
+          console.warn(`  ❌ ${file} - Failed to load: ${error}`);
+        }
+      }
+    }
+
+  } finally {
+    // Clean up temp directory
+    if (fs.existsSync(tempDir)) {
+      fs.rmSync(tempDir, { recursive: true, force: true });
     }
   }
 
@@ -167,10 +217,11 @@ ${tools
 const tools = [
 ${tools
   .map(
-    (_, index) => `  {
+    (tool, index) => `  {
     schema: tool${index}.schema,
     metadata: tool${index}.metadata,
-    handler: tool${index}.TOOL
+    handler: tool${index}.TOOL,
+    filename: '${tool.filename}'
   },`
   )
   .join("\n")}
