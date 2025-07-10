@@ -1,0 +1,49 @@
+export const metadata = {
+  // Core metadata fields (top-level in registry.json)
+  name: "opentool-example",
+  displayName: "OpenTool Example Agent",
+  description: "A demonstration agent showcasing basic OpenTool capabilities with mathematical operations",
+  version: 1.0, // Note: version is a number in Metadata type
+  author: "OpenPond",
+  website: "https://opentool.dev",
+  repository: "https://github.com/openpond/opentool",
+  category: "example", // Single category for top-level field
+  termsOfService: "Please review terms before use.",
+  
+  // Fields that will be mapped to the discovery section
+  keywords: ["example", "demo", "tutorial", "basic", "math"],
+  categories: ["example", "utility", "education"], // Multiple categories for discovery
+  useCases: [
+    "Learning how to build MCP tools with OpenTool",
+    "Template for creating new OpenTool projects", 
+    "Demonstrating basic tool functionality",
+    "Testing deployment and registration workflows"
+  ],
+  capabilities: [
+    "mathematical-operations", 
+    "basic-interactions",
+    "educational-examples"
+  ],
+  
+  requirements: {
+    authentication: [],
+    permissions: [],
+    dependencies: [],
+    minimumInputs: ["varies by tool"]
+  },
+  
+  // Pricing configuration (used to generate agent-level PaymentConfig)
+  pricing: {
+    model: "pay-per-use",
+    currency: "USDC",
+    defaultAmount: 0.001,
+    description: "Very low cost example tools for learning and testing"
+  },
+  
+  compatibility: {
+    platforms: ["web", "mobile", "server", "cli"],
+    languages: ["any"],
+    frameworks: ["mcp", "opentool"],
+    regions: ["global"]
+  }
+};

@@ -1,11 +1,11 @@
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
-import { ToolDefinition, LambdaEvent, LambdaResponse } from '../types';
+import { InternalToolDefinition, LambdaEvent, LambdaResponse } from '../types';
 
 /**
  * Create Lambda handler for OpenPond tools
  */
-export function createLambdaHandler(tools?: ToolDefinition[]): (_event: LambdaEvent) => Promise<LambdaResponse> {
+export function createLambdaHandler(tools?: InternalToolDefinition[]): (_event: LambdaEvent) => Promise<LambdaResponse> {
   return async (_event: LambdaEvent): Promise<LambdaResponse> => {
     try {
       // Load tools if not provided
@@ -80,7 +80,7 @@ export function createLambdaHandler(tools?: ToolDefinition[]): (_event: LambdaEv
 /**
  * Create local development server
  */
-export function createDevServer(tools: ToolDefinition[]): Server {
+export function createDevServer(tools: InternalToolDefinition[]): Server {
   const server = new Server({
     name: 'opentool-dev',
     version: '1.0.0',
@@ -130,8 +130,8 @@ export function createDevServer(tools: ToolDefinition[]): Server {
 /**
  * Load tools from tools directory
  */
-async function loadToolsFromDirectory(): Promise<ToolDefinition[]> {
-  const tools: ToolDefinition[] = [];
+async function loadToolsFromDirectory(): Promise<InternalToolDefinition[]> {
+  const tools: InternalToolDefinition[] = [];
   const fs = require('fs');
   const path = require('path');
   
@@ -150,8 +150,9 @@ async function loadToolsFromDirectory(): Promise<ToolDefinition[]> {
         // Check for required exports (schema and TOOL function, metadata is optional)
         if (toolModule.TOOL && toolModule.schema) {
           const baseName = file.replace(/\.(ts|js)$/, '');
-          const tool: ToolDefinition = {
+          const tool: InternalToolDefinition = {
             schema: toolModule.schema,
+            inputSchema: { type: 'object' }, // Placeholder for runtime
             metadata: toolModule.metadata || null,
             filename: baseName,
             handler: async (params) => {
