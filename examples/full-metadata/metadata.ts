@@ -32,10 +32,19 @@ export const metadata = {
     minimumInputs: ["varies by tool"]
   },
   
-  // Pricing configuration (used to generate agent-level PaymentConfig)
+  // Payment configuration  
+  payment: {
+    amountUSDC: 0.001,
+    description: "Very low cost example tools for learning and testing",
+    x402: true,
+    openpondDirect: true,
+    acceptedMethods: ["ETH", "USDC"],
+    chainIds: [8453] // Base
+  },
+  
+  // Legacy pricing for discovery section
   pricing: {
     model: "pay-per-use",
-    currency: "USDC",
     defaultAmount: 0.001,
     description: "Very low cost example tools for learning and testing"
   },

@@ -17,10 +17,11 @@ export const metadata = {
   },
   payment: {
     amountUSDC: 0.001,
-    acceptETH: true,
-    acceptDUCKAI: true,
-    acceptX402: true,
-    chainId: 8453, // Base
+    description: "Basic mathematical operations",
+    x402: true,
+    openpondDirect: true,
+    acceptedMethods: ["ETH", "USDC"],
+    chainIds: [8453] // Base
   },
   discovery: {
     keywords: ["math", "calculation", "arithmetic", "numbers", "compute"],

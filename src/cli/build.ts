@@ -649,11 +649,10 @@ async function generateMetadataJson(
     ...(rootMetadata.pricing && {
       payment: {
         amountUSDC: rootMetadata.pricing.defaultAmount || 0.01,
-        currency: rootMetadata.pricing.currency || "USDC",
         description: rootMetadata.pricing.description || "",
-        acceptETH: true,
-        acceptSolana: true,
-        acceptX402: true,
+        x402: true,
+        openpondDirect: true,
+        acceptedMethods: ["ETH", "USDC"],
         chainIds: [8453] // Base
       }
     }),
