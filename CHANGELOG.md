@@ -1,5 +1,11 @@
 # opentool
 
+## 0.1.0
+
+### Minor Changes
+
+- 6ac2069: added metadata generation
+
 ## 0.0.4
 
 ### Patch Changes
