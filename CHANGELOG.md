@@ -1,5 +1,11 @@
 # opentool
 
+## 0.1.1
+
+### Patch Changes
+
+- 6eddf54: update payment config
+
 ## 0.1.0
 
 ### Minor Changes
