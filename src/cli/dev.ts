@@ -3,7 +3,7 @@ import * as path from 'path';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
-import { ToolDefinition } from '../types';
+import { InternalToolDefinition } from '../types';
 
 export interface DevOptions {
   input: string;
@@ -58,7 +58,7 @@ export async function devCommand(options: DevOptions): Promise<void> {
   }
 }
 
-function createMcpServer(tools: ToolDefinition[]): Server {
+function createMcpServer(tools: InternalToolDefinition[]): Server {
   const server = new Server(
     {
       name: 'opentool-dev',
@@ -108,8 +108,8 @@ function createMcpServer(tools: ToolDefinition[]): Server {
   return server;
 }
 
-async function loadTools(toolsDir: string): Promise<ToolDefinition[]> {
-  const tools: ToolDefinition[] = [];
+async function loadTools(toolsDir: string): Promise<InternalToolDefinition[]> {
+  const tools: InternalToolDefinition[] = [];
   const files = fs.readdirSync(toolsDir);
 
   for (const file of files) {
@@ -123,8 +123,9 @@ async function loadTools(toolsDir: string): Promise<ToolDefinition[]> {
         // Check for required exports (schema and TOOL function, metadata is optional)
         if (toolModule.TOOL && toolModule.schema) {
           const baseName = file.replace(/\.(ts|js)$/, '');
-          const tool: ToolDefinition = {
+          const tool: InternalToolDefinition = {
             schema: toolModule.schema,
+            inputSchema: { type: 'object' }, // Placeholder for dev mode
             metadata: toolModule.metadata || null,
             filename: baseName,
             handler: async (params) => {

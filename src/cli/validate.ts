@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { ToolDefinition } from '../types';
+import { InternalToolDefinition } from '../types';
 
 export interface ValidateOptions {
   input: string;
@@ -67,8 +67,8 @@ export async function validateCommand(options: ValidateOptions): Promise<void> {
   }
 }
 
-async function loadAndValidateTools(toolsDir: string): Promise<ToolDefinition[]> {
-  const tools: ToolDefinition[] = [];
+async function loadAndValidateTools(toolsDir: string): Promise<InternalToolDefinition[]> {
+  const tools: InternalToolDefinition[] = [];
   const files = fs.readdirSync(toolsDir);
 
   for (const file of files) {
@@ -80,8 +80,9 @@ async function loadAndValidateTools(toolsDir: string): Promise<ToolDefinition[]>
         // Check for required exports (schema and TOOL function, metadata is optional)
         if (toolModule.TOOL && toolModule.schema) {
           const baseName = file.replace(/\.(ts|js)$/, '');
-          const tool: ToolDefinition = {
+          const tool: InternalToolDefinition = {
             schema: toolModule.schema,
+            inputSchema: { type: 'object' }, // Placeholder for validation
             metadata: toolModule.metadata || null,
             filename: baseName,
             handler: async (params) => {
@@ -114,7 +115,7 @@ async function loadAndValidateTools(toolsDir: string): Promise<ToolDefinition[]>
   return tools;
 }
 
-function validateTool(tool: unknown, filename: string): tool is ToolDefinition {
+function validateTool(tool: unknown, filename: string): tool is InternalToolDefinition {
   if (!tool || typeof tool !== 'object') {
     console.log(`  ❌ ${filename} - Not an object`);
     return false;

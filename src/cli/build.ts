@@ -2,10 +2,12 @@ import * as fs from "fs";
 import * as path from "path";
 import {
   BuildConfig,
-  createToolMetadata,
-  PartialToolMetadata,
-  ToolDefinition,
+  InternalToolDefinition,
 } from "../types";
+import {
+  Metadata,
+  Tool,
+} from "../types/metadata";
 
 // TypeScript compilation is handled directly in the build process
 
@@ -47,12 +49,16 @@ export async function buildCommand(options: BuildOptions): Promise<void> {
     // Copy tools to output directory
     await copyTools(config.toolsDir, config.outputDir, tools);
 
+    // Generate metadata JSON
+    await generateMetadataJson(tools, config);
+
     console.log("✅ Build completed successfully!");
     console.log(`📁 Output directory: ${config.outputDir}`);
     console.log("📄 Generated files:");
     console.log("  📟 mcp-server.js - Stdio MCP server");
     console.log("  🔗 lambda-handler.js - AWS Lambda handler");
     console.log(`  📂 tools/ - ${tools.length} tool files`);
+    console.log("  📋 metadata.json - Metadata for on-chain registration");
     console.log("\\n🧪 Test your MCP server:");
     console.log(
       `  echo '{"jsonrpc": "2.0", "id": 1, "method": "tools/list"}' | node ${config.outputDir}/mcp-server.js`
@@ -63,8 +69,8 @@ export async function buildCommand(options: BuildOptions): Promise<void> {
   }
 }
 
-async function loadTools(toolsDir: string): Promise<ToolDefinition[]> {
-  const tools: ToolDefinition[] = [];
+async function loadTools(toolsDir: string): Promise<InternalToolDefinition[]> {
+  const tools: InternalToolDefinition[] = [];
   const files = fs.readdirSync(toolsDir);
 
   // First, compile any TypeScript files to a temp directory
@@ -136,14 +142,31 @@ async function loadTools(toolsDir: string): Promise<ToolDefinition[]> {
             let completeMetadata: any = null;
             const baseName = file.replace(/\.(ts|js)$/, "");
 
-            // Only create metadata if user provided some metadata
+            // Use metadata directly if provided
             if (toolModule.metadata) {
-              const partialMetadata: PartialToolMetadata = toolModule.metadata;
-              completeMetadata = createToolMetadata(partialMetadata, file);
+              completeMetadata = toolModule.metadata;
             }
 
-            const tool: ToolDefinition = {
+            // Convert Zod schema to JSON Schema format
+            let inputSchema = { type: 'object' };
+            const toolName = completeMetadata?.name || baseName;
+            
+            try {
+              const { zodToJsonSchema } = require('zod-to-json-schema');
+              inputSchema = zodToJsonSchema(toolModule.schema, {
+                name: `${toolName}Schema`,
+                target: 'jsonSchema7',
+                definitions: {}
+              });
+            } catch (error) {
+              console.warn(`Failed to convert schema for tool ${toolName}:`, error);
+              // Fallback to basic object schema
+              inputSchema = { type: 'object' };
+            }
+
+            const tool: InternalToolDefinition = {
               schema: toolModule.schema,
+              inputSchema,
               metadata: completeMetadata,
               filename: baseName,
               handler: async (params) => {
@@ -160,10 +183,9 @@ async function loadTools(toolsDir: string): Promise<ToolDefinition[]> {
             };
             tools.push(tool);
 
-            const toolName =
-              completeMetadata?.name || file.replace(/\.(ts|js)$/, "");
-            const toolDesc = completeMetadata?.description || `${toolName} tool`;
-            console.log(`  ✓ ${toolName} - ${toolDesc}`);
+            const displayName = completeMetadata?.name || file.replace(/\.(ts|js)$/, "");
+            const toolDesc = completeMetadata?.description || `${displayName} tool`;
+            console.log(`  ✓ ${displayName} - ${toolDesc}`);
           } else {
             console.warn(
               `  ⚠ ${file} - Invalid tool format. Must export: schema and TOOL function (metadata is optional)`
@@ -186,7 +208,7 @@ async function loadTools(toolsDir: string): Promise<ToolDefinition[]> {
 }
 
 async function generateServerIndex(
-  tools: ToolDefinition[],
+  tools: InternalToolDefinition[],
   config: BuildConfig
 ): Promise<void> {
   // Generate MCP server for stdio transport
@@ -197,7 +219,7 @@ async function generateServerIndex(
 }
 
 async function generateMcpServer(
-  tools: ToolDefinition[],
+  tools: InternalToolDefinition[],
   config: BuildConfig
 ): Promise<void> {
   const mcpServerCode = `#!/usr/bin/env node
@@ -361,7 +383,7 @@ exports.handler = async (event, context) => {
 async function copyTools(
   sourceDir: string,
   outputDir: string,
-  tools: ToolDefinition[]
+  tools: InternalToolDefinition[]
 ): Promise<void> {
   const toolsOutputDir = path.join(outputDir, "tools");
   if (!fs.existsSync(toolsOutputDir)) {
@@ -456,4 +478,204 @@ async function compileTypeScriptFile(
     // Fallback: copy the TypeScript file as-is
     fs.copyFileSync(sourcePath, outputPath.replace(".js", ".ts"));
   }
+}
+
+// Helper function to read package.json for fallback values
+function readPackageJson(projectRoot: string): any {
+  try {
+    const packagePath = path.join(projectRoot, "package.json");
+    if (fs.existsSync(packagePath)) {
+      const packageContent = fs.readFileSync(packagePath, "utf8");
+      return JSON.parse(packageContent);
+    }
+  } catch (error) {
+    console.warn("  ⚠️ Failed to read package.json:", error);
+  }
+  return {};
+}
+
+async function generateMetadataJson(
+  tools: InternalToolDefinition[],
+  config: BuildConfig
+): Promise<void> {
+  console.log("📋 Generating metadata JSON...");
+  
+  const projectRoot = path.dirname(config.toolsDir);
+  
+  // Try to load metadata from metadata.ts (or fall back to discovery.ts for backwards compatibility)
+  let rootMetadata: any = {};
+  const metadataTsPath = path.join(projectRoot, "metadata.ts");
+  const metadataJsPath = path.join(projectRoot, "metadata.js");
+  const discoveryPath = path.join(projectRoot, "discovery.ts"); // backwards compatibility
+  const discoveryJsPath = path.join(projectRoot, "discovery.js");
+  
+  // Check for metadata.ts first, then discovery.ts for backwards compatibility
+  const metadataFilePath = fs.existsSync(metadataTsPath) ? metadataTsPath : 
+                           fs.existsSync(discoveryPath) ? discoveryPath : null;
+  const metadataJsFilePath = fs.existsSync(metadataJsPath) ? metadataJsPath :
+                              fs.existsSync(discoveryJsPath) ? discoveryJsPath : null;
+  
+  if (metadataFilePath) {
+    try {
+      // Use the same temp compilation approach as tools
+      const tempDir = path.join(projectRoot, ".opentool-temp");
+      if (!fs.existsSync(tempDir)) {
+        fs.mkdirSync(tempDir, { recursive: true });
+      }
+      
+      const { exec } = require("child_process");
+      const { promisify } = require("util");
+      const execAsync = promisify(exec);
+      
+      // Copy metadata file to temp directory
+      const tempFileName = path.basename(metadataFilePath);
+      const tempFilePath = path.join(tempDir, tempFileName);
+      fs.copyFileSync(metadataFilePath, tempFilePath);
+      
+      // Compile TypeScript file
+      try {
+        await execAsync(
+          `npx tsc --target es2020 --module commonjs --esModuleInterop --skipLibCheck --moduleResolution node --outDir ${tempDir} ${tempFilePath}`
+        );
+      } catch (tscError) {
+        console.warn(`TypeScript compilation failed for ${tempFileName}, trying with relaxed settings...`);
+        await execAsync(
+          `npx tsc --target es2020 --module commonjs --esModuleInterop --skipLibCheck --moduleResolution node --noImplicitAny false --strict false --outDir ${tempDir} ${tempFilePath}`
+        );
+      }
+      
+      // Load the compiled JS file
+      const compiledFileName = tempFileName.replace('.ts', '.js');
+      const compiledPath = path.join(tempDir, compiledFileName);
+      if (fs.existsSync(compiledPath)) {
+        delete require.cache[require.resolve(compiledPath)];
+        const metadataModule = require(compiledPath);
+        // Support both 'metadata' and 'discovery' exports for backwards compatibility
+        rootMetadata = metadataModule.metadata || metadataModule.discovery || {};
+        console.log(`  ✓ Loaded metadata from ${tempFileName}`);
+      }
+      
+      // Clean up temp directory
+      fs.rmSync(tempDir, { recursive: true, force: true });
+    } catch (error) {
+      console.warn(`  ⚠️ Failed to load ${path.basename(metadataFilePath)}:`, error);
+    }
+  } else if (metadataJsFilePath) {
+    try {
+      // For JavaScript files, use require directly
+      delete require.cache[require.resolve(metadataJsFilePath)];
+      const metadataModule = require(metadataJsFilePath);
+      // Support both 'metadata' and 'discovery' exports for backwards compatibility
+      rootMetadata = metadataModule.metadata || metadataModule.discovery || {};
+      console.log(`  ✓ Loaded metadata from ${path.basename(metadataJsFilePath)}`);
+    } catch (error) {
+      console.warn(`  ⚠️ Failed to load ${path.basename(metadataJsFilePath)}:`, error);
+    }
+  } else {
+    console.log("  ℹ️ No metadata.ts found, using smart defaults");
+  }
+  
+  // Read package.json for fallback values
+  const packageInfo = readPackageJson(projectRoot);
+  
+  // Generate smart defaults from folder name and package.json
+  const folderName = path.basename(projectRoot);
+  const smartDefaults = {
+    name: rootMetadata.name || packageInfo.name || folderName,
+    displayName: rootMetadata.displayName || (packageInfo.name ? 
+      packageInfo.name.split('-').map((word: string) => word.charAt(0).toUpperCase() + word.slice(1)).join(' ') :
+      folderName.split('-').map((word: string) => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')
+    ),
+    version: rootMetadata.version || parseFloat(packageInfo.version || "1.0"),
+    description: rootMetadata.description || packageInfo.description || `OpenTool agent built from ${folderName}`,
+    author: rootMetadata.author || packageInfo.author || "Unknown",
+    repository: rootMetadata.repository || packageInfo.repository?.url || packageInfo.repository || "",
+    website: rootMetadata.website || packageInfo.homepage || "",
+    category: rootMetadata.category || rootMetadata.categories?.[0] || "utility",
+    termsOfService: rootMetadata.termsOfService || "Please review terms before use."
+  };
+  
+  // Convert tools to metadata format
+  const metadataTools: Tool[] = tools.map((tool) => {
+    // Use tool metadata name, fallback to filename without extension
+    const toolName = tool.metadata?.name || tool.filename.replace(/\.(ts|js)$/, '');
+    const toolDescription = tool.metadata?.description || `${toolName} tool`;
+    
+    // Build metadata tool object
+    const metadataTool: Tool = {
+      name: toolName,
+      description: toolDescription,
+      inputSchema: tool.inputSchema
+    };
+    
+    // Add annotations if they exist
+    if (tool.metadata?.annotations) {
+      metadataTool.annotations = tool.metadata.annotations;
+    }
+    
+    // Add payment config (tool-level overrides agent-level)
+    if (tool.metadata?.payment) {
+      metadataTool.payment = tool.metadata.payment;
+    } else if (rootMetadata.payment) {
+      // Use agent-level payment as default
+      metadataTool.payment = rootMetadata.payment;
+    }
+    
+    // Add discovery metadata if it exists
+    if (tool.metadata?.discovery) {
+      metadataTool.discovery = tool.metadata.discovery;
+    }
+    
+    return metadataTool;
+  });
+  
+  // Build complete metadata JSON with new structure
+  const metadataJson: Metadata = {
+    // Core fields using smart defaults
+    name: smartDefaults.name,
+    displayName: smartDefaults.displayName,
+    version: smartDefaults.version,
+    description: smartDefaults.description,
+    author: smartDefaults.author,
+    repository: smartDefaults.repository,
+    website: smartDefaults.website,
+    category: smartDefaults.category,
+    termsOfService: smartDefaults.termsOfService,
+    
+    // Tools array (always populated by build process)
+    tools: metadataTools,
+    
+    // Agent-level payment defaults (create from pricing if exists)
+    ...(rootMetadata.pricing && {
+      payment: {
+        amountUSDC: rootMetadata.pricing.defaultAmount || 0.01,
+        currency: rootMetadata.pricing.currency || "USDC",
+        description: rootMetadata.pricing.description || "",
+        acceptETH: true,
+        acceptSolana: true,
+        acceptX402: true,
+        chainIds: [8453] // Base
+      }
+    }),
+    
+    // Discovery section (only include if metadata has discovery fields)
+    ...(rootMetadata.keywords || rootMetadata.categories || rootMetadata.useCases || rootMetadata.capabilities || rootMetadata.requirements || rootMetadata.pricing || rootMetadata.compatibility || rootMetadata.discovery) && {
+      discovery: {
+        keywords: rootMetadata.keywords || [],
+        category: rootMetadata.categories?.[0] || smartDefaults.category, 
+        useCases: rootMetadata.useCases || [],
+        capabilities: rootMetadata.capabilities || [],
+        requirements: rootMetadata.requirements || {},
+        pricing: rootMetadata.pricing || {},
+        compatibility: rootMetadata.compatibility || {},
+        ...(rootMetadata.discovery || {}) // Include any nested discovery fields too
+      }
+    }
+  };
+  
+  // Write metadata JSON to output directory
+  const outputMetadataPath = path.join(config.outputDir, "metadata.json");
+  fs.writeFileSync(outputMetadataPath, JSON.stringify(metadataJson, null, 2));
+  
+  console.log(`  ✓ Generated metadata.json with ${metadataTools.length} tools`);
 }

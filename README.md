@@ -170,12 +170,46 @@ When you push a project with `opentool` dependency to GitHub and connect it to O
 
 ## Examples
 
-See the `examples/` directory for complete examples including:
+See the `examples/` directory for complete examples:
 
-- Basic greeting tool
-- Calculator tool
-- HTTP client tool
-- File processing tool
+- **`examples/full-metadata/`** - Complete metadata configuration with payment and discovery features
+- **`examples/minimal/`** - Minimal setup demonstrating smart defaults
+
+### Testing Examples Locally
+
+To test the examples using the local development version:
+
+```bash
+# Build the OpenTool package
+npm run build
+npm link
+
+# Test the full metadata example
+cd examples/full-metadata
+npm link opentool
+npm run build
+
+# Test the minimal example  
+cd ../minimal
+npm link opentool
+npm run build
+
+# Examine generated output
+cat dist/metadata.json
+
+# Test the MCP server
+echo '{"jsonrpc": "2.0", "id": 1, "method": "tools/list"}' | node dist/mcp-server.js
+```
+
+## Metadata System
+
+OpenTool features a sophisticated **three-tier metadata system**:
+
+1. **🟢 Smart Defaults** - Zero configuration, automatic generation from `package.json`
+2. **🔸 Enhanced Metadata** - Optional `metadata.ts` for custom branding and payments  
+3. **🔴 Full Control** - Tool-level overrides for rich discovery metadata
+
+See [`METADATA.md`](./METADATA.md) for the complete guide to configuring metadata for on-chain registration and payments.
 
 ## Contributing
 
