@@ -15,13 +15,12 @@ export interface McpAnnotations {
 export interface PaymentConfig {
   // Pricing info
   amountUSDC: number;
-  currency?: string;
   description?: string;
 
   // Payment methods
-  acceptETH: boolean;
-  acceptSolana: boolean;
-  acceptX402: boolean;
+  x402: boolean;
+  openpondDirect: boolean;
+  acceptedMethods: string[]; // e.g., ["ETH", "USDC", "SOL"]
   chainIds: number[];
 }
 
