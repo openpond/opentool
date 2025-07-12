@@ -1,5 +1,11 @@
 # opentool
 
+## 0.2.1
+
+### Patch Changes
+
+- 7f5ef5a: fix bug in path for aws
+
 ## 0.2.0
 
 ### Minor Changes
