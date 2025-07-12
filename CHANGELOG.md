@@ -1,5 +1,11 @@
 # opentool
 
+## 0.2.0
+
+### Minor Changes
+
+- c3f494e: updated aws deployment to use stdio
+
 ## 0.1.1
 
 ### Patch Changes
