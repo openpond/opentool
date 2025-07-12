@@ -369,9 +369,12 @@ async function generateLambdaHandler(config: BuildConfig): Promise<void> {
   const lambdaHandlerCode = `// Auto-generated AWS Lambda handler
 // Uses AWS MCP adapter to run stdio MCP server
 
+const path = require('path');
+
 const serverParams = {
   command: 'node',
-  args: ['mcp-server.js'],
+  args: [path.join(__dirname, 'mcp-server.js')],
+  cwd: __dirname, // Set working directory to Lambda package root
 };
 
 exports.handler = async (event, context) => {
