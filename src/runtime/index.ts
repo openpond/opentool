@@ -1,81 +1,10 @@
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
+import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
-import { InternalToolDefinition, LambdaEvent, LambdaResponse } from '../types';
+import { InternalToolDefinition } from '../types';
 
-/**
- * Create Lambda handler for OpenPond tools
- */
-export function createLambdaHandler(tools?: InternalToolDefinition[]): (_event: LambdaEvent) => Promise<LambdaResponse> {
-  return async (_event: LambdaEvent): Promise<LambdaResponse> => {
-    try {
-      // Load tools if not provided
-      const toolDefinitions = tools || await loadToolsFromDirectory();
-      
-      // Handle MCP protocol over HTTP
-      const server = new Server({
-        name: 'opentool-runtime',
-        version: '1.0.0',
-      }, {
-        capabilities: {
-          tools: {},
-        },
-      });
-
-      // Register tools
-      toolDefinitions.forEach(tool => {
-        const toolName = tool.metadata?.name || tool.filename;
-        const toolDescription = tool.metadata?.description || `${tool.filename} tool`;
-        
-        server.setRequestHandler(ListToolsRequestSchema, async () => ({
-          tools: [{
-            name: toolName,
-            description: toolDescription,
-            inputSchema: tool.schema,
-          }],
-        }));
-
-        server.setRequestHandler(CallToolRequestSchema, async (request) => {
-          if (request.params.name === toolName) {
-            try {
-              const validatedParams = tool.schema.parse(request.params.arguments);
-              const result = await tool.handler(validatedParams);
-              return {
-                content: result.content,
-                isError: result.isError || false,
-              };
-            } catch (error) {
-              return {
-                content: [{ type: 'text', text: `Error: ${error}` }],
-                isError: true,
-              };
-            }
-          }
-          throw new Error(`Tool ${request.params.name} not found`);
-        });
-      });
-
-      // Handle HTTP request
-      const response = await handleHttpRequest(_event);
-      
-      return {
-        statusCode: response.statusCode,
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-          'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-        },
-        body: response.body,
-      };
-    } catch (error) {
-      return {
-        statusCode: 500,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ error: `Internal server error: ${error}` }),
-      };
-    }
-  };
-}
+// Legacy createLambdaHandler removed - now using AWS MCP Adapter approach
+// See createStdioServer() function below for the new implementation
 
 /**
  * Create local development server
@@ -178,43 +107,68 @@ async function loadToolsFromDirectory(): Promise<InternalToolDefinition[]> {
   return tools;
 }
 
-/**
- * Handle HTTP request for Lambda
- */
-async function handleHttpRequest(event: LambdaEvent): Promise<{ statusCode: number; body: string }> {
-  if (event.httpMethod === 'OPTIONS') {
-    return { statusCode: 200, body: '' };
-  }
+// Legacy HTTP handler removed - now using AWS MCP Adapter for Lambda deployment
 
-  if (event.httpMethod === 'POST' && event.path === '/mcp') {
+/**
+ * Create stdio server for use with AWS Lambda MCP Adapter
+ */
+export async function createStdioServer(tools?: InternalToolDefinition[]): Promise<void> {
+  // Load tools if not provided
+  const toolDefinitions = tools || await loadToolsFromDirectory();
+  
+  // Create MCP server
+  const server = new Server({
+    name: 'opentool-runtime',
+    version: '1.0.0',
+  }, {
+    capabilities: {
+      tools: {},
+    },
+  });
+
+  // Register all tools at once
+  const toolsList = toolDefinitions.map(tool => ({
+    name: tool.metadata?.name || tool.filename,
+    description: tool.metadata?.description || `${tool.filename} tool`,
+    inputSchema: tool.schema,
+  }));
+
+  // Register list tools handler
+  server.setRequestHandler(ListToolsRequestSchema, async () => ({
+    tools: toolsList,
+  }));
+
+  // Register call tool handler
+  server.setRequestHandler(CallToolRequestSchema, async (request) => {
+    const tool = toolDefinitions.find(t => {
+      const toolName = t.metadata?.name || t.filename;
+      return toolName === request.params.name;
+    });
+    
+    if (!tool) {
+      throw new Error(`Tool ${request.params.name} not found`);
+    }
+
     try {
-      const body = event.isBase64Encoded ? Buffer.from(event.body, 'base64').toString() : event.body;
-      const request = JSON.parse(body);
-      
-      // Process MCP request through server
-      // This is a simplified implementation - in a real scenario you'd need proper MCP protocol handling
+      const validatedParams = tool.schema.parse(request.params.arguments);
+      const result = await tool.handler(validatedParams);
       return {
-        statusCode: 200,
-        body: JSON.stringify({ success: true, request }),
+        content: result.content,
+        isError: result.isError || false,
       };
     } catch (error) {
       return {
-        statusCode: 400,
-        body: JSON.stringify({ error: 'Invalid request' }),
+        content: [{ type: 'text', text: `Error: ${error}` }],
+        isError: true,
       };
     }
-  }
+  });
 
-  // Health check endpoint
-  if (event.httpMethod === 'GET' && event.path === '/health') {
-    return {
-      statusCode: 200,
-      body: JSON.stringify({ status: 'healthy', timestamp: new Date().toISOString() }),
-    };
-  }
-
-  return {
-    statusCode: 404,
-    body: JSON.stringify({ error: 'Not found' }),
-  };
+  // Create stdio transport
+  const transport = new StdioServerTransport();
+  
+  // Connect server to transport
+  await server.connect(transport);
+  
+  console.error('MCP stdio server started');
 }

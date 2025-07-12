@@ -271,11 +271,19 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     
     try {
       const { zodToJsonSchema } = require('zod-to-json-schema');
-      inputSchema = zodToJsonSchema(tool.schema, {
+      const fullSchema = zodToJsonSchema(tool.schema, {
         name: \`\${toolName}Schema\`,
         target: 'jsonSchema7',
         definitions: {}
       });
+      
+      // Extract the actual schema from definitions if it uses $ref
+      if (fullSchema.$ref && fullSchema.definitions) {
+        const refKey = fullSchema.$ref.replace('#/definitions/', '');
+        inputSchema = fullSchema.definitions[refKey] || { type: 'object' };
+      } else {
+        inputSchema = fullSchema;
+      }
     } catch (error) {
       console.warn(\`Failed to convert schema for tool \${toolName}:\`, error);
       // Fallback to basic object schema
