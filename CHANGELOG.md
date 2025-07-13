@@ -1,5 +1,11 @@
 # opentool
 
+## 0.2.2
+
+### Patch Changes
+
+- ca57321: used correct proxy handler
+
 ## 0.2.1
 
 ### Patch Changes
