@@ -1,5 +1,11 @@
 # opentool
 
+## 0.2.4
+
+### Patch Changes
+
+- 898ea64: back to js lol
+
 ## 0.2.3
 
 ### Patch Changes
