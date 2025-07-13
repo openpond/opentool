@@ -44,11 +44,11 @@ export async function buildCommand(options: BuildOptions): Promise<void> {
       fs.mkdirSync(config.outputDir, { recursive: true });
     }
 
-    // Generate TypeScript MCP server (no compilation needed)
-    await generateTypeScriptMcpServer(tools, config);
+    // Generate JavaScript MCP server
+    await generateJavaScriptMcpServer(tools, config);
 
-    // Copy TypeScript tools to output directory
-    await copyTypeScriptTools(config.toolsDir, config.outputDir, tools);
+    // Copy and compile tools to output directory
+    await copyAndCompileTools(config.toolsDir, config.outputDir, tools);
 
     // Generate metadata JSON
     await generateMetadataJson(tools, config);
@@ -57,13 +57,13 @@ export async function buildCommand(options: BuildOptions): Promise<void> {
     console.log(`[${endTimestamp}] Build completed successfully!`);
     console.log(`Output directory: ${config.outputDir}`);
     console.log("Generated files:");
-    console.log("  mcp-server.ts - TypeScript MCP server");
+    console.log("  mcp-server.js - JavaScript MCP server");
     console.log("  lambda-handler.js - AWS Lambda handler");
-    console.log(`  tools/ - ${tools.length} TypeScript tool files`);
+    console.log(`  tools/ - ${tools.length} compiled JavaScript tool files`);
     console.log("  metadata.json - Metadata for on-chain registration");
     console.log("\\nTest your MCP server:");
     console.log(
-      `  echo '{"jsonrpc": "2.0", "id": 1, "method": "tools/list"}' | npx tsx ${config.outputDir}/mcp-server.ts`
+      `  echo '{"jsonrpc": "2.0", "id": 1, "method": "tools/list"}' | node ${config.outputDir}/mcp-server.js`
     );
   } catch (error) {
     console.error(`[${new Date().toISOString().replace('T', ' ').slice(0, 19)}] Build failed:`, error);
@@ -209,33 +209,33 @@ async function loadTools(toolsDir: string): Promise<InternalToolDefinition[]> {
   return tools;
 }
 
-async function generateTypeScriptMcpServer(
+async function generateJavaScriptMcpServer(
   tools: InternalToolDefinition[],
   config: BuildConfig
 ): Promise<void> {
-  // Generate TypeScript MCP server for stdio transport
-  await generateTypeScriptMcpServerFile(tools, config);
+  // Generate JavaScript MCP server for stdio transport
+  await generateJavaScriptMcpServerFile(tools, config);
 
   // Generate Lambda handler with AWS adapter
   await generateLambdaHandler(config);
 }
 
-async function generateTypeScriptMcpServerFile(
+async function generateJavaScriptMcpServerFile(
   tools: InternalToolDefinition[],
   config: BuildConfig
 ): Promise<void> {
-  const mcpServerCode = `#!/usr/bin/env npx tsx
-// Auto-generated TypeScript MCP server with stdio transport
-import { Server } from '@modelcontextprotocol/sdk/server/index.js';
-import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
-import { zodToJsonSchema } from 'zod-to-json-schema';
+  const mcpServerCode = `#!/usr/bin/env node
+// Auto-generated JavaScript MCP server with stdio transport
+const { Server } = require('@modelcontextprotocol/sdk/server/index.js');
+const { StdioServerTransport } = require('@modelcontextprotocol/sdk/server/stdio.js');
+const { CallToolRequestSchema, ListToolsRequestSchema } = require('@modelcontextprotocol/sdk/types.js');
+const { zodToJsonSchema } = require('zod-to-json-schema');
 
 // Import tools
 ${tools
   .map(
     (tool, index) =>
-      `import * as tool${index} from './tools/${tool.filename}.js';`
+      `const tool${index} = require('./tools/${tool.filename}.js');`
   )
   .join("\n")}
 
@@ -351,14 +351,14 @@ async function main() {
   await server.connect(transport);
 }
 
-if (import.meta.url === \`file://\${process.argv[1]}\`) {
+if (require.main === module) {
   main().catch(console.error);
 }
 
-export { server, tools };
+module.exports = { server, tools };
 `;
 
-  const mcpServerPath = path.join(config.outputDir, "mcp-server.ts");
+  const mcpServerPath = path.join(config.outputDir, "mcp-server.js");
   fs.writeFileSync(mcpServerPath, mcpServerCode);
 
   // Make executable
@@ -372,8 +372,8 @@ async function generateLambdaHandler(config: BuildConfig): Promise<void> {
 const path = require('path');
 
 const serverParams = {
-  command: 'npx',
-  args: ['tsx', path.join(__dirname, 'mcp-server.ts')],
+  command: 'node',
+  args: [path.join(__dirname, 'mcp-server.js')],
   cwd: __dirname, // Set working directory to Lambda package root
 };
 
@@ -396,7 +396,7 @@ exports.handler = async (event, context) => {
   fs.writeFileSync(lambdaHandlerPath, lambdaHandlerCode);
 }
 
-async function copyTypeScriptTools(
+async function copyAndCompileTools(
   sourceDir: string,
   outputDir: string,
   _tools: InternalToolDefinition[]
@@ -406,15 +406,70 @@ async function copyTypeScriptTools(
     fs.mkdirSync(toolsOutputDir, { recursive: true });
   }
 
-  const files = fs.readdirSync(sourceDir);
-  for (const file of files) {
-    if (file.endsWith(".ts") || file.endsWith(".js")) {
-      const sourcePath = path.join(sourceDir, file);
-      const outputPath = path.join(toolsOutputDir, file);
+  // Use the same temp compilation approach as in loadTools
+  const tempDir = path.join(sourceDir, ".opentool-temp");
+  if (fs.existsSync(tempDir)) {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+  fs.mkdirSync(tempDir, { recursive: true });
+
+  const { exec } = require("child_process");
+  const { promisify } = require("util");
+  const execAsync = promisify(exec);
+
+  try {
+    const files = fs.readdirSync(sourceDir);
+    const tsFiles = files.filter(file => file.endsWith(".ts"));
+    
+    if (tsFiles.length > 0) {
+      console.log(`  Compiling ${tsFiles.length} TypeScript files to JavaScript...`);
       
-      // Simply copy TypeScript/JavaScript files as-is
-      fs.copyFileSync(sourcePath, outputPath);
-      console.log(`  Copied ${file}`);
+      // Copy all files to temp directory
+      for (const file of files) {
+        if (file.endsWith(".ts") || file.endsWith(".js")) {
+          fs.copyFileSync(
+            path.join(sourceDir, file),
+            path.join(tempDir, file)
+          );
+        }
+      }
+
+      // Compile TypeScript files
+      try {
+        await execAsync(
+          `npx tsc --target es2020 --module commonjs --esModuleInterop --skipLibCheck --moduleResolution node --outDir ${tempDir} ${tsFiles.map(f => path.join(tempDir, f)).join(' ')}`
+        );
+      } catch (tscError) {
+        console.warn("TypeScript compilation failed, trying with relaxed settings...");
+        await execAsync(
+          `npx tsc --target es2020 --module commonjs --esModuleInterop --skipLibCheck --moduleResolution node --noImplicitAny false --strict false --outDir ${tempDir} ${tsFiles.map(f => path.join(tempDir, f)).join(' ')}`
+        );
+      }
+    }
+
+    // Copy compiled JavaScript files to output
+    for (const file of files) {
+      if (file.endsWith(".ts")) {
+        const jsFile = file.replace(".ts", ".js");
+        const sourcePath = path.join(tempDir, jsFile);
+        const outputPath = path.join(toolsOutputDir, jsFile);
+        
+        if (fs.existsSync(sourcePath)) {
+          fs.copyFileSync(sourcePath, outputPath);
+          console.log(`  Compiled and copied ${jsFile}`);
+        }
+      } else if (file.endsWith(".js")) {
+        const sourcePath = path.join(sourceDir, file);
+        const outputPath = path.join(toolsOutputDir, file);
+        fs.copyFileSync(sourcePath, outputPath);
+        console.log(`  Copied ${file}`);
+      }
+    }
+
+  } finally {
+    // Clean up temp directory
+    if (fs.existsSync(tempDir)) {
+      fs.rmSync(tempDir, { recursive: true, force: true });
     }
   }
 }
