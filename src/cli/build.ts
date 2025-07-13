@@ -19,7 +19,8 @@ export interface BuildOptions {
 }
 
 export async function buildCommand(options: BuildOptions): Promise<void> {
-  console.log("🔨 Building OpenTool project...");
+  const timestamp = new Date().toISOString().replace('T', ' ').slice(0, 19);
+  console.log(`[${timestamp}] Building OpenTool project...`);
 
   const config: BuildConfig = {
     toolsDir: path.resolve(options.input),
@@ -36,35 +37,36 @@ export async function buildCommand(options: BuildOptions): Promise<void> {
 
     // Load and validate tools
     const tools = await loadTools(config.toolsDir);
-    console.log(`📦 Found ${tools.length} tools`);
+    console.log(`[${new Date().toISOString().replace('T', ' ').slice(0, 19)}] Found ${tools.length} tools`);
 
     // Create output directory
     if (!fs.existsSync(config.outputDir)) {
       fs.mkdirSync(config.outputDir, { recursive: true });
     }
 
-    // Generate server index
-    await generateServerIndex(tools, config);
+    // Generate TypeScript MCP server (no compilation needed)
+    await generateTypeScriptMcpServer(tools, config);
 
-    // Copy tools to output directory
-    await copyTools(config.toolsDir, config.outputDir, tools);
+    // Copy TypeScript tools to output directory
+    await copyTypeScriptTools(config.toolsDir, config.outputDir, tools);
 
     // Generate metadata JSON
     await generateMetadataJson(tools, config);
 
-    console.log("✅ Build completed successfully!");
-    console.log(`📁 Output directory: ${config.outputDir}`);
-    console.log("📄 Generated files:");
-    console.log("  📟 mcp-server.js - Stdio MCP server");
-    console.log("  🔗 lambda-handler.js - AWS Lambda handler");
-    console.log(`  📂 tools/ - ${tools.length} tool files`);
-    console.log("  📋 metadata.json - Metadata for on-chain registration");
-    console.log("\\n🧪 Test your MCP server:");
+    const endTimestamp = new Date().toISOString().replace('T', ' ').slice(0, 19);
+    console.log(`[${endTimestamp}] Build completed successfully!`);
+    console.log(`Output directory: ${config.outputDir}`);
+    console.log("Generated files:");
+    console.log("  mcp-server.ts - TypeScript MCP server");
+    console.log("  lambda-handler.js - AWS Lambda handler");
+    console.log(`  tools/ - ${tools.length} TypeScript tool files`);
+    console.log("  metadata.json - Metadata for on-chain registration");
+    console.log("\\nTest your MCP server:");
     console.log(
-      `  echo '{"jsonrpc": "2.0", "id": 1, "method": "tools/list"}' | node ${config.outputDir}/mcp-server.js`
+      `  echo '{"jsonrpc": "2.0", "id": 1, "method": "tools/list"}' | npx tsx ${config.outputDir}/mcp-server.ts`
     );
   } catch (error) {
-    console.error("❌ Build failed:", error);
+    console.error(`[${new Date().toISOString().replace('T', ' ').slice(0, 19)}] Build failed:`, error);
     process.exit(1);
   }
 }
@@ -88,7 +90,7 @@ async function loadTools(toolsDir: string): Promise<InternalToolDefinition[]> {
     // Compile TypeScript files if any exist
     const tsFiles = files.filter(file => file.endsWith(".ts"));
     if (tsFiles.length > 0) {
-      console.log(`📝 Compiling ${tsFiles.length} TypeScript files...`);
+      console.log(`[${new Date().toISOString().replace('T', ' ').slice(0, 19)}] Compiling ${tsFiles.length} TypeScript files...`);
       
       // Copy all files to temp directory
       for (const file of files) {
@@ -185,14 +187,14 @@ async function loadTools(toolsDir: string): Promise<InternalToolDefinition[]> {
 
             const displayName = completeMetadata?.name || file.replace(/\.(ts|js)$/, "");
             const toolDesc = completeMetadata?.description || `${displayName} tool`;
-            console.log(`  ✓ ${displayName} - ${toolDesc}`);
+            console.log(`  ${displayName} - ${toolDesc}`);
           } else {
             console.warn(
-              `  ⚠ ${file} - Invalid tool format. Must export: schema and TOOL function (metadata is optional)`
+              `  ${file} - Invalid tool format. Must export: schema and TOOL function (metadata is optional)`
             );
           }
         } catch (error) {
-          console.warn(`  ❌ ${file} - Failed to load: ${error}`);
+          console.warn(`  ${file} - Failed to load: ${error}`);
         }
       }
     }
@@ -207,32 +209,33 @@ async function loadTools(toolsDir: string): Promise<InternalToolDefinition[]> {
   return tools;
 }
 
-async function generateServerIndex(
+async function generateTypeScriptMcpServer(
   tools: InternalToolDefinition[],
   config: BuildConfig
 ): Promise<void> {
-  // Generate MCP server for stdio transport
-  await generateMcpServer(tools, config);
+  // Generate TypeScript MCP server for stdio transport
+  await generateTypeScriptMcpServerFile(tools, config);
 
   // Generate Lambda handler with AWS adapter
   await generateLambdaHandler(config);
 }
 
-async function generateMcpServer(
+async function generateTypeScriptMcpServerFile(
   tools: InternalToolDefinition[],
   config: BuildConfig
 ): Promise<void> {
-  const mcpServerCode = `#!/usr/bin/env node
-// Auto-generated MCP server with stdio transport
-const { Server } = require('@modelcontextprotocol/sdk/server/index.js');
-const { StdioServerTransport } = require('@modelcontextprotocol/sdk/server/stdio.js');
-const { CallToolRequestSchema, ListToolsRequestSchema } = require('@modelcontextprotocol/sdk/types.js');
+  const mcpServerCode = `#!/usr/bin/env npx tsx
+// Auto-generated TypeScript MCP server with stdio transport
+import { Server } from '@modelcontextprotocol/sdk/server/index.js';
+import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
+import { zodToJsonSchema } from 'zod-to-json-schema';
 
 // Import tools
 ${tools
   .map(
     (tool, index) =>
-      `const tool${index} = require('./tools/${tool.filename}.js');`
+      `import * as tool${index} from './tools/${tool.filename}.js';`
   )
   .join("\n")}
 
@@ -265,12 +268,11 @@ const server = new Server(
 // Register list tools handler
 server.setRequestHandler(ListToolsRequestSchema, async () => ({
   tools: tools.map((tool, index) => {
-    // Convert Zod schema to JSON Schema format using proper library
+    // Convert Zod schema to JSON Schema format
     let inputSchema = { type: 'object' };
     const toolName = tool.metadata?.name || tool.filename;
     
     try {
-      const { zodToJsonSchema } = require('zod-to-json-schema');
       const fullSchema = zodToJsonSchema(tool.schema, {
         name: \`\${toolName}Schema\`,
         target: 'jsonSchema7',
@@ -286,7 +288,6 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
       }
     } catch (error) {
       console.warn(\`Failed to convert schema for tool \${toolName}:\`, error);
-      // Fallback to basic object schema
       inputSchema = { type: 'object' };
     }
 
@@ -331,7 +332,6 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         isError: result.isError || false,
       };
     } else {
-      // Fallback for any other response type
       return {
         content: [{ type: 'text', text: String(result) }],
         isError: false,
@@ -351,14 +351,14 @@ async function main() {
   await server.connect(transport);
 }
 
-if (require.main === module) {
+if (import.meta.url === \`file://\${process.argv[1]}\`) {
   main().catch(console.error);
 }
 
-module.exports = { server, tools };
+export { server, tools };
 `;
 
-  const mcpServerPath = path.join(config.outputDir, "mcp-server.js");
+  const mcpServerPath = path.join(config.outputDir, "mcp-server.ts");
   fs.writeFileSync(mcpServerPath, mcpServerCode);
 
   // Make executable
@@ -372,8 +372,8 @@ async function generateLambdaHandler(config: BuildConfig): Promise<void> {
 const path = require('path');
 
 const serverParams = {
-  command: 'node',
-  args: [path.join(__dirname, 'mcp-server.js')],
+  command: 'npx',
+  args: ['tsx', path.join(__dirname, 'mcp-server.ts')],
   cwd: __dirname, // Set working directory to Lambda package root
 };
 
@@ -396,105 +396,29 @@ exports.handler = async (event, context) => {
   fs.writeFileSync(lambdaHandlerPath, lambdaHandlerCode);
 }
 
-async function copyTools(
+async function copyTypeScriptTools(
   sourceDir: string,
   outputDir: string,
-  tools: InternalToolDefinition[]
+  _tools: InternalToolDefinition[]
 ): Promise<void> {
   const toolsOutputDir = path.join(outputDir, "tools");
   if (!fs.existsSync(toolsOutputDir)) {
     fs.mkdirSync(toolsOutputDir, { recursive: true });
   }
 
-  // Create a map of filenames to their generated metadata using tool.filename as source of truth
-  const toolMetadataMap = new Map<string, any>();
-  tools.forEach((tool) => {
-    if (tool.metadata) {
-      // Use the filename with extensions for mapping
-      const tsFile = `${tool.filename}.ts`;
-      const jsFile = `${tool.filename}.js`;
-      toolMetadataMap.set(tsFile, tool.metadata);
-      toolMetadataMap.set(jsFile, tool.metadata);
-    }
-  });
-
   const files = fs.readdirSync(sourceDir);
   for (const file of files) {
     if (file.endsWith(".ts") || file.endsWith(".js")) {
       const sourcePath = path.join(sourceDir, file);
-
-      if (file.endsWith(".ts")) {
-        // For TypeScript files, compile to JavaScript
-        const outputPath = path.join(
-          toolsOutputDir,
-          file.replace(".ts", ".js")
-        );
-        const generatedMetadata = toolMetadataMap.get(file);
-        await compileTypeScriptFile(sourcePath, outputPath, generatedMetadata);
-      } else {
-        // For JavaScript files, copy directly
-        const outputPath = path.join(toolsOutputDir, file);
-        fs.copyFileSync(sourcePath, outputPath);
-      }
+      const outputPath = path.join(toolsOutputDir, file);
+      
+      // Simply copy TypeScript/JavaScript files as-is
+      fs.copyFileSync(sourcePath, outputPath);
+      console.log(`  Copied ${file}`);
     }
   }
 }
 
-async function compileTypeScriptFile(
-  sourcePath: string,
-  outputPath: string,
-  metadata?: any
-): Promise<void> {
-  const { exec } = require("child_process");
-  const { promisify } = require("util");
-  const execAsync = promisify(exec);
-
-  try {
-    // Create a temporary directory for compilation
-    const tempDir = path.join(path.dirname(outputPath), "temp_compile");
-    if (!fs.existsSync(tempDir)) {
-      fs.mkdirSync(tempDir, { recursive: true });
-    }
-
-    // Copy the TypeScript file to temp directory
-    const tempSourcePath = path.join(tempDir, path.basename(sourcePath));
-    fs.copyFileSync(sourcePath, tempSourcePath);
-
-    // Use TypeScript compiler to compile single file
-    await execAsync(
-      `npx tsc ${tempSourcePath} --outDir ${tempDir} --target es2020 --module commonjs --esModuleInterop --skipLibCheck --moduleResolution node`
-    );
-
-    // Move the compiled file to the correct location and inject metadata if needed
-    const compiledPath = path.join(
-      tempDir,
-      path.basename(sourcePath).replace(".ts", ".js")
-    );
-    if (fs.existsSync(compiledPath)) {
-      let jsContent = fs.readFileSync(compiledPath, "utf8");
-
-      // Only inject metadata if the user originally provided some metadata
-      if (metadata && !jsContent.includes("exports.metadata")) {
-        // Add metadata export to the compiled JavaScript
-        const metadataExport = `\nexports.metadata = ${JSON.stringify(
-          metadata,
-          null,
-          2
-        )};\n`;
-        jsContent += metadataExport;
-      }
-
-      fs.writeFileSync(outputPath, jsContent);
-    }
-
-    // Clean up temp directory
-    fs.rmSync(tempDir, { recursive: true, force: true });
-  } catch (error) {
-    console.warn(`Failed to compile ${sourcePath}:`, error);
-    // Fallback: copy the TypeScript file as-is
-    fs.copyFileSync(sourcePath, outputPath.replace(".js", ".ts"));
-  }
-}
 
 // Helper function to read package.json for fallback values
 function readPackageJson(projectRoot: string): any {
@@ -505,7 +429,7 @@ function readPackageJson(projectRoot: string): any {
       return JSON.parse(packageContent);
     }
   } catch (error) {
-    console.warn("  ⚠️ Failed to read package.json:", error);
+    console.warn("  Failed to read package.json:", error);
   }
   return {};
 }
@@ -514,7 +438,7 @@ async function generateMetadataJson(
   tools: InternalToolDefinition[],
   config: BuildConfig
 ): Promise<void> {
-  console.log("📋 Generating metadata JSON...");
+  console.log(`[${new Date().toISOString().replace('T', ' ').slice(0, 19)}] Generating metadata JSON...`);
   
   const projectRoot = path.dirname(config.toolsDir);
   
@@ -568,13 +492,13 @@ async function generateMetadataJson(
         const metadataModule = require(compiledPath);
         // Support both 'metadata' and 'discovery' exports for backwards compatibility
         rootMetadata = metadataModule.metadata || metadataModule.discovery || {};
-        console.log(`  ✓ Loaded metadata from ${tempFileName}`);
+        console.log(`  Loaded metadata from ${tempFileName}`);
       }
       
       // Clean up temp directory
       fs.rmSync(tempDir, { recursive: true, force: true });
     } catch (error) {
-      console.warn(`  ⚠️ Failed to load ${path.basename(metadataFilePath)}:`, error);
+      console.warn(`  Failed to load ${path.basename(metadataFilePath)}:`, error);
     }
   } else if (metadataJsFilePath) {
     try {
@@ -583,12 +507,12 @@ async function generateMetadataJson(
       const metadataModule = require(metadataJsFilePath);
       // Support both 'metadata' and 'discovery' exports for backwards compatibility
       rootMetadata = metadataModule.metadata || metadataModule.discovery || {};
-      console.log(`  ✓ Loaded metadata from ${path.basename(metadataJsFilePath)}`);
+      console.log(`  Loaded metadata from ${path.basename(metadataJsFilePath)}`);
     } catch (error) {
-      console.warn(`  ⚠️ Failed to load ${path.basename(metadataJsFilePath)}:`, error);
+      console.warn(`  Failed to load ${path.basename(metadataJsFilePath)}:`, error);
     }
   } else {
-    console.log("  ℹ️ No metadata.ts found, using smart defaults");
+    console.log("  No metadata.ts found, using smart defaults");
   }
   
   // Read package.json for fallback values
@@ -692,5 +616,5 @@ async function generateMetadataJson(
   const outputMetadataPath = path.join(config.outputDir, "metadata.json");
   fs.writeFileSync(outputMetadataPath, JSON.stringify(metadataJson, null, 2));
   
-  console.log(`  ✓ Generated metadata.json with ${metadataTools.length} tools`);
+  console.log(`  Generated metadata.json with ${metadataTools.length} tools`);
 }
