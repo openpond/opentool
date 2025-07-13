@@ -367,7 +367,7 @@ module.exports = { server, tools };
 
 async function generateLambdaHandler(config: BuildConfig): Promise<void> {
   const lambdaHandlerCode = `// Auto-generated AWS Lambda handler
-// Uses AWS MCP adapter to run stdio MCP server
+// Uses AWS MCP adapter with proper API Gateway handling
 
 const path = require('path');
 
@@ -378,12 +378,17 @@ const serverParams = {
 };
 
 exports.handler = async (event, context) => {
-  // Dynamically import ES module into CommonJS Lambda function
-  const { stdioServerAdapter } = await import(
-    '@aws/run-mcp-servers-with-aws-lambda'
+  // Use proper API Gateway handler as shown in AWS examples
+  const { 
+    APIGatewayProxyEventHandler,
+    StdioServerAdapterRequestHandler 
+  } = await import('@aws/run-mcp-servers-with-aws-lambda');
+
+  const requestHandler = new APIGatewayProxyEventHandler(
+    new StdioServerAdapterRequestHandler(serverParams)
   );
 
-  return await stdioServerAdapter(serverParams, event, context);
+  return requestHandler.handle(event, context);
 };
 `;
 
