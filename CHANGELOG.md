@@ -1,5 +1,11 @@
 # opentool
 
+## 0.2.5
+
+### Patch Changes
+
+- 41dec56: updated metadata
+
 ## 0.2.4
 
 ### Patch Changes
