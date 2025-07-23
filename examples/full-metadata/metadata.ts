@@ -54,5 +54,15 @@ export const metadata = {
     languages: ["any"],
     frameworks: ["mcp", "opentool"],
     regions: ["global"]
-  }
+  },
+
+  // New UI Enhancement fields
+  promptExamples: [
+    "Calculate the square root of 144",
+    "Add 25 and 37 together",
+    "What's 15 multiplied by 8?",
+    "Help me solve: (10 + 5) * 3"
+  ],
+  iconPath: "/icons/calculator.svg",
+  videoPath: "/videos/opentool-demo.mp4"
 };
