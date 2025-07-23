@@ -66,4 +66,8 @@ export interface Metadata {
   payment?: PaymentConfig;
   tools?: Tool[];
   discovery?: DiscoveryMetadata;
+  // UI Enhancement fields
+  promptExamples?: string[];
+  iconPath?: string;
+  videoPath?: string;
 }

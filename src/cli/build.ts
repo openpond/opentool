@@ -640,6 +640,11 @@ async function generateMetadataJson(
     // Tools array (always populated by build process)
     tools: metadataTools,
     
+    // UI Enhancement fields
+    ...(rootMetadata.promptExamples && { promptExamples: rootMetadata.promptExamples }),
+    ...(rootMetadata.iconPath && { iconPath: rootMetadata.iconPath }),
+    ...(rootMetadata.videoPath && { videoPath: rootMetadata.videoPath }),
+    
     // Agent-level payment defaults (create from pricing if exists)
     ...(rootMetadata.pricing && {
       payment: {
