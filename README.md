@@ -3,7 +3,9 @@
 [![npm version](https://badge.fury.io/js/opentool.svg)](https://badge.fury.io/js/opentool)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-**[opentool.ai](https://opentool.ai)**
+**OpenPond Hosting launching August 2025**
+
+(current openpond.ai site hasn't been updated yet)
 
 A TypeScript framework for building serverless MCP (Model Context Protocol) tools that automatically deploy to AWS Lambda using [OpenPond](https://openpond.ai) hosting.
 
