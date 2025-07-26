@@ -3,7 +3,7 @@
 [![npm version](https://badge.fury.io/js/opentool.svg)](https://badge.fury.io/js/opentool)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-**[opentool.dev](https://opentool.dev)** | **[Documentation](https://opentool.dev/docs)** | **[Get Started](https://opentool.dev/get-started)**
+**[opentool.ai](https://opentool.ai)**
 
 A TypeScript framework for building serverless MCP (Model Context Protocol) tools that automatically deploy to AWS Lambda using [OpenPond](https://openpond.ai) hosting.
 
@@ -205,9 +205,9 @@ echo '{"jsonrpc": "2.0", "id": 1, "method": "tools/list"}' | node dist/mcp-serve
 
 OpenTool features a sophisticated **three-tier metadata system**:
 
-1. **🟢 Smart Defaults** - Zero configuration, automatic generation from `package.json`
-2. **🔸 Enhanced Metadata** - Optional `metadata.ts` for custom branding and payments  
-3. **🔴 Full Control** - Tool-level overrides for rich discovery metadata
+1. **Smart Defaults** - Zero configuration, automatic generation from `package.json`
+2. **Enhanced Metadata** - Optional `metadata.ts` for custom branding and crypto payments  
+3. **Full Control** - Tool-level overrides for rich discovery metadata
 
 See [`METADATA.md`](./METADATA.md) for the complete guide to configuring metadata for on-chain registration and payments.
 
@@ -215,12 +215,6 @@ See [`METADATA.md`](./METADATA.md) for the complete guide to configuring metadat
 
 We welcome contributions! Please see our [Contributing Guide](https://github.com/openpond/opentool/blob/master/CONTRIBUTING.md) for details.
 
-## Community
-
-- 🌐 **Website**: [opentool.dev](https://opentool.dev)
-- 📖 **Documentation**: [opentool.dev/docs](https://opentool.dev/docs)
-- 🐛 **Issues**: [GitHub Issues](https://github.com/openpond/opentool/issues)
-- 💬 **Discussions**: [GitHub Discussions](https://github.com/openpond/opentool/discussions)
 
 ## License
 
