@@ -3,7 +3,7 @@
 [![npm version](https://badge.fury.io/js/opentool.svg)](https://badge.fury.io/js/opentool)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-**OpenPond Hosting launching August 2025**
+## OpenPond Hosting launching August 2025
 
 (current openpond.ai site hasn't been updated yet)
 
