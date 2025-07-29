@@ -1,5 +1,11 @@
 # opentool
 
+## 0.3.0
+
+### Minor Changes
+
+- 1859c42: removed lambda specific builds
+
 ## 0.2.5
 
 ### Patch Changes
