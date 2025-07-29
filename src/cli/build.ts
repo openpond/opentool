@@ -58,7 +58,6 @@ export async function buildCommand(options: BuildOptions): Promise<void> {
     console.log(`Output directory: ${config.outputDir}`);
     console.log("Generated files:");
     console.log("  mcp-server.js - JavaScript MCP server");
-    console.log("  lambda-handler.js - AWS Lambda handler");
     console.log(`  tools/ - ${tools.length} compiled JavaScript tool files`);
     console.log("  metadata.json - Metadata for on-chain registration");
     console.log("\\nTest your MCP server:");
@@ -215,9 +214,6 @@ async function generateJavaScriptMcpServer(
 ): Promise<void> {
   // Generate JavaScript MCP server for stdio transport
   await generateJavaScriptMcpServerFile(tools, config);
-
-  // Generate Lambda handler with AWS adapter
-  await generateLambdaHandler(config);
 }
 
 async function generateJavaScriptMcpServerFile(
@@ -365,36 +361,6 @@ module.exports = { server, tools };
   fs.chmodSync(mcpServerPath, 0o755);
 }
 
-async function generateLambdaHandler(config: BuildConfig): Promise<void> {
-  const lambdaHandlerCode = `// Auto-generated AWS Lambda handler
-// Uses AWS MCP adapter with proper API Gateway handling
-
-const path = require('path');
-
-const serverParams = {
-  command: 'node',
-  args: [path.join(__dirname, 'mcp-server.js')],
-  cwd: __dirname, // Set working directory to Lambda package root
-};
-
-exports.handler = async (event, context) => {
-  // Use proper API Gateway handler as shown in AWS examples
-  const { 
-    APIGatewayProxyEventHandler,
-    StdioServerAdapterRequestHandler 
-  } = await import('@aws/run-mcp-servers-with-aws-lambda');
-
-  const requestHandler = new APIGatewayProxyEventHandler(
-    new StdioServerAdapterRequestHandler(serverParams)
-  );
-
-  return requestHandler.handle(event, context);
-};
-`;
-
-  const lambdaHandlerPath = path.join(config.outputDir, "lambda-handler.js");
-  fs.writeFileSync(lambdaHandlerPath, lambdaHandlerCode);
-}
 
 async function copyAndCompileTools(
   sourceDir: string,
