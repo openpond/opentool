@@ -116,6 +116,22 @@ Options:
   -i, --input <dir>      Input directory containing tools (default: "tools")
 ```
 
+### Generate Metadata
+
+Generate OpenTool metadata JSON without building:
+
+```bash
+npx opentool metadata [options]
+
+Options:
+  -i, --input <dir>      Input directory containing tools (default: "tools")
+  -o, --output <file>    Output file path for metadata.json (default: "metadata.json")
+  --name <name>          Server name (default: "opentool-server")
+  --version <version>    Server version (default: "1.0.0")
+```
+
+This command generates the `metadata.json` file that contains all the information needed for on-chain registration and discovery, including tool schemas, payment configurations, and discovery metadata. It's useful when you need to inspect or share the metadata without performing a full build.
+
 ## Tool Definition
 
 Each tool is defined by exporting three things:
