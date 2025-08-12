@@ -1,5 +1,12 @@
 # opentool
 
+## 0.4.1
+
+### Patch Changes
+
+- 2adf944: fixed val
+- 2adf944: fix validate
+
 ## 0.4.0
 
 ### Minor Changes
