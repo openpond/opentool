@@ -4,6 +4,7 @@ import { program } from 'commander';
 import { buildCommand } from './build';
 import { devCommand } from './dev';
 import { validateCommand, validateFullCommand } from './validate';
+import { generateMetadataCommand } from './generate-metadata';
 
 program
   .name('opentool')
@@ -42,9 +43,20 @@ program
   .option('-i, --input <dir>', 'Input directory containing tools', 'tools')
   .action(validateFullCommand);
 
+// Generate metadata command
+program
+  .command('metadata')
+  .description('Generate OpenTool metadata JSON without building')
+  .option('-i, --input <dir>', 'Input directory containing tools', 'tools')
+  .option('-o, --output <file>', 'Output file path for metadata.json', 'metadata.json')
+  .option('--name <name>', 'Server name', 'opentool-server')
+  .option('--version <version>', 'Server version', '1.0.0')
+  .action(generateMetadataCommand);
+
 // Parse arguments
 program.parse();
 
 export * from './build';
 export * from './dev';
 export * from './validate';
+export * from './generate-metadata';
