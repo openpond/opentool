@@ -1,5 +1,15 @@
 # opentool
 
+## 0.4.0
+
+### Minor Changes
+
+- dc38827: included validation in build process and exported validation
+
+### Patch Changes
+
+- 66883bc: fix val
+
 ## 0.3.0
 
 ### Minor Changes
