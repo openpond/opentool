@@ -8,6 +8,7 @@ import {
   Metadata,
   Tool,
 } from "../types/metadata";
+import { loadAndValidateTools } from "./validate";
 
 // TypeScript compilation is handled directly in the build process
 
@@ -35,9 +36,15 @@ export async function buildCommand(options: BuildOptions): Promise<void> {
       throw new Error(`Tools directory not found: ${config.toolsDir}`);
     }
 
-    // Load and validate tools
-    const tools = await loadTools(config.toolsDir);
-    console.log(`[${new Date().toISOString().replace('T', ' ').slice(0, 19)}] Found ${tools.length} tools`);
+    // Load and validate tools (validation integrated into build)
+    console.log(`[${new Date().toISOString().replace('T', ' ').slice(0, 19)}] 🔍 Validating tools...`);
+    const tools = await loadAndValidateTools(config.toolsDir);
+    
+    if (tools.length === 0) {
+      throw new Error('No valid tools found - build aborted');
+    }
+    
+    console.log(`[${new Date().toISOString().replace('T', ' ').slice(0, 19)}] ✅ Found ${tools.length} valid tools`);
 
     // Create output directory
     if (!fs.existsSync(config.outputDir)) {
