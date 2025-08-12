@@ -3,7 +3,7 @@
 import { program } from 'commander';
 import { buildCommand } from './build';
 import { devCommand } from './dev';
-import { validateCommand } from './validate';
+import { validateCommand, validateFullCommand } from './validate';
 
 program
   .name('opentool')
@@ -28,12 +28,19 @@ program
   .option('--version <version>', 'Server version', '1.0.0')
   .action(buildCommand);
 
-// Validate command
+// Validate command (metadata only)
 program
   .command('validate')
-  .description('Validate tools in directory')
+  .description('Validate metadata for registry submission')
   .option('-i, --input <dir>', 'Input directory containing tools', 'tools')
   .action(validateCommand);
+
+// Full validation command (tools + metadata)
+program
+  .command('validate-full')
+  .description('Full validation of tools and metadata')
+  .option('-i, --input <dir>', 'Input directory containing tools', 'tools')
+  .action(validateFullCommand);
 
 // Parse arguments
 program.parse();

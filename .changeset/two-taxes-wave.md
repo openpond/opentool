@@ -1,0 +1,5 @@
+---
+"opentool": patch
+---
+
+fix validate
