@@ -67,7 +67,7 @@ export async function validateCommand(options: ValidateOptions): Promise<void> {
   }
 }
 
-async function loadAndValidateTools(toolsDir: string): Promise<InternalToolDefinition[]> {
+export async function loadAndValidateTools(toolsDir: string): Promise<InternalToolDefinition[]> {
   const tools: InternalToolDefinition[] = [];
   const files = fs.readdirSync(toolsDir);
 
