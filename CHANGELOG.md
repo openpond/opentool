@@ -1,5 +1,11 @@
 # opentool
 
+## 0.4.3
+
+### Patch Changes
+
+- e37adfb: exported metadata type
+
 ## 0.4.2
 
 ### Patch Changes
