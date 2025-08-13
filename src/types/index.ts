@@ -61,3 +61,5 @@ export interface BuildConfig {
   serverName?: string;
   serverVersion?: string;
 }
+
+export type { Metadata } from "./metadata";
