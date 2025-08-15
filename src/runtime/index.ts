@@ -1,6 +1,8 @@
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
+import * as fs from 'fs';
+import * as path from 'path';
 import { InternalToolDefinition } from '../types';
 
 // Legacy createLambdaHandler removed - now using AWS MCP Adapter approach
@@ -61,8 +63,6 @@ export function createDevServer(tools: InternalToolDefinition[]): Server {
  */
 async function loadToolsFromDirectory(): Promise<InternalToolDefinition[]> {
   const tools: InternalToolDefinition[] = [];
-  const fs = require('fs');
-  const path = require('path');
   
   const toolsDir = path.join(process.cwd(), 'tools');
   if (!fs.existsSync(toolsDir)) {

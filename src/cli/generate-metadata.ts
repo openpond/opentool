@@ -1,8 +1,12 @@
 import * as fs from "fs";
 import * as path from "path";
+import { exec } from "child_process";
+import { promisify } from "util";
 import { InternalToolDefinition } from "../types";
 import { Metadata, Tool } from "../types/metadata";
 import { loadAndValidateTools } from "./validate";
+
+const execAsync = promisify(exec);
 
 export interface GenerateMetadataOptions {
   input: string;
@@ -126,9 +130,6 @@ export async function generateMetadata(
         fs.mkdirSync(tempDir, { recursive: true });
       }
 
-      const { exec } = require("child_process");
-      const { promisify } = require("util");
-      const execAsync = promisify(exec);
 
       // Copy metadata file to temp directory
       const tempFileName = path.basename(metadataFilePath);
