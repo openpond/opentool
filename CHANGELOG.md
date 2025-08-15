@@ -1,5 +1,11 @@
 # opentool
 
+## 0.4.4
+
+### Patch Changes
+
+- 2d9d718: removed dyanmic imports
+
 ## 0.4.3
 
 ### Patch Changes
