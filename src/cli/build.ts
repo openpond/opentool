@@ -1,8 +1,12 @@
 import * as fs from "fs";
 import * as path from "path";
+import { exec } from "child_process";
+import { promisify } from "util";
 import { BuildConfig, InternalToolDefinition } from "../types";
 import { Metadata, Tool } from "../types/metadata";
 import { loadAndValidateTools } from "./validate";
+
+const execAsync = promisify(exec);
 
 // TypeScript compilation is handled directly in the build process
 
@@ -259,9 +263,6 @@ async function copyAndCompileTools(
   }
   fs.mkdirSync(tempDir, { recursive: true });
 
-  const { exec } = require("child_process");
-  const { promisify } = require("util");
-  const execAsync = promisify(exec);
 
   try {
     const files = fs.readdirSync(sourceDir);
@@ -378,9 +379,6 @@ async function generateMetadataJson(
         fs.mkdirSync(tempDir, { recursive: true });
       }
 
-      const { exec } = require("child_process");
-      const { promisify } = require("util");
-      const execAsync = promisify(exec);
 
       // Copy metadata file to temp directory
       const tempFileName = path.basename(metadataFilePath);
