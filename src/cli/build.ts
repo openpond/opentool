@@ -154,19 +154,11 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     const toolName = tool.metadata?.name || tool.filename;
     
     try {
-      const fullSchema = zodToJsonSchema(tool.schema, {
+      inputSchema = zodToJsonSchema(tool.schema, {
         name: \`\${toolName}Schema\`,
         target: 'jsonSchema7',
-        definitions: {}
+        $refStrategy: 'none'
       });
-      
-      // Extract the actual schema from definitions if it uses $ref
-      if (fullSchema.$ref && fullSchema.definitions) {
-        const refKey = fullSchema.$ref.replace('#/definitions/', '');
-        inputSchema = fullSchema.definitions[refKey] || { type: 'object' };
-      } else {
-        inputSchema = fullSchema;
-      }
     } catch (error) {
       console.warn(\`Failed to convert schema for tool \${toolName}:\`, error);
       inputSchema = { type: 'object' };
