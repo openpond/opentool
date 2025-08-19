@@ -63,6 +63,7 @@ export interface Metadata {
   website?: string;
   category?: string;
   termsOfService?: string;
+  mcpUrl?: string; // MCP server URL for this tool
   payment?: PaymentConfig;
   tools?: Tool[];
   discovery?: DiscoveryMetadata;
