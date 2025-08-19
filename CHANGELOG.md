@@ -1,5 +1,11 @@
 # opentool
 
+## 0.4.6
+
+### Patch Changes
+
+- 49a2953: removed $ref
+
 ## 0.4.5
 
 ### Patch Changes
