@@ -5,6 +5,7 @@ import { promisify } from "util";
 import { BuildConfig, InternalToolDefinition } from "../types";
 import { Metadata, Tool } from "../types/metadata";
 import { loadAndValidateTools } from "./validate";
+import { zodToJsonSchema } from "zod-to-json-schema";
 
 const execAsync = promisify(exec);
 
@@ -474,11 +475,24 @@ async function generateMetadataJson(
       tool.metadata?.name || tool.filename.replace(/\.(ts|js)$/, "");
     const toolDescription = tool.metadata?.description || `${toolName} tool`;
 
+    // Generate clean schema for metadata (same as MCP server)
+    let metadataInputSchema: any = { type: 'object' };
+    try {
+      metadataInputSchema = zodToJsonSchema(tool.schema, {
+        name: `${toolName}Schema`,
+        target: 'jsonSchema7',
+        $refStrategy: 'none'
+      });
+    } catch (error) {
+      console.warn(`Failed to convert schema for metadata tool ${toolName}:`, error);
+      metadataInputSchema = { type: 'object' };
+    }
+
     // Build metadata tool object
     const metadataTool: Tool = {
       name: toolName,
       description: toolDescription,
-      inputSchema: tool.inputSchema,
+      inputSchema: metadataInputSchema,
     };
 
     // Add annotations if they exist
