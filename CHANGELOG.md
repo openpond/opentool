@@ -1,5 +1,11 @@
 # opentool
 
+## 0.5.0
+
+### Minor Changes
+
+- 816fa99: New metadata standard, updated types, converted to esbuild
+
 ## 0.4.6
 
 ### Patch Changes
