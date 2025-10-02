@@ -4,19 +4,11 @@ This directory contains example projects demonstrating different approaches to b
 
 ## Examples
 
-### `full-metadata/` - Complete Metadata Example
+### `full-metadata/`
 A comprehensive example showing all metadata features:
-- Custom metadata.ts file with full configuration
-- Tool-level payment overrides
-- Rich discovery metadata with examples and performance data
-- Complex mathematical calculator tool
-
-### `minimal/` - Smart Defaults Example  
-A minimal example demonstrating automatic metadata generation:
-- No metadata.ts file required
-- Smart defaults from package.json and folder structure
-- Simple greeting tool
-- Automatic tool discovery and schema generation
+- Custom `metadata.ts` file with full configuration
+- Tool-level payment overrides and discovery data
+- Dual ESM/CommonJS outputs for the compiled tools and servers
 
 ## Testing Examples Locally
 
@@ -30,9 +22,9 @@ To test these examples using the local OpenTool development version:
 
 2. **Test any example**:
    ```bash
-   cd examples/minimal  # or examples/full-metadata
+   cd examples/full-metadata
    npm link opentool    # Use local development version
-   npm run build        # Build the MCP server and Lambda handler
+   npm run build        # Build the MCP servers and metadata bundle
    ```
 
 3. **Test with MCP Inspector** (recommended):
@@ -48,18 +40,8 @@ To test these examples using the local OpenTool development version:
 
 4. **Examine the generated files**:
    ```bash
-   ls dist/                    # mcp-server.js, lambda-handler.js, metadata.json
+   ls dist/                    # mcp-server.js, metadata.json
    cat dist/metadata.json      # Complete metadata for registration
    ```
 
-## Key Differences
-
-| Feature | Full Metadata | Minimal |
-|---------|---------------|---------|
-| metadata.ts | ✅ Required | ❌ Optional |
-| Smart defaults | ➕ Enhanced by metadata | ✅ Fully automatic |
-| Payment config | ✅ Custom pricing | ❌ No payment |
-| Discovery data | ✅ Rich SEO data | ❌ Basic only |
-| Setup complexity | 🔸 Medium | 🟢 Simple |
-
-Both examples generate complete `metadata.json` files suitable for on-chain registration.
+The full-metadata example generates a complete `metadata.json` artifact alongside the `mcp-server.js` entry point used by the Lambda adapter.

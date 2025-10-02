@@ -23,9 +23,10 @@ For simple projects, OpenTool generates complete metadata automatically:
 **What OpenTool generates automatically:**
 ```json
 {
+  "metadataSpecVersion": "1.0.0",
   "name": "package-name",           // From package.json name
   "displayName": "Package Name",   // Formatted from name  
-  "version": 2.5,                  // From package.json version (as number)
+  "version": "2.5.0",              // From package.json version (semantic string)
   "description": "...",            // From package.json description
   "author": "...",                 // From package.json author
   "repository": "...",             // From package.json repository
@@ -67,9 +68,10 @@ export const metadata = {
   // Add payment configuration
   payment: {
     amountUSDC: 0.01,
-    acceptETH: true,
-    acceptSolana: true, 
-    acceptX402: true,
+    description: "Standard usage tier",
+    x402: true,
+    openpondDirect: true,
+    acceptedMethods: ["USDC", "ETH"],
     chainIds: [8453] // Base
   },
   
@@ -188,15 +190,18 @@ export const metadata = {
 export const metadata = {
   payment: {
     amountUSDC: 0.10,        // Override: more expensive
-    // All other payment settings inherited from agent
+    x402: true,
+    openpondDirect: true,
+    acceptedMethods: ["USDC"],
+    chainIds: [8453]
   }
 };
 ```
 
-**Payment Methods:**
-- **ETH**: Ethereum payments on specified chains
-- **Solana**: SOL/SPL token payments  
-- **X402**: HTTP 402 Payment Required protocol
+**Payment Settings:**
+- **acceptedMethods**: Currency codes accepted for settlement (e.g. `USDC`, `ETH`)
+- **x402**: Enables HTTP 402 (paywall) flows
+- **openpondDirect**: Enables direct settlement through OpenPond
 - **chainIds**: Supported blockchain networks (8453=Base, 1=Ethereum)
 
 ## Generated Metadata JSON
@@ -205,9 +210,10 @@ The final `metadata.json` combines all metadata into a standardized format:
 
 ```json
 {
+  "metadataSpecVersion": "1.0.0",
   "name": "my-assistant",
   "displayName": "My AI Assistant Pro", 
-  "version": 2.5,
+  "version": "2.5.0",
   "description": "A helpful AI assistant for productivity tasks",
   "author": "Jane Developer",
   "repository": "https://github.com/jane/my-ai-assistant",
@@ -271,8 +277,4 @@ The generated `metadata.json` enables decentralized discovery:
 
 ## Example Projects
 
-See `examples/` directory for:
-- **`minimal/`** - Smart defaults only (Tier 1)
-- **`full-metadata/`** - Complete configuration (Tier 2+3)
-
-Both generate production-ready `metadata.json` files suitable for on-chain registration.
+See `examples/full-metadata` for a full configuration that demonstrates agent metadata, tool-level overrides, and the dual-module build outputs.

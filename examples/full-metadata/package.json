@@ -2,11 +2,11 @@
   "name": "opentool-example",
   "version": "1.0.0",
   "description": "Example OpenTool project",
-  "main": "index.js",
   "scripts": {
     "dev": "opentool dev",
-    "build": "opentool build",
-    "validate": "opentool validate"
+    "build": "opentool build --input tools --output dist",
+    "metadata": "opentool metadata --input tools --output metadata.json",
+    "validate": "opentool validate --input tools"
   },
   "dependencies": {
     "opentool": "^0.0.1"

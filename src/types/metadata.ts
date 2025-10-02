@@ -1,74 +1,126 @@
-// MCP Tool Annotations (Model Context Protocol specification)
-export interface McpAnnotations {
-  /** Human-readable title for the tool */
-  title?: string;
-  /** Whether the tool only reads data (doesn't modify state) */
-  readOnlyHint?: boolean;
-  /** Whether the tool has destructive effects */
-  destructiveHint?: boolean;
-  /** Whether the tool is idempotent (same result for same input) */
-  idempotentHint?: boolean;
-  /** Whether the tool interacts with external systems */
-  openWorldHint?: boolean;
-}
+import { z } from "zod";
 
-export interface PaymentConfig {
-  // Pricing info
-  amountUSDC: number;
-  description?: string;
+export const METADATA_SPEC_VERSION = "1.0.0";
 
-  // Payment methods
-  x402: boolean;
-  openpondDirect: boolean;
-  acceptedMethods: string[]; // e.g., ["ETH", "USDC", "SOL"]
-  chainIds: number[];
-}
+export const McpAnnotationsSchema = z
+  .object({
+    title: z.string().optional(),
+    readOnlyHint: z.boolean().optional(),
+    destructiveHint: z.boolean().optional(),
+    idempotentHint: z.boolean().optional(),
+    openWorldHint: z.boolean().optional(),
+  })
+  .strict();
 
-// Discovery metadata for SEO/search optimization
-export interface DiscoveryMetadata {
-  keywords?: string[];
-  category?: string;
-  useCases?: string[];
-  examples?: Array<{
-    description: string;
-    input: any;
-    expectedOutput?: any;
-  }>;
-  relatedTools?: string[];
-  alternatives?: string[];
-  compatibility?: {
-    platforms?: string[];
-    languages?: string[];
-    frameworks?: string[];
-  };
-  [key: string]: any;
-}
+export type McpAnnotations = z.infer<typeof McpAnnotationsSchema>;
 
-export interface Tool {
-  name: string;
-  description: string;
-  inputSchema: any; // JSON Schema
-  annotations?: McpAnnotations;
-  payment?: PaymentConfig;
-  discovery?: DiscoveryMetadata;
-}
+export const PaymentConfigSchema = z
+  .object({
+    amountUSDC: z.number().nonnegative(),
+    description: z.string().optional(),
+    x402: z.boolean().optional(),
+    openpondDirect: z.boolean().optional(),
+    acceptedMethods: z.array(z.string()).optional(),
+    chainIds: z.array(z.number().int()).optional(),
+  })
+  .strict();
 
-export interface Metadata {
-  name: string;
-  displayName: string;
-  version: number;
-  description?: string;
-  author?: string;
-  repository?: string;
-  website?: string;
-  category?: string;
-  termsOfService?: string;
-  mcpUrl?: string; // MCP server URL for this tool
-  payment?: PaymentConfig;
-  tools?: Tool[];
-  discovery?: DiscoveryMetadata;
-  // UI Enhancement fields
-  promptExamples?: string[];
-  iconPath?: string;
-  videoPath?: string;
-}
+export type PaymentConfig = z.infer<typeof PaymentConfigSchema>;
+
+export const DiscoveryMetadataSchema = z
+  .object({
+    keywords: z.array(z.string()).optional(),
+    category: z.string().optional(),
+    useCases: z.array(z.string()).optional(),
+    capabilities: z.array(z.string()).optional(),
+    requirements: z.record(z.any()).optional(),
+    pricing: z.record(z.any()).optional(),
+    compatibility: z.record(z.any()).optional(),
+    documentation: z.union([z.string(), z.array(z.string())]).optional(),
+  })
+  .catchall(z.any());
+
+export type DiscoveryMetadata = z.infer<typeof DiscoveryMetadataSchema>;
+
+export const ToolMetadataOverridesSchema = z
+  .object({
+    name: z.string().optional(),
+    description: z.string().optional(),
+    annotations: McpAnnotationsSchema.optional(),
+    payment: PaymentConfigSchema.optional(),
+    discovery: DiscoveryMetadataSchema.optional(),
+  })
+  .catchall(z.any());
+
+export type ToolMetadataOverrides = z.infer<typeof ToolMetadataOverridesSchema>;
+
+export const ToolSchema = z
+  .object({
+    name: z.string(),
+    description: z.string(),
+    inputSchema: z.any(),
+    annotations: McpAnnotationsSchema.optional(),
+    payment: PaymentConfigSchema.optional(),
+    discovery: DiscoveryMetadataSchema.optional(),
+  })
+  .strict();
+
+export type Tool = z.infer<typeof ToolSchema>;
+
+export const AuthoredMetadataSchema = z
+  .object({
+    metadataSpecVersion: z.string().optional(),
+    name: z.string().optional(),
+    displayName: z.string().optional(),
+    version: z.string().optional(),
+    description: z.string().optional(),
+    author: z.string().optional(),
+    repository: z.string().optional(),
+    website: z.string().optional(),
+    category: z.string().optional(),
+    categories: z.array(z.string()).optional(),
+    termsOfService: z.string().optional(),
+    mcpUrl: z.string().optional(),
+    payment: PaymentConfigSchema.optional(),
+    discovery: DiscoveryMetadataSchema.optional(),
+    promptExamples: z.array(z.string()).optional(),
+    iconPath: z.string().optional(),
+    videoPath: z.string().optional(),
+    image: z.string().optional(),
+    animation_url: z.string().optional(),
+    keywords: z.array(z.string()).optional(),
+    useCases: z.array(z.string()).optional(),
+    capabilities: z.array(z.string()).optional(),
+    requirements: z.record(z.any()).optional(),
+    pricing: z.record(z.any()).optional(),
+    compatibility: z.record(z.any()).optional(),
+  })
+  .catchall(z.any());
+
+export type AuthoredMetadata = z.infer<typeof AuthoredMetadataSchema>;
+
+export const MetadataSchema = z
+  .object({
+    metadataSpecVersion: z.string().default(METADATA_SPEC_VERSION),
+    name: z.string(),
+    displayName: z.string(),
+    version: z.string(),
+    description: z.string().optional(),
+    author: z.string().optional(),
+    repository: z.string().optional(),
+    website: z.string().optional(),
+    category: z.string(),
+    termsOfService: z.string().optional(),
+    mcpUrl: z.string().optional(),
+    payment: PaymentConfigSchema.optional(),
+    tools: z.array(ToolSchema).min(1),
+    discovery: DiscoveryMetadataSchema.optional(),
+    promptExamples: z.array(z.string()).optional(),
+    iconPath: z.string().optional(),
+    videoPath: z.string().optional(),
+    image: z.string().optional(),
+    animation_url: z.string().optional(),
+  })
+  .strict();
+
+export type Metadata = z.infer<typeof MetadataSchema>;

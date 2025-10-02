@@ -39,9 +39,8 @@ This example showcases:
 
 After building, you'll find these files in `dist/`:
 
-- **`mcp-server.js`** - Stdio MCP server for local testing
-- **`lambda-handler.js`** - AWS Lambda handler using the MCP adapter
-- **`metadata.json`** - Complete tool and project metadata
+- **`mcp-server.js`** - stdio MCP server for Node/Lambda execution
+- **`metadata.json`** - Complete tool and project metadata (spec `v1.0.0`)
 - **`tools/calculate.js`** - Compiled calculator tool
 
 ## Testing

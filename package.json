@@ -15,6 +15,9 @@
     "typecheck": "tsc --noEmit",
     "test": "echo \"No tests configured\" && exit 0",
     "prepublishOnly": "npm run build",
+    "examples:build": "node dist/cli/index.js build --input examples/full-metadata/tools --output examples/full-metadata/dist",
+    "examples:metadata": "node dist/cli/index.js metadata --input examples/full-metadata/tools --output examples/full-metadata/metadata.json",
+    "examples:validate": "node dist/cli/index.js validate --input examples/full-metadata/tools",
     "changeset": "changeset",
     "changeset:version": "changeset version",
     "changeset:publish": "changeset publish",
@@ -49,6 +52,7 @@
     "@aws/run-mcp-servers-with-aws-lambda": "^0.2.2",
     "@modelcontextprotocol/sdk": "^1.15.1",
     "commander": "^11.0.0",
+    "esbuild": "^0.21.5",
     "tsx": "^4.0.0",
     "zod": "^3.24.1",
     "zod-to-json-schema": "^3.24.6"

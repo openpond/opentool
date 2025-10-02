@@ -188,10 +188,9 @@ When you push a project with `opentool` dependency to GitHub and connect it to O
 
 ## Examples
 
-See the `examples/` directory for complete examples:
+See the `examples/` directory for a comprehensive example:
 
-- **`examples/full-metadata/`** - Complete metadata configuration with payment and discovery features
-- **`examples/minimal/`** - Minimal setup demonstrating smart defaults
+- **`examples/full-metadata/`** - Metadata configuration with payment and discovery features
 
 ### Testing Examples Locally
 
@@ -207,16 +206,16 @@ cd examples/full-metadata
 npm link opentool
 npm run build
 
-# Test the minimal example  
-cd ../minimal
-npm link opentool
-npm run build
-
 # Examine generated output
 cat dist/metadata.json
 
 # Test the MCP server
 echo '{"jsonrpc": "2.0", "id": 1, "method": "tools/list"}' | node dist/mcp-server.js
+
+# Quick regression helpers from the repo root
+npm run examples:build      # Build full metadata example (CJS+ESM)
+npm run examples:validate   # Validate example metadata and tools
+npm run examples:metadata   # Regenerate metadata.json without rebuilding tools
 ```
 
 ## Metadata System
@@ -228,6 +227,10 @@ OpenTool features a sophisticated **three-tier metadata system**:
 3. **Full Control** - Tool-level overrides for rich discovery metadata
 
 See [`METADATA.md`](./METADATA.md) for the complete guide to configuring metadata for on-chain registration and payments.
+
+## Future Work
+
+- Explore an esbuild-powered watch mode that keeps metadata and tool artifacts up to date for the dev server. This remains on the follow-up list once the new pipeline settles.
 
 ## Contributing
 
