@@ -62,6 +62,18 @@ npx opentool validate
 npx opentool dev
 ```
 
+### MCP Inspector
+
+The `examples/full-metadata` project includes an `inspector.json` preset so you can exercise MCP tools with the official MCP Inspector:
+
+```bash
+cd examples/full-metadata
+npx mcp-inspector --config inspector.json --server opentool-dev
+```
+
+The inspector spawns `opentool dev --stdio --no-watch --input tools`, so you don’t need a second terminal. Only tools that export `mcp = { enabled: true }` (for example `mcp_ping`) appear in the inspector’s tool list; HTTP-only tools like `calculate` and `hello` keep responding on the local HTTP port.
+
+
 ### 4. Build for deployment
 
 ```bash
