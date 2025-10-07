@@ -6,6 +6,7 @@ import * as path from 'path';
 import { fileURLToPath } from 'url';
 import { zodToJsonSchema } from 'zod-to-json-schema';
 import { createMcpAdapter, HTTP_METHODS } from '../adapters/mcp';
+import { withPaymentRequirement } from '../payment/index';
 import {
   type HttpHandlerDefinition,
   type InternalToolDefinition,
@@ -185,7 +186,9 @@ async function loadToolsFromDirectory(metadataMap: Map<string, Tool>): Promise<I
       }
       inputSchema = normalizeInputSchema(inputSchema);
 
-      const httpHandlers = collectHttpHandlers(candidate);
+      const payment = candidate.payment ?? null;
+      const httpHandlersRaw = collectHttpHandlers(candidate);
+      const httpHandlers = [...httpHandlersRaw];
       let legacyTool =
         typeof candidate.TOOL === 'function' ? wrapLegacyTool(candidate.TOOL.bind(candidate)) : undefined;
 
@@ -198,6 +201,16 @@ async function loadToolsFromDirectory(metadataMap: Map<string, Tool>): Promise<I
 
       if (httpHandlers.length === 0 && !legacyTool) {
         continue;
+      }
+
+      if (payment) {
+        for (let index = 0; index < httpHandlers.length; index += 1) {
+          const entry = httpHandlers[index];
+          httpHandlers[index] = {
+            ...entry,
+            handler: withPaymentRequirement(entry.handler, payment),
+          };
+        }
       }
 
       const mcpConfig = normalizeRuntimeMcpConfig(candidate.mcp, legacyTool);
@@ -221,6 +234,7 @@ async function loadToolsFromDirectory(metadataMap: Map<string, Tool>): Promise<I
         ...(legacyTool ? { legacyTool } : {}),
         mcpConfig,
         handler: async (params) => adapter(params),
+        payment,
       };
       tools.push(tool);
     } catch (error) {

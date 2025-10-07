@@ -1,4 +1,5 @@
 import { z, type ZodSchema } from "zod";
+import { PaymentRequiredError } from "../payment/index";
 import type { ToolResponse } from "../types/index";
 
 export const HTTP_METHODS = [
@@ -41,8 +42,15 @@ export function createMcpAdapter(options: CreateMcpAdapterOptions) {
 
     if (httpHandler) {
       const request = buildRequest(options.name, defaultMethod, validated);
-      const response = await Promise.resolve(httpHandler(request));
-      return await responseToToolResponse(response);
+      try {
+        const response = await Promise.resolve(httpHandler(request));
+        return await responseToToolResponse(response);
+      } catch (error) {
+        if (error instanceof PaymentRequiredError) {
+          return await responseToToolResponse(error.response);
+        }
+        throw error;
+      }
     }
 
     if (!legacyTool) {

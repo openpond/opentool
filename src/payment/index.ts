@@ -67,6 +67,88 @@ export interface RequirePaymentSuccess {
 
 export type RequirePaymentOutcome = Response | RequirePaymentSuccess;
 
+const PAYMENT_CONTEXT_SYMBOL = Symbol.for("opentool.payment.context");
+
+export class PaymentRequiredError extends Error {
+  readonly response: Response;
+  readonly verification: PaymentVerificationResult | undefined;
+
+  constructor(response: Response, verification?: PaymentVerificationResult) {
+    super("Payment required");
+    this.name = "PaymentRequiredError";
+    this.response = response;
+    this.verification = verification;
+  }
+}
+
+export type PaymentContext = RequirePaymentSuccess;
+
+function setPaymentContext(request: Request, context: PaymentContext): void {
+  try {
+    Object.defineProperty(request, PAYMENT_CONTEXT_SYMBOL, {
+      value: context,
+      configurable: true,
+      enumerable: false,
+      writable: true,
+    });
+  } catch {
+    (request as any)[PAYMENT_CONTEXT_SYMBOL] = context;
+  }
+}
+
+export function getPaymentContext(
+  request: Request
+): PaymentContext | undefined {
+  return (request as any)[PAYMENT_CONTEXT_SYMBOL];
+}
+
+function applyPaymentHeaders(
+  response: Response,
+  headers: Record<string, string>
+): Response {
+  const entries = Object.entries(headers ?? {});
+  if (entries.length === 0) {
+    return response;
+  }
+
+  let mutated = false;
+  const merged = new Headers(response.headers);
+  for (const [key, value] of entries) {
+    if (!merged.has(key)) {
+      merged.set(key, value);
+      mutated = true;
+    }
+  }
+
+  if (!mutated) {
+    return response;
+  }
+
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers: merged,
+  });
+}
+
+export function withPaymentRequirement(
+  handler: (request: Request) => Promise<Response> | Response,
+  payment: DefinedPayment | PaymentRequirementsDefinition,
+  options: RequirePaymentOptions = {}
+): (request: Request) => Promise<Response> {
+  return async (request: Request): Promise<Response> => {
+    const verification = await requirePayment(request, payment, options);
+    if (verification instanceof Response) {
+      return verification;
+    }
+
+    setPaymentContext(request, verification);
+
+    const response = await Promise.resolve(handler(request));
+    return applyPaymentHeaders(response, verification.headers);
+  };
+}
+
 export interface DefinePaymentConfig {
   amount: string | number;
   payTo: string;
@@ -290,7 +372,8 @@ export async function requirePayment(
     if (options.onFailure) {
       return options.onFailure(verification);
     }
-    return paymentRequiredResponse(definition);
+    const response = paymentRequiredResponse(definition);
+    throw new PaymentRequiredError(response, verification);
   }
 
   return {

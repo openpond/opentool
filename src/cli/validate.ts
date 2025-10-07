@@ -12,6 +12,7 @@ import {
 } from "../types/index";
 import { Metadata, ToolMetadataOverrides } from "../types/metadata";
 import type { DefinedPayment } from "../payment/index";
+import { withPaymentRequirement } from "../payment/index";
 import { transpileWithEsbuild } from "../utils/esbuild";
 import { importFresh, resolveCompiledPath } from "../utils/module-loader";
 import { buildMetadataArtifact } from "./shared/metadata";
@@ -147,7 +148,8 @@ export async function loadAndValidateTools(
         typeof toolModule.TOOL === "function" ? toolModule.TOOL.bind(toolModule) : undefined;
       const legacyTool = legacyToolRaw ? wrapLegacyTool(legacyToolRaw) : undefined;
 
-      const httpHandlers = collectHttpHandlers(toolModule, file);
+      const httpHandlersRaw = collectHttpHandlers(toolModule, file);
+      const httpHandlers = [...httpHandlersRaw];
       if (httpHandlers.length === 0 && legacyTool) {
         httpHandlers.push({
           method: "POST",
@@ -159,6 +161,16 @@ export async function loadAndValidateTools(
         throw new Error(
           `${file} must export at least one HTTP handler (e.g. POST) or a legacy TOOL function`
         );
+      }
+
+      if (paymentExport) {
+        for (let index = 0; index < httpHandlers.length; index += 1) {
+          const entry = httpHandlers[index];
+          httpHandlers[index] = {
+            ...entry,
+            handler: withPaymentRequirement(entry.handler, paymentExport),
+          };
+        }
       }
 
       const httpHandlerMap = toHttpHandlerMap(httpHandlers);

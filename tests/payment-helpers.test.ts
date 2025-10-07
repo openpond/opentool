@@ -11,7 +11,13 @@ import {
   PAYMENT_SCHEMA_VERSION,
   PaymentRequirementsDefinition,
 } from "../src/types/payment";
-import { definePayment, requirePayment } from "../src/payment/index";
+import {
+  definePayment,
+  getPaymentContext,
+  PaymentRequiredError,
+  requirePayment,
+  withPaymentRequirement,
+} from "../src/payment/index";
 
 const BASE_OPTION: PaymentRequirementsDefinition["accepts"][number] = {
   id: "base-usdc",
@@ -193,7 +199,7 @@ test("requirePayment succeeds with defined payment configuration", async () => {
   }
 });
 
-test("requirePayment returns 402 response when missing header", async () => {
+test("requirePayment throws PaymentRequiredError when missing header", async () => {
   const payment = definePayment({
     amount: "1.00",
     payTo: "0x1111111111111111111111111111111111111111",
@@ -204,11 +210,61 @@ test("requirePayment returns 402 response when missing header", async () => {
   });
 
   const request = new Request("https://example.com", { method: "POST" });
-  const outcome = await requirePayment(request, payment);
-  assert.ok(outcome instanceof Response);
-  if (outcome instanceof Response) {
-    assert.equal(outcome.status, 402);
-  }
+
+  await assert.rejects(async () => {
+    await requirePayment(request, payment);
+  }, PaymentRequiredError);
+});
+
+test("withPaymentRequirement enforces payment automatically", async () => {
+  const payment = definePayment({
+    amount: "1.00",
+    payTo: "0x1111111111111111111111111111111111111111",
+    direct: {
+      id: "demo",
+      token: "demo-access",
+    },
+  });
+
+  const handler = withPaymentRequirement(async (request: Request) => {
+    const context = getPaymentContext(request);
+    assert.ok(context);
+    return new Response(JSON.stringify({ success: true }), {
+      status: 200,
+      headers: {
+        "content-type": "application/json",
+      },
+    });
+  }, payment);
+
+  const missingHeaderRequest = new Request("https://example.com", {
+    method: "POST",
+  });
+
+  await assert.rejects(async () => {
+    await handler(missingHeaderRequest);
+  }, PaymentRequiredError);
+
+  const headerValue = encodeHeader({
+    schemaVersion: 1,
+    optionId: "demo",
+    proofType: "demo",
+    payload: { token: "demo-access" },
+  });
+
+  const authedRequest = new Request("https://example.com", {
+    method: "POST",
+    headers: new Headers([[PAYMENT_HEADERS.direct, headerValue]]),
+  });
+
+  const response = await handler(authedRequest);
+  assert.equal(response.status, 200);
+  const cloned = response.clone();
+  const body = await cloned.json();
+  assert.ok(body.success);
+  const context = getPaymentContext(authedRequest);
+  assert.ok(context);
+  assert.equal(context?.payment.optionId, "demo");
 });
 
 function encodeHeader(value: unknown): string {

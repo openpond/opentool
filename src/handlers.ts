@@ -8,6 +8,8 @@
  * Build system converts to:
  *   export const POST = wrapHandler(userPOST);
  */
+import { PaymentRequiredError } from "./payment/index";
+
 export function wrapHandler(
   handler: (request: Request) => Promise<Response>
 ) {
@@ -59,6 +61,18 @@ export function wrapHandler(
         body: await response.text(),
       };
     } catch (error: any) {
+      if (error instanceof PaymentRequiredError) {
+        const response = error.response;
+        const headers: Record<string, string> = {};
+        response.headers.forEach((value, key) => {
+          headers[key] = value;
+        });
+        return {
+          statusCode: response.status,
+          headers,
+          body: await response.text(),
+        };
+      }
       // Handle errors
       return {
         statusCode: 500,

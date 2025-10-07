@@ -9,6 +9,7 @@ import * as http from "http";
 import * as path from "path";
 import { fileURLToPath } from "url";
 import { createMcpAdapter } from "../adapters/mcp";
+import { PaymentRequiredError } from "../payment/index";
 import {
   HTTP_METHODS,
   type HttpHandlerDefinition,
@@ -320,7 +321,16 @@ async function handleRequest(params: {
 
   const body = await readRequestBody(req);
   const request = createWebRequest({ req, url, body });
-  const response = await route.handler(request);
+  let response: Response;
+  try {
+    response = await route.handler(request);
+  } catch (error) {
+    if (error instanceof PaymentRequiredError) {
+      response = error.response;
+    } else {
+      throw error;
+    }
+  }
 
   const headers: Record<string, string> = {};
   response.headers.forEach((value, key) => {
