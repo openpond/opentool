@@ -14,10 +14,11 @@ export const metadata = {
 };
 
 export async function POST(request: Request) {
-  const body = await request.json();
+  const payload = await request.json();
+  const { name } = schema.parse(payload);
 
   return Response.json({
-    message: `Hello, ${body.name}!`,
+    message: `Hello, ${name}!`,
     timestamp: new Date().toISOString()
   });
 }

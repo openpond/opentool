@@ -11,8 +11,9 @@ import {
   type ToolResponse,
 } from "../types/index";
 import { Metadata, ToolMetadataOverrides } from "../types/metadata";
+import type { DefinedPayment } from "../payment/index";
 import { transpileWithEsbuild } from "../utils/esbuild";
-import { requireFresh, resolveCompiledPath } from "../utils/module-loader";
+import { importFresh, resolveCompiledPath } from "../utils/module-loader";
 import { buildMetadataArtifact } from "./shared/metadata";
 
 export interface ValidateOptions {
@@ -119,24 +120,24 @@ export async function loadAndValidateTools(
   const { outDir, cleanup } = await transpileWithEsbuild({
     entryPoints,
     projectRoot,
-    format: "cjs",
+    format: "esm",
     outDir: tempDir,
   });
-  renameTempOutputs(outDir, files, ".cjs");
 
   const tools: InternalToolDefinition[] = [];
 
   try {
     for (const file of files) {
-      const compiledPath = resolveCompiledPath(outDir, file, ".cjs");
+      const compiledPath = resolveCompiledPath(outDir, file);
       if (!fs.existsSync(compiledPath)) {
         throw new Error(`Failed to compile ${file}`);
       }
 
-      const moduleExports = requireFresh(compiledPath);
+      const moduleExports = await importFresh(compiledPath);
       const toolModule = extractToolModule(moduleExports, file);
 
       const schema = ensureZodSchema(toolModule.schema, file);
+      const paymentExport = toolModule.payment as DefinedPayment | undefined;
       const toolName =
         toolModule.metadata?.name ?? toolModule.metadata?.title ?? toBaseName(file);
       const inputSchemaRaw = schema ? toJsonSchema(toolName, schema) : undefined;
@@ -174,16 +175,39 @@ export async function loadAndValidateTools(
         ...(defaultMethod ? { defaultMethod } : {}),
       });
 
+      let metadataOverrides: ToolMetadataOverrides | null =
+        toolModule.metadata ?? null;
+
+      if (paymentExport?.metadata) {
+        if (metadataOverrides) {
+          metadataOverrides = {
+            ...metadataOverrides,
+            payment: metadataOverrides.payment ?? (paymentExport.metadata as any),
+            annotations: {
+              ...(metadataOverrides.annotations ?? {}),
+              requiresPayment:
+                metadataOverrides.annotations?.requiresPayment ?? true,
+            },
+          };
+        } else {
+          metadataOverrides = {
+            payment: paymentExport.metadata as any,
+            annotations: { requiresPayment: true },
+          } as ToolMetadataOverrides;
+        }
+      }
+
       const tool: InternalToolDefinition = {
         schema: schema ?? undefined,
         inputSchema,
-        metadata: toolModule.metadata ?? null,
+        metadata: metadataOverrides,
         httpHandlers,
         ...(legacyTool ? { legacyTool } : {}),
         mcpConfig: normalizeMcpConfig(toolModule.mcp, file),
         filename: toBaseName(file),
         sourcePath: path.join(toolsDir, file),
         handler: async (params: unknown) => adapter(params),
+        payment: paymentExport ?? null,
       };
 
       tools.push(tool);
@@ -469,18 +493,6 @@ function findDuplicates(values: string[]): string[] {
     }
   });
   return Array.from(duplicates.values());
-}
-
-function renameTempOutputs(outDir: string, files: string[], newExtension: string): void {
-  for (const file of files) {
-    const baseName = path.basename(file).replace(/\.[^.]+$/, "");
-    const fromPath = path.join(outDir, `${baseName}.js`);
-    if (!fs.existsSync(fromPath)) {
-      continue;
-    }
-    const toPath = path.join(outDir, `${baseName}${newExtension}`);
-    fs.renameSync(fromPath, toPath);
-  }
 }
 
 function logMetadataSummary(

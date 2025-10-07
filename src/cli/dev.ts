@@ -269,9 +269,15 @@ function printToolList(
     const methods = tool.httpHandlers
       .map((handler) => handler.method)
       .join(", ");
-    const mcpTag =
-      tool.mcpConfig?.enabled || tool.legacyTool ? `${dim}[mcp]${reset}` : "";
-    log(`  • ${name} — ${methods}${mcpTag ? ` ${mcpTag}` : ""}`);
+    const tags: string[] = [];
+    if (tool.mcpConfig?.enabled || tool.legacyTool) {
+      tags.push(`${dim}[mcp]${reset}`);
+    }
+    if (tool.payment || (tool.metadata && (tool.metadata as any).payment)) {
+      tags.push(`${dim}[payments]${reset}`);
+    }
+    const tagSuffix = tags.length ? ` ${tags.join(" ")}` : "";
+    log(`  • ${name} — ${methods}${tagSuffix}`);
   });
 }
 

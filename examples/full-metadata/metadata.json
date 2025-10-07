@@ -13,53 +13,51 @@
     "amountUSDC": 0.001,
     "description": "Very low cost example tools for learning and testing",
     "x402": true,
-    "openpondDirect": true,
+    "plain402": true,
     "acceptedMethods": [
-      "ETH",
+      "x402",
+      "402"
+    ],
+    "acceptedCurrencies": [
       "USDC"
     ],
     "chainIds": [
       8453
-    ]
+    ],
+    "facilitator": "opentool"
   },
   "tools": [
     {
       "name": "calculate",
       "description": "Perform basic mathematical operations on two numbers",
       "inputSchema": {
-        "$ref": "#/definitions/calculateSchema",
-        "definitions": {
-          "calculateSchema": {
-            "type": "object",
-            "properties": {
-              "operation": {
-                "type": "string",
-                "enum": [
-                  "add",
-                  "subtract",
-                  "multiply",
-                  "divide"
-                ],
-                "description": "Mathematical operation to perform"
-              },
-              "a": {
-                "type": "number",
-                "description": "First number"
-              },
-              "b": {
-                "type": "number",
-                "description": "Second number"
-              }
-            },
-            "required": [
-              "operation",
-              "a",
-              "b"
+        "type": "object",
+        "properties": {
+          "operation": {
+            "type": "string",
+            "enum": [
+              "add",
+              "subtract",
+              "multiply",
+              "divide"
             ],
-            "additionalProperties": false
+            "description": "Mathematical operation to perform"
+          },
+          "a": {
+            "type": "number",
+            "description": "First number"
+          },
+          "b": {
+            "type": "number",
+            "description": "Second number"
           }
         },
-        "$schema": "http://json-schema.org/draft-07/schema#"
+        "required": [
+          "operation",
+          "a",
+          "b"
+        ],
+        "additionalProperties": false
       },
       "annotations": {
         "readOnlyHint": true,
@@ -69,14 +67,18 @@
         "amountUSDC": 0.001,
         "description": "Basic mathematical operations",
         "x402": true,
-        "openpondDirect": true,
+        "plain402": true,
         "acceptedMethods": [
-          "ETH",
+          "x402",
+          "402"
+        ],
+        "acceptedCurrencies": [
           "USDC"
         ],
         "chainIds": [
           8453
-        ]
+        ],
+        "facilitator": "opentool"
       },
       "discovery": {
         "keywords": [
@@ -137,6 +139,134 @@
             "Division by zero"
           ]
         }
+      }
+    },
+    {
+      "name": "hello",
+      "description": "Simple greeting tool for testing",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Name of the person to greet"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "idempotentHint": true
+      },
+      "payment": {
+        "amountUSDC": 0.001,
+        "description": "Very low cost example tools for learning and testing",
+        "x402": true,
+        "plain402": true,
+        "acceptedMethods": [
+          "x402",
+          "402"
+        ],
+        "acceptedCurrencies": [
+          "USDC"
+        ],
+        "chainIds": [
+          8453
+        ],
+        "facilitator": "opentool"
+      }
+    },
+    {
+      "name": "mcp_ping",
+      "description": "Simple tool to verify MCP + HTTP dual-mode behaviour",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "default": "ping",
+            "description": "Optional message to echo back"
+          }
+        },
+        "additionalProperties": false
+      },
+      "payment": {
+        "amountUSDC": 0.001,
+        "description": "Very low cost example tools for learning and testing",
+        "x402": true,
+        "plain402": true,
+        "acceptedMethods": [
+          "x402",
+          "402"
+        ],
+        "acceptedCurrencies": [
+          "USDC"
+        ],
+        "chainIds": [
+          8453
+        ],
+        "facilitator": "opentool"
+      }
+    },
+    {
+      "name": "premium_report",
+      "description": "Delivers premium market analytics once payment is satisfied",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "symbol": {
+            "type": "string",
+            "minLength": 1,
+            "default": "OPN",
+            "description": "Ticker symbol to generate a premium market summary for"
+          }
+        },
+        "additionalProperties": false
+      },
+      "annotations": {
+        "requiresPayment": true
+      },
+      "payment": {
+        "amountUSDC": 0.5,
+        "description": "Premium market intelligence feed",
+        "x402": true,
+        "plain402": true,
+        "acceptedMethods": [
+          "x402",
+          "402"
+        ],
+        "acceptedCurrencies": [
+          "USDC"
+        ],
+        "chainIds": [
+          8453
+        ],
+        "facilitator": "opentool"
+      },
+      "discovery": {
+        "keywords": [
+          "market",
+          "analytics",
+          "payments",
+          "premium"
+        ],
+        "category": "finance",
+        "useCases": [
+          "Pay-to-unlock premium market KPIs",
+          "Demonstrate payment-gated tools"
+        ],
+        "examples": [
+          {
+            "description": "Request premium analytics for OPN",
+            "input": {
+              "symbol": "OPN"
+            },
+            "expectedOutput": "Premium analytics with payment receipt"
+          }
+        ]
       }
     }
   ],

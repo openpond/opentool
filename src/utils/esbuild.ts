@@ -68,6 +68,13 @@ export async function transpileWithEsbuild(options: TranspileOptions): Promise<T
 
   await build(buildOptions);
 
+  if (options.format === "esm") {
+    const packageJsonPath = path.join(tempBase, "package.json");
+    if (!fs.existsSync(packageJsonPath)) {
+      fs.writeFileSync(packageJsonPath, JSON.stringify({ type: "module" }), "utf8");
+    }
+  }
+
   const cleanup = () => {
     if (options.outDir) {
       return;

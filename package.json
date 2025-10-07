@@ -14,7 +14,7 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test tests/create-mcp-adapter.test.ts",
+    "test": "tsx --test tests/*.test.ts",
     "prepublishOnly": "npm run build",
     "examples:build": "node dist/cli/index.js build --input examples/full-metadata/tools --output examples/full-metadata/dist",
     "examples:metadata": "node dist/cli/index.js metadata --input examples/full-metadata/tools --output examples/full-metadata/metadata.json",
@@ -74,5 +74,19 @@
   },
   "engines": {
     "node": ">=20.0.0"
+  },
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./payment": {
+      "import": "./dist/payment/index.js",
+      "types": "./dist/payment/index.d.ts"
+    },
+    "./cli": {
+      "import": "./dist/cli/index.js",
+      "types": "./dist/cli/index.d.ts"
+    }
   }
 }

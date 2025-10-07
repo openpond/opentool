@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { ToolMetadataOverrides } from "./metadata";
+import type { DefinedPayment } from "../payment/index";
 
 export interface ToolContent {
   type: "text" | "image" | "resource";
@@ -49,6 +50,7 @@ export interface InternalToolDefinition<
   mcpConfig?: McpConfig | null;
   sourcePath?: string;
   handler?: (params: any) => Promise<ToolResponse>;
+  payment?: DefinedPayment | null;
 }
 
 export interface ServerConfig {
@@ -65,3 +67,4 @@ export interface BuildConfig {
 }
 
 export type { Tool, ToolMetadataOverrides, Metadata } from "./metadata";
+export * from "./payment";
