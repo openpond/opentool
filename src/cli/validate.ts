@@ -1,9 +1,16 @@
 import * as fs from "fs";
 import * as path from "path";
-import { ZodSchema } from "zod";
+import { z, type ZodSchema } from "zod";
 import { zodToJsonSchema, type JsonSchema7Type } from "zod-to-json-schema";
-import { InternalToolDefinition } from "../types";
-import { Metadata } from "../types/metadata";
+import { createMcpAdapter } from "../adapters/mcp";
+import {
+  HTTP_METHODS,
+  type HttpHandlerDefinition,
+  type InternalToolDefinition,
+  type McpConfig,
+  type ToolResponse,
+} from "../types/index";
+import { Metadata, ToolMetadataOverrides } from "../types/metadata";
 import { transpileWithEsbuild } from "../utils/esbuild";
 import { requireFresh, resolveCompiledPath } from "../utils/module-loader";
 import { buildMetadataArtifact } from "./shared/metadata";
@@ -129,28 +136,54 @@ export async function loadAndValidateTools(
       const moduleExports = requireFresh(compiledPath);
       const toolModule = extractToolModule(moduleExports, file);
 
-      const schema: ZodSchema = toolModule.schema;
-      const toolName = toolModule.metadata?.name ?? toolModule.metadata?.title ?? toBaseName(file);
-      const inputSchema = toJsonSchema(toolName, schema);
+      const schema = ensureZodSchema(toolModule.schema, file);
+      const toolName =
+        toolModule.metadata?.name ?? toolModule.metadata?.title ?? toBaseName(file);
+      const inputSchemaRaw = schema ? toJsonSchema(toolName, schema) : undefined;
+      const inputSchema = normalizeInputSchema(inputSchemaRaw);
 
-      const handler = async (params: unknown) => {
-        const result = await toolModule.TOOL(params);
-        if (typeof result === "string") {
-          return {
-            content: [{ type: "text", text: result }],
-            isError: false,
-          };
-        }
-        return result;
-      };
+      const legacyToolRaw =
+        typeof toolModule.TOOL === "function" ? toolModule.TOOL.bind(toolModule) : undefined;
+      const legacyTool = legacyToolRaw ? wrapLegacyTool(legacyToolRaw) : undefined;
+
+      const httpHandlers = collectHttpHandlers(toolModule, file);
+      if (httpHandlers.length === 0 && legacyTool) {
+        httpHandlers.push({
+          method: "POST",
+          handler: synthesizeHttpHandlerFromLegacy(legacyTool, schema),
+        });
+      }
+
+      if (httpHandlers.length === 0) {
+        throw new Error(
+          `${file} must export at least one HTTP handler (e.g. POST) or a legacy TOOL function`
+        );
+      }
+
+      const httpHandlerMap = toHttpHandlerMap(httpHandlers);
+      const defaultMethod =
+        typeof toolModule.mcp?.defaultMethod === "string"
+          ? toolModule.mcp.defaultMethod
+          : undefined;
+
+      const adapter = createMcpAdapter({
+        name: toolName,
+        schema,
+        httpHandlers: httpHandlerMap,
+        ...(legacyTool ? { legacyTool } : {}),
+        ...(defaultMethod ? { defaultMethod } : {}),
+      });
 
       const tool: InternalToolDefinition = {
-        schema,
+        schema: schema ?? undefined,
         inputSchema,
         metadata: toolModule.metadata ?? null,
-        handler,
+        httpHandlers,
+        ...(legacyTool ? { legacyTool } : {}),
+        mcpConfig: normalizeMcpConfig(toolModule.mcp, file),
         filename: toBaseName(file),
         sourcePath: path.join(toolsDir, file),
+        handler: async (params: unknown) => adapter(params),
       };
 
       tools.push(tool);
@@ -168,16 +201,24 @@ export async function loadAndValidateTools(
 function extractToolModule(exportsObject: any, filename: string): any {
   const candidates = [exportsObject, exportsObject?.default];
   for (const candidate of candidates) {
-    if (candidate && typeof candidate === "object" && candidate.schema && candidate.TOOL) {
-      return candidate;
+    if (candidate && typeof candidate === "object") {
+      const hasLegacy = typeof candidate.TOOL === "function";
+      const hasSchema = candidate.schema && typeof candidate.schema === "object";
+      const hasHttp = HTTP_METHODS.some((method) => typeof candidate[method] === "function");
+      if (hasLegacy || hasSchema || hasHttp) {
+        return candidate;
+      }
     }
   }
   throw new Error(
-    `${filename} must export both a Zod schema and a TOOL handler. Export with either named exports or a default object.`
+    `${filename} must export a tool definition. Expected a Zod schema plus either HTTP handlers (export async function POST) or a legacy TOOL function.`
   );
 }
 
-function toJsonSchema(name: string, schema: ZodSchema): JsonSchema7Type {
+function toJsonSchema(name: string, schema?: ZodSchema): JsonSchema7Type | undefined {
+  if (!schema) {
+    return undefined;
+  }
   try {
     return zodToJsonSchema(schema, {
       name: `${name}Schema`,
@@ -191,6 +232,230 @@ function toJsonSchema(name: string, schema: ZodSchema): JsonSchema7Type {
 
 function toBaseName(file: string): string {
   return file.replace(/\.[^.]+$/, "");
+}
+
+function ensureZodSchema(schemaCandidate: unknown, filename: string): ZodSchema {
+  if (!schemaCandidate) {
+    throw new Error(`${filename} must export a Zod schema as "schema"`);
+  }
+
+  if (schemaCandidate instanceof z.ZodType) {
+    return schemaCandidate as ZodSchema;
+  }
+
+  const schema = schemaCandidate as ZodSchema;
+  if (typeof (schema as any)?.parse !== "function") {
+    throw new Error(`${filename} schema export must be a Zod schema (missing parse method)`);
+  }
+
+  return schema;
+}
+
+function collectHttpHandlers(module: any, filename: string): HttpHandlerDefinition[] {
+  const handlers: HttpHandlerDefinition[] = [];
+  for (const method of HTTP_METHODS) {
+    const handler = module?.[method];
+    if (typeof handler === "function") {
+      handlers.push({
+        method,
+        handler: async (request: Request) => handler.call(module, request),
+      });
+    }
+  }
+
+  // Ensure deterministic ordering
+  handlers.sort((a, b) => HTTP_METHODS.indexOf(a.method) - HTTP_METHODS.indexOf(b.method));
+
+  // Warn when duplicate methods detected
+  const duplicates = findDuplicates(handlers.map((h) => h.method));
+  if (duplicates.length > 0) {
+    throw new Error(
+      `${filename} exports multiple handlers for HTTP method(s): ${duplicates.join(", ")}`
+    );
+  }
+
+  return handlers;
+}
+
+function synthesizeHttpHandlerFromLegacy(
+  legacyTool: (params: unknown) => Promise<ToolResponse>,
+  schema?: ZodSchema
+): (request: Request) => Promise<Response> {
+  return async (request: Request) => {
+    let payload: unknown = {};
+
+    if (request.method === "GET" || request.method === "HEAD") {
+      const url = new URL(request.url);
+      payload = Object.fromEntries(url.searchParams.entries());
+    } else {
+      const text = await request.text();
+      if (text) {
+        try {
+          payload = JSON.parse(text);
+        } catch {
+          payload = { raw: text };
+        }
+      }
+    }
+
+    const validated = schema ? schema.parse(payload) : payload;
+    const responsePayload = await legacyTool(validated);
+    const normalized = normalizeToolResult(responsePayload);
+    const status = normalized.isError ? 400 : 200;
+
+    return new Response(JSON.stringify(normalized), {
+      status,
+      headers: { "Content-Type": "application/json" },
+    });
+  };
+}
+
+function wrapLegacyTool(
+  toolFn: (params: unknown) => Promise<unknown> | unknown
+): (params: unknown) => Promise<ToolResponse> {
+  return async (params: unknown) => {
+    const result = await toolFn(params);
+    return normalizeToolResult(result);
+  };
+}
+
+function normalizeToolResult(result: unknown): ToolResponse {
+  if (typeof result === "string") {
+    return {
+      content: [{ type: "text", text: result }],
+      isError: false,
+    };
+  }
+
+  if (result && typeof result === "object" && Array.isArray((result as any).content)) {
+    const toolResponse = result as ToolResponse;
+    return {
+      content: toolResponse.content,
+      isError: toolResponse.isError ?? false,
+    };
+  }
+
+  if (result === undefined || result === null) {
+    return {
+      content: [{ type: "text", text: "" }],
+      isError: false,
+    };
+  }
+
+  return {
+    content: [
+      {
+        type: "text",
+        text: typeof result === "string" ? result : JSON.stringify(result, null, 2),
+      },
+    ],
+    isError: false,
+  };
+}
+
+function toHttpHandlerMap(handlers: HttpHandlerDefinition[]): Record<string, HttpHandlerDefinition["handler"]> {
+  return handlers.reduce<Record<string, HttpHandlerDefinition["handler"]>>((acc, handler) => {
+    acc[handler.method.toUpperCase()] = handler.handler;
+    return acc;
+  }, {});
+}
+
+function normalizeInputSchema(
+  schema: JsonSchema7Type | undefined
+): JsonSchema7Type | undefined {
+  if (!schema || typeof schema !== "object") {
+    return schema;
+  }
+
+  const clone = JSON.parse(JSON.stringify(schema)) as Record<string, unknown>;
+
+  if (typeof clone.$ref === "string" && clone.$ref.startsWith("#/definitions/")) {
+    const refName = clone.$ref.replace("#/definitions/", "");
+    const definitions = clone.definitions as Record<string, unknown> | undefined;
+    if (definitions && typeof definitions[refName] === "object") {
+      return normalizeInputSchema(definitions[refName] as JsonSchema7Type);
+    }
+  }
+
+  delete clone.$ref;
+  delete clone.definitions;
+
+  if (!("type" in clone)) {
+    clone.type = "object";
+  }
+
+  return clone as JsonSchema7Type;
+}
+
+function normalizeMcpConfig(rawConfig: unknown, filename: string): McpConfig | null {
+  if (rawConfig == null) {
+    return null;
+  }
+
+  if (rawConfig === false) {
+    return null;
+  }
+
+  if (rawConfig === true) {
+    return { enabled: true };
+  }
+
+  if (!isPlainObject(rawConfig)) {
+    throw new Error(`${filename} export \\"mcp\\" must be an object with an enabled flag`);
+  }
+
+  const enabledRaw = (rawConfig as Record<string, unknown>).enabled;
+  if (enabledRaw === false) {
+    return null;
+  }
+
+  if (enabledRaw !== true) {
+    throw new Error(`${filename} mcp.enabled must be explicitly set to true to opt-in to MCP`);
+  }
+
+  const modeRaw = (rawConfig as Record<string, unknown>).mode;
+  let mode: McpConfig["mode"] | undefined;
+  if (typeof modeRaw === "string") {
+    const normalized = modeRaw.toLowerCase();
+    if (["stdio", "lambda", "dual"].includes(normalized)) {
+      mode = normalized as McpConfig["mode"];
+    } else {
+      throw new Error(
+        `${filename} mcp.mode must be one of \"stdio\", \"lambda\", or \"dual\" if specified`
+      );
+    }
+  }
+
+  const defaultMethodRaw = (rawConfig as Record<string, unknown>).defaultMethod;
+  const defaultMethod =
+    typeof defaultMethodRaw === "string" ? defaultMethodRaw.toUpperCase() : undefined;
+
+  const overridesRaw = (rawConfig as Record<string, unknown>).metadataOverrides;
+  const metadataOverrides = isPlainObject(overridesRaw)
+    ? (overridesRaw as Partial<ToolMetadataOverrides>)
+    : undefined;
+
+  const config: McpConfig = {
+    enabled: true,
+  };
+
+  if (mode) {
+    config.mode = mode;
+  }
+
+  if (defaultMethod) {
+    config.defaultMethod = defaultMethod;
+  }
+
+  if (metadataOverrides) {
+    config.metadataOverrides = metadataOverrides;
+  }
+
+  return config;
+}
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function findDuplicates(values: string[]): string[] {

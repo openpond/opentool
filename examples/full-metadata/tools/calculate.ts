@@ -66,8 +66,9 @@ export const metadata = {
   },
 };
 
-export async function TOOL(params: z.infer<typeof schema>) {
-  const { operation, a, b } = params;
+export async function POST(request: Request) {
+  const body = await request.json();
+  const { operation, a, b } = body;
 
   let result: number;
 
@@ -83,13 +84,22 @@ export async function TOOL(params: z.infer<typeof schema>) {
       break;
     case "divide":
       if (b === 0) {
-        throw new Error("Cannot divide by zero");
+        return Response.json(
+          { error: "Cannot divide by zero" },
+          { status: 400 }
+        );
       }
       result = a / b;
       break;
     default:
-      throw new Error("Invalid operation");
+      return Response.json(
+        { error: "Invalid operation" },
+        { status: 400 }
+      );
   }
 
-  return `${a} ${operation} ${b} = ${result}`;
+  return Response.json({
+    result: `${a} ${operation} ${b} = ${result}`,
+    computation: { operation, a, b, result }
+  });
 }

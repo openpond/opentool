@@ -223,7 +223,7 @@ npm run examples:metadata   # Regenerate metadata.json without rebuilding tools
 OpenTool features a sophisticated **three-tier metadata system**:
 
 1. **Smart Defaults** - Zero configuration, automatic generation from `package.json`
-2. **Enhanced Metadata** - Optional `metadata.ts` for custom branding and crypto payments  
+2. **Enhanced Metadata** - Optional `metadata.ts` for custom branding and crypto payments
 3. **Full Control** - Tool-level overrides for rich discovery metadata
 
 See [`METADATA.md`](./METADATA.md) for the complete guide to configuring metadata for on-chain registration and payments.
@@ -235,7 +235,6 @@ See [`METADATA.md`](./METADATA.md) for the complete guide to configuring metadat
 ## Contributing
 
 We welcome contributions! Please see our [Contributing Guide](https://github.com/openpond/opentool/blob/master/CONTRIBUTING.md) for details.
-
 
 ## License
 

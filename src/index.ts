@@ -1,5 +1,6 @@
-export * from "./runtime";
-export * from "./types";
+export * from "./runtime/index";
+export * from "./types/index";
+export { createMcpAdapter, responseToToolResponse } from "./adapters/mcp";
 
 export {
   generateMetadata,

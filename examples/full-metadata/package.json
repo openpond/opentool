@@ -9,7 +9,7 @@
     "validate": "opentool validate --input tools"
   },
   "dependencies": {
-    "opentool": "^0.0.1"
+    "opentool": "file:../.."
   },
   "devDependencies": {
     "@types/node": "^20.0.0",

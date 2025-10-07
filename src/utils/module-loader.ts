@@ -1,4 +1,7 @@
 import * as path from "path";
+import { createRequire } from "module";
+
+const requireModule = createRequire(import.meta.url);
 
 export function resolveCompiledPath(outDir: string, originalFile: string, extension = ".js"): string {
   const baseName = path.basename(originalFile).replace(/\.[^.]+$/, "");
@@ -6,8 +9,7 @@ export function resolveCompiledPath(outDir: string, originalFile: string, extens
 }
 
 export function requireFresh(modulePath: string): any {
-  const resolved = require.resolve(modulePath);
-  delete require.cache[resolved];
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  return require(resolved);
+  const resolved = requireModule.resolve(modulePath);
+  delete requireModule.cache[resolved];
+  return requireModule(resolved);
 }

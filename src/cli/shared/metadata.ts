@@ -13,7 +13,7 @@ import {
   ToolMetadataOverrides,
   ToolMetadataOverridesSchema,
 } from "../../types/metadata";
-import { InternalToolDefinition } from "../../types";
+import { InternalToolDefinition } from "../../types/index";
 import { transpileWithEsbuild } from "../../utils/esbuild";
 import { requireFresh, resolveCompiledPath } from "../../utils/module-loader";
 
