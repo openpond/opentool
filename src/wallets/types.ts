@@ -42,11 +42,14 @@ export type ChainReference = string | number;
 
 export type WalletProviderType = "readonly" | "privateKey" | "turnkey";
 
+export type TurnkeySignWith = string;
+
 export interface TurnkeyOptions {
   organizationId: string;
   apiPublicKey: string;
   apiPrivateKey: string;
-  signWith: HexAddress;
+  /** Identifier of the delegated signer (Turnkey address or private key ID). */
+  signWith: TurnkeySignWith;
   apiBaseUrl?: string;
 }
 

@@ -38,9 +38,24 @@ function resolveChainSlug(reference?: string | number): ChainSlug {
       return match[0] as ChainSlug;
     }
   } else if (typeof reference === "string") {
-    const normalized = reference.toLowerCase();
-    if (normalized in chainRegistry) {
-      return normalized as ChainSlug;
+    const sanitize = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/g, "");
+
+    if (reference in chainRegistry) {
+      return reference as ChainSlug;
+    }
+
+    const normalized = sanitize(reference);
+
+    const keyMatch = Object.entries(chainRegistry).find(([key]) => sanitize(key) === normalized);
+    if (keyMatch) {
+      return keyMatch[0] as ChainSlug;
+    }
+
+    const slugMatch = Object.entries(chainRegistry).find(([, meta]) => {
+      return meta.slug && sanitize(meta.slug) === normalized;
+    });
+    if (slugMatch) {
+      return slugMatch[0] as ChainSlug;
     }
 
     const asNumber = Number.parseInt(normalized, 10);

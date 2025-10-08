@@ -1,45 +1,72 @@
-import { SwapSdk } from "@0x/swap-ts-sdk";
 import { wallet } from "opentool/wallet";
 
-export async function POST(request: Request): Promise<Response> {
-  await request.body?.cancel();
+export async function POST(): Promise<Response> {
+  const context = await wallet({
+    chain: "base-sepolia",
+    apiKey: process.env.ALCHEMY_API_KEY,
+    turnkey: {
+      organizationId: process.env.TURNKEY_ORGANIZATION_ID!,
+      apiPublicKey: process.env.TURNKEY_API_PUBLIC_KEY!,
+      apiPrivateKey: process.env.TURNKEY_API_PRIVATE_KEY!,
+      signWith: process.env.TURNKEY_SIGN_WITH as `0x${string}`,
+    },
+  });
 
-  const apiKey = process.env.ZEROX_API_KEY;
-  if (!apiKey) {
-    throw new Error(
-      "ZEROX_API_KEY environment variable is required for the swap example"
-    );
+  const balance = await context.getNativeBalance();
+  const transferAmount = balance / 2n;
+  const recipient = "0x0000000000000000000000000000000000000000";
+
+  console.log(balance.toString());
+
+  let txHash: string | null = null;
+
+  if (transferAmount > 0n) {
+    txHash = await context.transfer({
+      to: recipient,
+      amount: transferAmount,
+    });
   }
 
-  const context = await wallet({
-    chain: "base",
-    rpcUrl: process.env.RPC_URL,
-    privateKey: process.env.PRIVATE_KEY!,
+  /*  const sdk = createClientV2({
+    apiKey: zeroXApiKey,
   });
 
-  const sdk = new SwapSdk({
-    apiKey,
-    chainId: 8453, // Base mainnet
-  });
-
-  const { transaction, quote } = await sdk.quote({
+  const quote = await sdk.swap.allowanceHolder.getQuote.query({
     sellToken: "USDC",
     buyToken: "WETH",
     sellAmount: "1000000",
-    takerAddress: context.address,
+    taker: context.address,
+    chainId: 8453,
   });
+
+  if (!quote.liquidityAvailable) {
+    throw new Error("0x quote did not return a transaction");
+  }
+
+  const { transaction } = quote;
 
   const txHash = await context.transfer({
     to: transaction.to as `0x${string}`,
     amount: BigInt(transaction.value ?? "0"),
-    data: transaction.data as `0x${string}`,
-  });
+    ...(transaction.data ? { data: transaction.data as `0x${string}` } : {}),
+  }); */
 
   return new Response(
     JSON.stringify(
       {
-        quote,
-        transferHash: txHash,
+        balance: balance.toString(),
+        transfer:
+          transferAmount > 0n
+            ? {
+                to: recipient,
+                amount: transferAmount.toString(),
+                txHash,
+              }
+            : {
+                to: recipient,
+                amount: transferAmount.toString(),
+                message: "Insufficient balance to transfer",
+              },
       },
       null,
       2

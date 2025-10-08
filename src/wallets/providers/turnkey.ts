@@ -5,6 +5,7 @@ import { createPublicClient, createWalletClient, http, type PublicClient, type W
 import type {
   ChainMetadata,
   HexAddress,
+  TurnkeySignWith,
   WalletSignerContext,
   WalletSendTransactionParams,
   WalletTransferParams,
@@ -16,7 +17,7 @@ export interface TurnkeyProviderConfig {
   organizationId: string;
   apiPublicKey: string;
   apiPrivateKey: string;
-  signWith: HexAddress;
+  signWith: TurnkeySignWith;
   apiBaseUrl?: string;
 }
 
@@ -29,6 +30,7 @@ export async function createTurnkeyProvider(
 ): Promise<TurnkeyProviderResult> {
   const turnkey = new Turnkey({
     apiBaseUrl: config.apiBaseUrl ?? "https://api.turnkey.com",
+    // The delegated sub-organization the API key pair belongs to.
     defaultOrganizationId: config.organizationId,
     apiPublicKey: config.apiPublicKey,
     apiPrivateKey: config.apiPrivateKey,

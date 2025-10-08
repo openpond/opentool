@@ -1,5 +1,5 @@
 import { zeroAddress } from "viem";
-import { base, mainnet } from "viem/chains";
+import { base, baseSepolia, mainnet } from "viem/chains";
 
 import type {
   ChainMetadata,
@@ -11,6 +11,7 @@ import type {
 
 const BASE_ALCHEMY_HOST = "https://base-mainnet.g.alchemy.com/v2/";
 const ETHEREUM_ALCHEMY_HOST = "https://eth-mainnet.g.alchemy.com/v2/";
+const BASE_SEPOLIA_ALCHEMY_HOST = "https://base-sepolia.g.alchemy.com/v2/";
 
 function buildRpcResolver(
   host: string,
@@ -54,6 +55,16 @@ const chains: Record<string, ChainMetadata> = {
       mainnet.rpcUrls.default.http
     ),
     publicRpcUrls: mainnet.rpcUrls.default.http,
+  },
+  baseSepolia: {
+    id: baseSepolia.id,
+    slug: "base-sepolia",
+    name: "Base Sepolia",
+    chain: baseSepolia,
+    rpcUrl: buildRpcResolver(
+      BASE_SEPOLIA_ALCHEMY_HOST,
+      baseSepolia.rpcUrls.default.http
+    ),
   },
 };
 

@@ -79,39 +79,41 @@ export async function devCommand(options: DevOptions): Promise<void> {
       });
     }
 
-  const server = http.createServer(async (req, res) => {
-    const method = (req.method || "GET").toUpperCase();
-    const url = new URL(req.url || "/", `http://localhost:${port}`);
-    const routePath = url.pathname;
-    log(`${dim}[request] ${method} ${routePath}${reset}`);
-    try {
-      await handleRequest({ req, res, port, routes });
-      log(`${dim}[response] ${method} ${routePath} ${res.statusCode}${reset}`);
-    } catch (error) {
-      console.error("Error handling request:", error);
-      res.writeHead(500, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: (error as Error).message }));
-      log(`${dim}[response] ${method} ${routePath} 500${reset}`);
-    }
-  });
+    const server = http.createServer(async (req, res) => {
+      const method = (req.method || "GET").toUpperCase();
+      const url = new URL(req.url || "/", `http://localhost:${port}`);
+      const routePath = url.pathname;
+      log(`${dim}[request] ${method} ${routePath}${reset}`);
+      try {
+        await handleRequest({ req, res, port, routes });
+        log(
+          `${dim}[response] ${method} ${routePath} ${res.statusCode}${reset}`
+        );
+      } catch (error) {
+        console.error("Error handling request:", error);
+        res.writeHead(500, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: (error as Error).message }));
+        log(`${dim}[response] ${method} ${routePath} 500${reset}`);
+      }
+    });
 
-  server.listen(port, () => {
-    log(`${bold}${dim}> dev opentool${reset}`);
-    log(
-      `   * ${bold}opentool${reset} ${cyan}v${packageJson.version}${reset}`
-    );
-    log(`   * ${bold}HTTP:${reset} http://localhost:${port}`);
-    logStartup(toolDefinitions, enableStdio, log);
-  });
+    server.listen(port, () => {
+      log(`${bold}${dim}> dev opentool${reset}`);
+      log(
+        `   * ${bold}opentool${reset} ${cyan}v${packageJson.version}${reset}`
+      );
+      log(`   * ${bold}HTTP:${reset} http://localhost:${port}`);
+      logStartup(toolDefinitions, enableStdio, log);
+    });
 
-  process.on("SIGINT", async () => {
-    log(`\n${dim}Shutting down dev server...${reset}`);
-    server.close();
-    if (stdioController) {
-      await stdioController.close();
-    }
-    process.exit(0);
-  });
+    process.on("SIGINT", async () => {
+      log(`\n${dim}Shutting down dev server...${reset}`);
+      server.close();
+      if (stdioController) {
+        await stdioController.close();
+      }
+      process.exit(0);
+    });
   } catch (error) {
     console.error("Dev server failed:", error);
     process.exit(1);
@@ -408,7 +410,7 @@ function createWebRequest(params: {
   };
 
   if (body.length > 0 && method !== "GET" && method !== "HEAD") {
-    init.body = body;
+    init.body = body.toString();
   }
 
   return new Request(url, init);
