@@ -27,6 +27,7 @@ interface CompiledToolArtifact {
   httpMethods: string[];
   mcpEnabled: boolean;
   defaultMcpMethod?: string;
+  hasWallet: boolean;
 }
 
 export async function buildCommand(options: BuildOptions): Promise<void> {
@@ -149,6 +150,7 @@ async function emitTools(
       httpMethods: tool.httpHandlers.map((handler) => handler.method),
       mcpEnabled: tool.mcpConfig?.enabled ?? Boolean(tool.legacyTool),
       ...(defaultMcpMethod ? { defaultMcpMethod } : {}),
+      hasWallet: Boolean(tool.payment),
     };
   });
 
@@ -282,6 +284,11 @@ function logBuildSummary(artifacts: BuildArtifacts, options: BuildOptions): void
     console.log("  • mcp-server.js (stdio server)");
   }
   console.log(`  • tools/ (${artifacts.compiledTools.length} compiled tools)`);
+  artifacts.compiledTools.forEach((tool) => {
+    const methods = tool.httpMethods.join(", ");
+    const walletBadge = tool.hasWallet ? " [wallet]" : "";
+    console.log(`     - ${tool.name} [${methods}]${walletBadge}`);
+  });
   console.log("  • metadata.json (registry artifact)");
   if (artifacts.defaultsApplied.length > 0) {
     console.log("\nDefaults applied during metadata synthesis:");

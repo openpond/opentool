@@ -9,6 +9,7 @@
     "validate": "opentool validate --input tools"
   },
   "dependencies": {
+    "@0x/swap-ts-sdk": "^2.1.1",
     "opentool": "file:../.."
   },
   "devDependencies": {

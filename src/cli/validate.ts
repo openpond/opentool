@@ -181,10 +181,10 @@ export async function loadAndValidateTools(
 
       const adapter = createMcpAdapter({
         name: toolName,
-        schema,
         httpHandlers: httpHandlerMap,
         ...(legacyTool ? { legacyTool } : {}),
         ...(defaultMethod ? { defaultMethod } : {}),
+        ...(schema ? { schema } : {}),
       });
 
       let metadataOverrides: ToolMetadataOverrides | null =
@@ -270,9 +270,9 @@ function toBaseName(file: string): string {
   return file.replace(/\.[^.]+$/, "");
 }
 
-function ensureZodSchema(schemaCandidate: unknown, filename: string): ZodSchema {
-  if (!schemaCandidate) {
-    throw new Error(`${filename} must export a Zod schema as "schema"`);
+function ensureZodSchema(schemaCandidate: unknown, filename: string): ZodSchema | undefined {
+  if (schemaCandidate == null) {
+    return undefined;
   }
 
   if (schemaCandidate instanceof z.ZodType) {
