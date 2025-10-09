@@ -1,5 +1,11 @@
 # opentool
 
+## 0.6.1
+
+### Patch Changes
+
+- 09b1568: added build
+
 ## 0.6.0
 
 ### Minor Changes
