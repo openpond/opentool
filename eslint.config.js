@@ -1,8 +1,11 @@
-module.exports = [
+import tseslint from '@typescript-eslint/eslint-plugin';
+import tsParser from '@typescript-eslint/parser';
+
+export default [
   {
     files: ['src/**/*.ts'],
     languageOptions: {
-      parser: require('@typescript-eslint/parser'),
+      parser: tsParser,
       parserOptions: {
         ecmaVersion: 2020,
         sourceType: 'module',
@@ -19,7 +22,7 @@ module.exports = [
       },
     },
     plugins: {
-      '@typescript-eslint': require('@typescript-eslint/eslint-plugin'),
+      '@typescript-eslint': tseslint,
     },
     rules: {
       // Allow console.log in CLI tools
