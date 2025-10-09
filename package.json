@@ -2,19 +2,20 @@
   "name": "opentool",
   "version": "0.5.0",
   "description": "OpenTool framework for building serverless MCP tools",
+  "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {
     "opentool": "dist/cli/index.js"
   },
   "scripts": {
-    "build": "tsc",
+    "build": "npm run typecheck && tsup",
     "dev": "tsx src/cli/dev.ts",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "typecheck": "tsc --noEmit",
-    "test": "echo \"No tests configured\" && exit 0",
-    "prepublishOnly": "npm run build",
+    "test": "tsx --test tests/*.test.ts",
+    "prepublishOnly": "npm run typecheck && npm run build",
     "examples:build": "node dist/cli/index.js build --input examples/full-metadata/tools --output examples/full-metadata/dist",
     "examples:metadata": "node dist/cli/index.js metadata --input examples/full-metadata/tools --output examples/full-metadata/metadata.json",
     "examples:validate": "node dist/cli/index.js validate --input examples/full-metadata/tools",
@@ -51,9 +52,12 @@
   "dependencies": {
     "@aws/run-mcp-servers-with-aws-lambda": "^0.2.2",
     "@modelcontextprotocol/sdk": "^1.15.1",
+    "@turnkey/sdk-server": "^1.16.0",
+    "@turnkey/viem": "^0.9.9",
     "commander": "^11.0.0",
     "esbuild": "^0.21.5",
     "tsx": "^4.0.0",
+    "viem": "^2.31.7",
     "zod": "^3.24.1",
     "zod-to-json-schema": "^3.24.6"
   },
@@ -64,6 +68,7 @@
     "@typescript-eslint/parser": "^6.0.0",
     "eslint": "^8.0.0",
     "ts-node": "^10.9.2",
+    "tsup": "^8.5.0",
     "tsx": "^4.0.0",
     "typescript": "^5.0.0"
   },
@@ -72,5 +77,31 @@
   },
   "engines": {
     "node": ">=20.0.0"
+  },
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./payment": {
+      "import": "./dist/payment/index.js",
+      "types": "./dist/payment/index.d.ts"
+    },
+    "./wallets": {
+      "import": "./dist/wallets/index.js",
+      "types": "./dist/wallets/index.d.ts"
+    },
+    "./wallet": {
+      "import": "./dist/wallets/index.js",
+      "types": "./dist/wallets/index.d.ts"
+    },
+    "./cli": {
+      "import": "./dist/cli/index.js",
+      "types": "./dist/cli/index.d.ts"
+    },
+    "./ai": {
+      "import": "./dist/ai/index.js",
+      "types": "./dist/ai/index.d.ts"
+    }
   }
 }

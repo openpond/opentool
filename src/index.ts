@@ -1,5 +1,10 @@
-export * from "./runtime";
-export * from "./types";
+export * from "./runtime/index";
+export * from "./types/index";
+export * from "./helpers/payment";
+export * from "./payment/index";
+export * from "./wallets/index";
+export * from "./ai/index";
+export { createMcpAdapter, responseToToolResponse } from "./adapters/mcp";
 
 export {
   generateMetadata,

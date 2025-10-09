@@ -1,6 +1,6 @@
 import * as fs from "fs";
 import * as path from "path";
-import { InternalToolDefinition } from "../types";
+import { InternalToolDefinition } from "../types/index";
 import { Metadata } from "../types/metadata";
 import { buildMetadataArtifact } from "./shared/metadata";
 import { loadAndValidateTools } from "./validate";

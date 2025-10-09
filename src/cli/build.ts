@@ -1,6 +1,6 @@
 import * as fs from "fs";
 import * as path from "path";
-import { InternalToolDefinition } from "../types";
+import { InternalToolDefinition } from "../types/index";
 import { Metadata } from "../types/metadata";
 import { transpileWithEsbuild } from "../utils/esbuild";
 import { buildMetadataArtifact } from "./shared/metadata";
@@ -24,6 +24,10 @@ interface CompiledToolArtifact {
   name: string;
   filename: string;
   modulePath: string;
+  httpMethods: string[];
+  mcpEnabled: boolean;
+  defaultMcpMethod?: string;
+  hasWallet: boolean;
 }
 
 export async function buildCommand(options: BuildOptions): Promise<void> {
@@ -71,13 +75,23 @@ export async function buildProject(options: BuildOptions): Promise<BuildArtifact
     outputDir,
   });
 
-  await writeServer({
-    outputDir,
-    serverName,
-    serverVersion,
-    metadata,
-    compiledTools,
-  });
+  const shouldBuildMcpServer = compiledTools.some((artifact) => artifact.mcpEnabled);
+
+  if (shouldBuildMcpServer) {
+    await writeMcpServer({
+      outputDir,
+      serverName,
+      serverVersion,
+      metadata,
+      compiledTools,
+      tools,
+    });
+  } else {
+    const serverPath = path.join(outputDir, "mcp-server.js");
+    if (fs.existsSync(serverPath)) {
+      fs.rmSync(serverPath);
+    }
+  }
 
   return {
     metadata,
@@ -128,10 +142,15 @@ async function emitTools(
       throw new Error(`Expected compiled output missing: ${modulePath}`);
     }
 
+    const defaultMcpMethod = tool.mcpConfig?.defaultMethod;
     return {
       name: tool.metadata?.name ?? tool.filename,
       filename: base,
       modulePath,
+      httpMethods: tool.httpHandlers.map((handler) => handler.method),
+      mcpEnabled: tool.mcpConfig?.enabled ?? false,
+      ...(defaultMcpMethod ? { defaultMcpMethod } : {}),
+      hasWallet: Boolean(tool.payment),
     };
   });
 
@@ -144,28 +163,60 @@ interface ServerOptions {
   serverVersion: string;
   metadata: Metadata;
   compiledTools: CompiledToolArtifact[];
+  tools: InternalToolDefinition[];
 }
 
-function renderServer(options: ServerOptions): string {
+function renderMcpServer(options: ServerOptions): string {
   const toolImports = options.compiledTools
     .map((tool, index) => `const tool${index} = require('./${tool.modulePath}');`)
     .join("\n");
 
   const registry = options.compiledTools
-    .map((_, index) => `  { meta: metadata.tools[${index}], module: tool${index} },`)
-    .join("\n");
+    .map((artifact, index) => {
+      const config = {
+        enabled: artifact.mcpEnabled,
+        defaultMethod: artifact.defaultMcpMethod ?? null,
+        httpMethods: artifact.httpMethods,
+        filename: artifact.filename,
+      };
+      return `  { meta: metadata.tools[${index}], module: tool${index}, config: ${JSON.stringify(config)} }`;
+    })
+    .join(",\n");
 
   return `#!/usr/bin/env node
 const { Server } = require('@modelcontextprotocol/sdk/server/index.js');
 const { StdioServerTransport } = require('@modelcontextprotocol/sdk/server/stdio.js');
 const { CallToolRequestSchema, ListToolsRequestSchema } = require('@modelcontextprotocol/sdk/types.js');
 const metadata = require('./metadata.json');
+const { createMcpAdapter, HTTP_METHODS } = require('opentool/dist/adapters/mcp.js');
 
 ${toolImports}
 
 const toolRegistry = [
 ${registry}
 ];
+
+const adapters = toolRegistry.map((entry) => {
+  if (!entry.config.enabled) {
+    return null;
+  }
+
+  const httpHandlers = Object.fromEntries(
+    HTTP_METHODS
+      .map((method) => [method, entry.module[method]])
+      .filter(([, handler]) => typeof handler === 'function')
+  );
+
+  return {
+    meta: entry.meta,
+    invoke: createMcpAdapter({
+      name: entry.meta.name,
+      schema: entry.module.schema,
+      httpHandlers,
+      defaultMethod: entry.config.defaultMethod || undefined,
+    }),
+  };
+});
 
 const server = new Server(
   {
@@ -180,22 +231,19 @@ const server = new Server(
 );
 
 server.setRequestHandler(ListToolsRequestSchema, async () => ({
-  tools: toolRegistry.map(({ meta }) => meta),
+  tools: adapters
+    .filter((entry) => entry !== null)
+    .map((entry) => entry.meta),
 }));
 
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
-  const entry = toolRegistry.find(({ meta }) => meta.name === request.params.name);
-  if (!entry) {
-    throw new Error('Tool ' + request.params.name + ' not found');
+  const adapter = adapters.find((entry) => entry && entry.meta.name === request.params.name);
+  if (!adapter) {
+    throw new Error('Tool ' + request.params.name + ' is not registered for MCP');
   }
 
   try {
-    const validated = entry.module.schema.parse(request.params.arguments);
-    const result = await entry.module.TOOL(validated);
-    if (typeof result === 'string') {
-      return { content: [{ type: 'text', text: result }], isError: false };
-    }
-    return { content: result.content, isError: result.isError || false };
+    return await adapter.invoke(request.params.arguments);
   } catch (error) {
     const message = (error && error.message) || String(error);
     return {
@@ -218,9 +266,9 @@ module.exports = { server };
 `;
 }
 
-async function writeServer(options: ServerOptions): Promise<void> {
-  const serverCode = renderServer(options);
-  const serverPath = path.join(options.outputDir, "mcp-server.js");
+async function writeMcpServer(options: ServerOptions): Promise<void> {
+  const serverCode = renderMcpServer(options);
+  const serverPath = path.join(options.outputDir, 'mcp-server.js');
   fs.writeFileSync(serverPath, serverCode);
   fs.chmodSync(serverPath, 0o755);
 }
@@ -230,12 +278,24 @@ function logBuildSummary(artifacts: BuildArtifacts, options: BuildOptions): void
   console.log(`[${end}] Build completed successfully!`);
   console.log(`Output directory: ${path.resolve(options.output)}`);
   console.log("Generated files:");
-  console.log("  • mcp-server.js (stdio server)");
+  const hasMcp = artifacts.compiledTools.some((tool) => tool.mcpEnabled);
+  if (hasMcp) {
+    console.log("  • mcp-server.js (stdio server)");
+  }
   console.log(`  • tools/ (${artifacts.compiledTools.length} compiled tools)`);
+  artifacts.compiledTools.forEach((tool) => {
+    const methods = tool.httpMethods.join(", ");
+    const walletBadge = tool.hasWallet ? " [wallet]" : "";
+    console.log(`     - ${tool.name} [${methods}]${walletBadge}`);
+  });
   console.log("  • metadata.json (registry artifact)");
   if (artifacts.defaultsApplied.length > 0) {
     console.log("\nDefaults applied during metadata synthesis:");
     artifacts.defaultsApplied.forEach((entry) => console.log(`  • ${entry}`));
+  }
+
+  if (!hasMcp) {
+    console.log("\nℹ️ MCP adapter skipped (no tools opted in)");
   }
 }
 

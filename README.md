@@ -3,20 +3,44 @@
 [![npm version](https://badge.fury.io/js/opentool.svg)](https://badge.fury.io/js/opentool)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-## OpenPond Hosting launching August 2025
+A comprehensive TypeScript framework for building, deploying, and monetizing serverless MCP (Model Context Protocol) tools with integrated AI, blockchain wallets, and crypto payments.
 
-(current openpond.ai site hasn't been updated yet)
+## Overview
 
-A TypeScript framework for building serverless MCP (Model Context Protocol) tools that automatically deploy to AWS Lambda using [OpenPond](https://openpond.ai) hosting.
+OpenTool is a complete platform for creating intelligent, payment-enabled tools that run on AWS Lambda. It combines:
+
+- **MCP Protocol** - Full Model Context Protocol implementation with stdio and HTTP transports
+- **AI Integration** - Built-in AI client with text generation, streaming, and tool calling capabilities
+- **Wallet System** - Multi-chain blockchain wallet support with Turnkey and private key providers
+- **Payment Infrastructure** - Crypto payment integration for monetizing tools on-chain
+- **Serverless Deployment** - Automatic AWS Lambda deployment via [OpenPond](https://openpond.ai)
+- **Type Safety** - Full TypeScript support with Zod schema validation
 
 ## Features
 
-- **Serverless-first**: Tools automatically deploy to AWS Lambda
-- **Type-safe**: Full TypeScript support with Zod schema validation
-- **CLI Tools**: Build, develop, and validate your tools
-- **MCP Compatible**: Works with any MCP client
-- **Automatic Detection**: Detected by OpenPond hosting platform
-- **Local Development**: Test your tools locally before deployment
+### Core Framework
+- **Serverless-first**: Tools automatically deploy to AWS Lambda with Function URLs
+- **Type-safe**: Full TypeScript support with Zod schema validation and automatic JSON schema generation
+- **CLI Tools**: Build, develop, validate, and generate metadata with comprehensive CLI
+- **Hot Reloading**: Development server with optional watch mode for rapid iteration
+- **MCP Compatible**: Works with any MCP client (Claude Desktop, MCP Inspector, etc.)
+
+### AI Capabilities
+- **Multi-Model Support**: OpenAI, Anthropic, and compatible providers
+- **Text Generation**: Simple and streaming text generation with tool calling
+- **Built-in Tools**: Web search and custom tool integration
+- **Model Management**: Automatic model normalization and capability detection
+
+### Blockchain & Payments
+- **Multi-Chain Wallets**: Support for Ethereum, Base, Optimism, Arbitrum, Polygon, and more
+- **Provider Flexibility**: Private key or Turnkey-managed signing
+- **Crypto Payments**: On-chain payment integration with ERC-20 token support
+- **Token Registry**: Built-in registry for common tokens (USDC, USDT, DAI, etc.)
+
+### Discovery & Metadata
+- **Three-Tier Metadata**: Smart defaults, enhanced metadata, and per-tool overrides
+- **On-Chain Registration**: Metadata formatted for blockchain discovery
+- **Rich Annotations**: Icons, categories, tags, and custom branding
 
 ## Installation
 
@@ -47,8 +71,18 @@ export const schema = z.object({
   name: z.string().describe("The name of the user to greet"),
 });
 
-export async function TOOL({ name }: z.infer<typeof schema>) {
-  return `Hello, ${name}! 👋`;
+export const metadata = {
+  name: "greet",
+  description: "Simple greeting tool",
+};
+
+export async function POST(request: Request) {
+  const payload = await request.json();
+  const { name } = schema.parse(payload);
+
+  return Response.json({
+    message: `Hello, ${name}!`,
+  });
 }
 ```
 
@@ -61,6 +95,19 @@ npx opentool validate
 # Start development server
 npx opentool dev
 ```
+
+### MCP Inspector
+
+The `examples/full-metadata` project includes an `inspector.json` preset so you can exercise MCP tools with the official MCP Inspector:
+
+```bash
+cd examples/full-metadata
+npx mcp-inspector --config inspector.json --server opentool-dev
+```
+
+Before starting the inspector, copy `examples/full-metadata/.env.example` to `examples/full-metadata/.env` and populate the Turnkey, 0x, and Alchemy secrets with your own credentials. The actual `.env` file is git-ignored so you can keep real keys out of version control.
+
+The inspector spawns `opentool dev --stdio --no-watch --input tools`, so you don’t need a second terminal. Only tools that export `mcp = { enabled: true }` (for example `mcp_ping`) appear in the inspector’s tool list; HTTP-only tools like `calculate` and `hello` keep responding on the local HTTP port.
 
 ### 4. Build for deployment
 
@@ -134,11 +181,11 @@ This command generates the `metadata.json` file that contains all the informatio
 
 ## Tool Definition
 
-Each tool is defined by exporting three things:
+Each tool is defined by exporting:
 
 1. **schema**: Zod schema for input validation
 2. **metadata**: Tool information and MCP annotations
-3. **TOOL**: Async function that implements the tool logic
+3. **HTTP handler**: Async function that implements the tool logic (e.g., POST, GET, PUT, DELETE)
 
 ```typescript
 import { z } from "zod";
@@ -147,23 +194,39 @@ export const schema = z.object({
   // Define your input parameters here
 });
 
-export async function TOOL(params: z.infer<typeof schema>) {
+export const metadata = {
+  name: "my_tool",
+  description: "Description of what this tool does",
+};
+
+export async function POST(request: Request) {
+  const payload = await request.json();
+  const params = schema.parse(payload);
+
   // Implement your tool logic here
-  // Just return a string - it will be wrapped in MCP format automatically
-  return "Tool response";
+  return Response.json({
+    result: "Tool response",
+  });
 }
 ```
 
 ## Error Handling
 
-Simply throw errors in your TOOL function - they will be automatically converted to MCP error responses:
+Return appropriate HTTP status codes and error messages in your response:
 
 ```typescript
-export async function TOOL(params: z.infer<typeof schema>) {
+export async function POST(request: Request) {
+  const payload = await request.json();
+  const params = schema.parse(payload);
+
   if (someCondition) {
-    throw new Error("Something went wrong");
+    return Response.json(
+      { error: "Something went wrong" },
+      { status: 400 }
+    );
   }
-  return "Success";
+
+  return Response.json({ result: "Success" });
 }
 ```
 
@@ -223,7 +286,7 @@ npm run examples:metadata   # Regenerate metadata.json without rebuilding tools
 OpenTool features a sophisticated **three-tier metadata system**:
 
 1. **Smart Defaults** - Zero configuration, automatic generation from `package.json`
-2. **Enhanced Metadata** - Optional `metadata.ts` for custom branding and crypto payments  
+2. **Enhanced Metadata** - Optional `metadata.ts` for custom branding and crypto payments
 3. **Full Control** - Tool-level overrides for rich discovery metadata
 
 See [`METADATA.md`](./METADATA.md) for the complete guide to configuring metadata for on-chain registration and payments.
@@ -235,7 +298,6 @@ See [`METADATA.md`](./METADATA.md) for the complete guide to configuring metadat
 ## Contributing
 
 We welcome contributions! Please see our [Contributing Guide](https://github.com/openpond/opentool/blob/master/CONTRIBUTING.md) for details.
-
 
 ## License
 

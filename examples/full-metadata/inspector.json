@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "opentool-dev": {
+      "command": "npx",
+      "args": ["opentool", "dev", "--stdio", "--no-watch", "--input", "tools"],
+      "env": {}
+    }
+  }
+}

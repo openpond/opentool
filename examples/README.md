@@ -23,6 +23,7 @@ To test these examples using the local OpenTool development version:
 2. **Test any example**:
    ```bash
    cd examples/full-metadata
+   cp .env.example .env    # Populate with your own credentials
    npm link opentool    # Use local development version
    npm run build        # Build the MCP servers and metadata bundle
    ```

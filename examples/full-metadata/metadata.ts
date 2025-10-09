@@ -14,9 +14,11 @@ export const metadata = {
     amountUSDC: 0.001,
     description: "Very low cost example tools for learning and testing",
     x402: true,
-    openpondDirect: true,
-    acceptedMethods: ["ETH", "USDC"],
-    chainIds: [8453] // Base
+    plain402: true,
+    acceptedMethods: ["x402", "402"],
+    acceptedCurrencies: ["USDC"],
+    chainIds: [8453],
+    facilitator: "opentool",
   },
   
   discovery: {

@@ -19,9 +19,11 @@ export const metadata = {
     amountUSDC: 0.001,
     description: "Basic mathematical operations",
     x402: true,
-    openpondDirect: true,
-    acceptedMethods: ["ETH", "USDC"],
-    chainIds: [8453] // Base
+    plain402: true,
+    acceptedMethods: ["x402", "402"],
+    acceptedCurrencies: ["USDC"],
+    chainIds: [8453],
+    facilitator: "opentool",
   },
   discovery: {
     keywords: ["math", "calculation", "arithmetic", "numbers", "compute"],
@@ -66,8 +68,9 @@ export const metadata = {
   },
 };
 
-export async function TOOL(params: z.infer<typeof schema>) {
-  const { operation, a, b } = params;
+export async function POST(request: Request) {
+  const payload = await request.json();
+  const { operation, a, b } = schema.parse(payload);
 
   let result: number;
 
@@ -83,13 +86,19 @@ export async function TOOL(params: z.infer<typeof schema>) {
       break;
     case "divide":
       if (b === 0) {
-        throw new Error("Cannot divide by zero");
+        return Response.json(
+          { error: "Cannot divide by zero" },
+          { status: 400 }
+        );
       }
       result = a / b;
       break;
     default:
-      throw new Error("Invalid operation");
+      return Response.json({ error: "Invalid operation" }, { status: 400 });
   }
 
-  return `${a} ${operation} ${b} = ${result}`;
+  return Response.json({
+    result: `${a} ${operation} ${b} = ${result}`,
+    computation: { operation, a, b, result },
+  });
 }

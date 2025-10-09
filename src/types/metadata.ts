@@ -9,6 +9,7 @@ export const McpAnnotationsSchema = z
     destructiveHint: z.boolean().optional(),
     idempotentHint: z.boolean().optional(),
     openWorldHint: z.boolean().optional(),
+    requiresPayment: z.boolean().optional(),
   })
   .strict();
 
@@ -16,12 +17,16 @@ export type McpAnnotations = z.infer<typeof McpAnnotationsSchema>;
 
 export const PaymentConfigSchema = z
   .object({
-    amountUSDC: z.number().nonnegative(),
+    amountUSDC: z.number().nonnegative().optional(),
     description: z.string().optional(),
     x402: z.boolean().optional(),
-    openpondDirect: z.boolean().optional(),
-    acceptedMethods: z.array(z.string()).optional(),
+    plain402: z.boolean().optional(),
+    acceptedMethods: z
+      .array(z.union([z.literal("x402"), z.literal("402")]))
+      .optional(),
+    acceptedCurrencies: z.array(z.string()).optional(),
     chainIds: z.array(z.number().int()).optional(),
+    facilitator: z.string().optional(),
   })
   .strict();
 

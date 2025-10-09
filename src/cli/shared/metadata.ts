@@ -13,9 +13,9 @@ import {
   ToolMetadataOverrides,
   ToolMetadataOverridesSchema,
 } from "../../types/metadata";
-import { InternalToolDefinition } from "../../types";
+import { InternalToolDefinition } from "../../types/index";
 import { transpileWithEsbuild } from "../../utils/esbuild";
-import { requireFresh, resolveCompiledPath } from "../../utils/module-loader";
+import { importFresh, resolveCompiledPath } from "../../utils/module-loader";
 
 interface LoadAuthoredMetadataResult {
   metadata: AuthoredMetadata;
@@ -39,17 +39,13 @@ export async function loadAuthoredMetadata(projectRoot: string): Promise<LoadAut
   const { outDir, cleanup } = await transpileWithEsbuild({
     entryPoints: [absPath],
     projectRoot,
-    format: "cjs",
+    format: "esm",
     outDir: tempDir,
   });
 
   try {
-    const jsPath = resolveCompiledPath(outDir, METADATA_ENTRY);
-    const compiledPath = resolveCompiledPath(outDir, METADATA_ENTRY, ".cjs");
-    if (fs.existsSync(jsPath)) {
-      fs.renameSync(jsPath, compiledPath);
-    }
-    const moduleExports = requireFresh(compiledPath);
+    const compiledPath = resolveCompiledPath(outDir, METADATA_ENTRY);
+    const moduleExports = await importFresh(compiledPath);
     const metadataExport = extractMetadataExport(moduleExports);
     const parsed = AuthoredMetadataSchema.parse(metadataExport);
     return { metadata: parsed, sourcePath: absPath };
@@ -302,13 +298,20 @@ function resolvePayment(authored: AuthoredMetadata, defaults: string[]): Payment
     : "pricing.defaultAmount";
   defaults.push(`payment → synthesized from ${sourceLabel}`);
 
+  const acceptedMethodsRaw = Array.isArray(pricing.acceptedMethods)
+    ? (pricing.acceptedMethods as string[])
+    : ["402"];
+  const acceptedMethods = acceptedMethodsRaw.map((method) =>
+    method === "x402" ? "x402" : "402"
+  ) as ("x402" | "402")[];
   return {
     amountUSDC: amount,
     description: typeof pricing.description === "string" ? pricing.description : undefined,
-    x402: true,
-    openpondDirect: true,
-    acceptedMethods: Array.isArray(pricing.acceptedMethods)
-      ? (pricing.acceptedMethods as string[])
+    x402: acceptedMethods.includes("x402"),
+    plain402: acceptedMethods.includes("402"),
+    acceptedMethods,
+    acceptedCurrencies: Array.isArray(pricing.acceptedCurrencies)
+      ? (pricing.acceptedCurrencies as string[])
       : ["USDC"],
     chainIds: Array.isArray(pricing.chainIds)
       ? (pricing.chainIds as number[])
