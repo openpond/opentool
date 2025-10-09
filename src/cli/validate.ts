@@ -8,7 +8,6 @@ import {
   type HttpHandlerDefinition,
   type InternalToolDefinition,
   type McpConfig,
-  type ToolResponse,
 } from "../types/index";
 import { Metadata, ToolMetadataOverrides } from "../types/metadata";
 import type { DefinedPayment } from "../payment/index";
