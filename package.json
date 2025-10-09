@@ -52,8 +52,8 @@
   "dependencies": {
     "@aws/run-mcp-servers-with-aws-lambda": "^0.2.2",
     "@modelcontextprotocol/sdk": "^1.15.1",
-    "@turnkey/sdk-server": "^1.16.0",
-    "@turnkey/viem": "^0.9.9",
+    "@turnkey/sdk-server": "4.10.2",
+    "@turnkey/viem": "0.14.5",
     "commander": "^11.0.0",
     "esbuild": "^0.21.5",
     "tsx": "^4.0.0",
