@@ -1,5 +1,11 @@
 # opentool
 
+## 0.6.0
+
+### Minor Changes
+
+- 63ad02a: refactored
+
 ## 0.5.0
 
 ### Minor Changes
