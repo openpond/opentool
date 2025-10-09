@@ -98,6 +98,10 @@
     "./cli": {
       "import": "./dist/cli/index.js",
       "types": "./dist/cli/index.d.ts"
+    },
+    "./ai": {
+      "import": "./dist/ai/index.js",
+      "types": "./dist/ai/index.d.ts"
     }
   }
 }

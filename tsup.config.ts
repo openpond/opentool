@@ -6,6 +6,7 @@ export default defineConfig({
     "src/cli/index.ts",
     "src/payment/index.ts",
     "src/wallets/index.ts",
+    "src/ai/index.ts",
   ],
   format: ["esm"],
   dts: true,
