@@ -5,6 +5,8 @@
 
 A comprehensive TypeScript framework for building, deploying, and monetizing serverless MCP (Model Context Protocol) tools with integrated AI, blockchain wallets, and crypto payments.
 
+**For LLMs/AI Code Generation:** [`dist/opentool-context.ts`](./scripts/build-context.ts)
+
 ## Overview
 
 OpenTool is a complete platform for creating intelligent, payment-enabled tools that run on AWS Lambda. It combines:
@@ -19,6 +21,7 @@ OpenTool is a complete platform for creating intelligent, payment-enabled tools 
 ## Features
 
 ### Core Framework
+
 - **Serverless-first**: Tools automatically deploy to AWS Lambda with Function URLs
 - **Type-safe**: Full TypeScript support with Zod schema validation and automatic JSON schema generation
 - **CLI Tools**: Build, develop, validate, and generate metadata with comprehensive CLI
@@ -26,18 +29,21 @@ OpenTool is a complete platform for creating intelligent, payment-enabled tools 
 - **MCP Compatible**: Works with any MCP client (Claude Desktop, MCP Inspector, etc.)
 
 ### AI Capabilities
+
 - **Multi-Model Support**: OpenAI, Anthropic, and compatible providers
 - **Text Generation**: Simple and streaming text generation with tool calling
 - **Built-in Tools**: Web search and custom tool integration
 - **Model Management**: Automatic model normalization and capability detection
 
 ### Blockchain & Payments
+
 - **Multi-Chain Wallets**: Support for Ethereum, Base, Optimism, Arbitrum, Polygon, and more
 - **Provider Flexibility**: Private key or Turnkey-managed signing
 - **Crypto Payments**: On-chain payment integration with ERC-20 token support
 - **Token Registry**: Built-in registry for common tokens (USDC, USDT, DAI, etc.)
 
 ### Discovery & Metadata
+
 - **Three-Tier Metadata**: Smart defaults, enhanced metadata, and per-tool overrides
 - **On-Chain Registration**: Metadata formatted for blockchain discovery
 - **Rich Annotations**: Icons, categories, tags, and custom branding
@@ -220,10 +226,7 @@ export async function POST(request: Request) {
   const params = schema.parse(payload);
 
   if (someCondition) {
-    return Response.json(
-      { error: "Something went wrong" },
-      { status: 400 }
-    );
+    return Response.json({ error: "Something went wrong" }, { status: 400 });
   }
 
   return Response.json({ result: "Success" });
