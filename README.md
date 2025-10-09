@@ -71,6 +71,8 @@ cd examples/full-metadata
 npx mcp-inspector --config inspector.json --server opentool-dev
 ```
 
+Before starting the inspector, copy `examples/full-metadata/.env.example` to `examples/full-metadata/.env` and populate the Turnkey, 0x, and Alchemy secrets with your own credentials. The actual `.env` file is git-ignored so you can keep real keys out of version control.
+
 The inspector spawns `opentool dev --stdio --no-watch --input tools`, so you don’t need a second terminal. Only tools that export `mcp = { enabled: true }` (for example `mcp_ping`) appear in the inspector’s tool list; HTTP-only tools like `calculate` and `hello` keep responding on the local HTTP port.
 
 

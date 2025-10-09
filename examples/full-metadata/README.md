@@ -15,17 +15,23 @@ This example demonstrates a complete OpenTool project with metadata configuratio
 
 ## Quick Start
 
+1. **Create your environment file:**
+   ```bash
+   cp .env.example .env
+   ```
+   Update the copied file with your own Turnkey, 0x, and Alchemy credentials before running the tooling.
+
 1. **Install dependencies:**
    ```bash
    npm install
    ```
 
-2. **Build the project:**
+1. **Build the project:**
    ```bash
    npm run build
    ```
 
-3. **Test locally with MCP Inspector:**
+1. **Test locally with MCP Inspector:**
    ```bash
    npx @modelcontextprotocol/inspector node dist/mcp-server.js
    ```
