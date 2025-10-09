@@ -170,7 +170,6 @@ async function startMcpServer(
           name: tool.metadata?.name ?? tool.filename,
           httpHandlers: toHttpHandlerMap(tool.httpHandlers),
           ...(tool.schema ? { schema: tool.schema } : {}),
-          ...(tool.legacyTool ? { legacyTool: tool.legacyTool } : {}),
           ...(tool.mcpConfig?.defaultMethod
             ? { defaultMethod: tool.mcpConfig.defaultMethod }
             : {}),
@@ -273,7 +272,7 @@ function printToolList(
       .map((handler) => handler.method)
       .join(", ");
     const tags: string[] = [];
-    if (tool.mcpConfig?.enabled || tool.legacyTool) {
+    if (tool.mcpConfig?.enabled) {
       tags.push(`${dim}[mcp]${reset}`);
     }
     if (tool.payment || (tool.metadata && (tool.metadata as any).payment)) {
@@ -435,5 +434,5 @@ function toHttpHandlerMap(
 }
 
 function isMcpEnabled(tool: InternalToolDefinition): boolean {
-  return Boolean(tool.mcpConfig?.enabled || tool.legacyTool);
+  return Boolean(tool.mcpConfig?.enabled);
 }

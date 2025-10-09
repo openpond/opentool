@@ -48,7 +48,7 @@ For simple projects, OpenTool generates complete metadata automatically:
 my-assistant/
 ├── package.json                 # Basic npm package info
 └── tools/
-    └── greeting.ts              # Tool with schema and TOOL function
+    └── greeting.ts              # Tool with schema and POST handler
 ```
 
 ## Tier 2: Enhanced Metadata (metadata.ts)
@@ -135,8 +135,14 @@ export const metadata = {
   }
 };
 
-export async function TOOL(params: z.infer<typeof schema>) {
+export async function POST(request: Request) {
+  const payload = await request.json();
+  const params = schema.parse(payload);
+
   // Implementation
+  return Response.json({
+    result: "Analysis complete",
+  });
 }
 ```
 

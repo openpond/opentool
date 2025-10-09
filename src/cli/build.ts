@@ -148,7 +148,7 @@ async function emitTools(
       filename: base,
       modulePath,
       httpMethods: tool.httpHandlers.map((handler) => handler.method),
-      mcpEnabled: tool.mcpConfig?.enabled ?? Boolean(tool.legacyTool),
+      mcpEnabled: tool.mcpConfig?.enabled ?? false,
       ...(defaultMcpMethod ? { defaultMcpMethod } : {}),
       hasWallet: Boolean(tool.payment),
     };
@@ -213,7 +213,6 @@ const adapters = toolRegistry.map((entry) => {
       name: entry.meta.name,
       schema: entry.module.schema,
       httpHandlers,
-      legacyTool: typeof entry.module.TOOL === 'function' ? entry.module.TOOL : undefined,
       defaultMethod: entry.config.defaultMethod || undefined,
     }),
   };

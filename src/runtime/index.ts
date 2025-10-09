@@ -129,7 +129,6 @@ function buildAdapters(tools: InternalToolDefinition[]): AdapterEntry[] {
         name: tool.metadata?.name || tool.filename,
         httpHandlers,
         ...(tool.schema ? { schema: tool.schema } : {}),
-        ...(tool.legacyTool ? { legacyTool: tool.legacyTool } : {}),
         ...(tool.mcpConfig?.defaultMethod
           ? { defaultMethod: tool.mcpConfig.defaultMethod }
           : {}),
@@ -189,17 +188,8 @@ async function loadToolsFromDirectory(metadataMap: Map<string, Tool>): Promise<I
       const payment = candidate.payment ?? null;
       const httpHandlersRaw = collectHttpHandlers(candidate);
       const httpHandlers = [...httpHandlersRaw];
-      let legacyTool =
-        typeof candidate.TOOL === 'function' ? wrapLegacyTool(candidate.TOOL.bind(candidate)) : undefined;
 
-      if (httpHandlers.length === 0 && legacyTool) {
-        httpHandlers.push({
-          method: 'POST',
-          handler: synthesizeHttpHandlerFromLegacy(legacyTool, candidate.schema),
-        });
-      }
-
-      if (httpHandlers.length === 0 && !legacyTool) {
+      if (httpHandlers.length === 0) {
         continue;
       }
 
@@ -213,12 +203,11 @@ async function loadToolsFromDirectory(metadataMap: Map<string, Tool>): Promise<I
         }
       }
 
-      const mcpConfig = normalizeRuntimeMcpConfig(candidate.mcp, legacyTool);
+      const mcpConfig = normalizeRuntimeMcpConfig(candidate.mcp);
       const adapterOptions = {
         name,
         httpHandlers: toHttpHandlerMap(httpHandlers),
         ...(candidate.schema ? { schema: candidate.schema } : {}),
-        ...(legacyTool ? { legacyTool } : {}),
         ...(typeof candidate.mcp?.defaultMethod === 'string'
           ? { defaultMethod: candidate.mcp.defaultMethod }
           : {}),
@@ -231,7 +220,6 @@ async function loadToolsFromDirectory(metadataMap: Map<string, Tool>): Promise<I
         metadata: candidate.metadata || meta || null,
         filename: baseName,
         httpHandlers,
-        ...(legacyTool ? { legacyTool } : {}),
         mcpConfig,
         handler: async (params) => adapter(params),
         payment,
@@ -314,76 +302,6 @@ function collectHttpHandlers(module: any): HttpHandlerDefinition[] {
   return handlers;
 }
 
-function synthesizeHttpHandlerFromLegacy(
-  legacyTool: (params: unknown) => Promise<ToolResponse>,
-  schema: any
-): (request: Request) => Promise<Response> {
-  return async (request: Request) => {
-    let payload: unknown = {};
-
-    if (request.method === 'GET' || request.method === 'HEAD') {
-      const url = new URL(request.url);
-      payload = Object.fromEntries(url.searchParams.entries());
-    } else {
-      const text = await request.text();
-      if (text) {
-        try {
-          payload = JSON.parse(text);
-        } catch {
-          payload = { raw: text };
-        }
-      }
-    }
-
-    const validated = schema ? schema.parse(payload) : payload;
-    const responsePayload = await legacyTool(validated);
-    const normalized = normalizeToolResult(responsePayload);
-    const status = normalized.isError ? 400 : 200;
-
-    return new Response(JSON.stringify(normalized), {
-      status,
-      headers: { 'Content-Type': 'application/json' },
-    });
-  };
-}
-
-function wrapLegacyTool(
-  toolFn: (params: unknown) => Promise<unknown> | unknown
-): (params: unknown) => Promise<ToolResponse> {
-  return async (params: unknown) => {
-    const result = await toolFn(params);
-    return normalizeToolResult(result);
-  };
-}
-
-function normalizeToolResult(result: unknown): ToolResponse {
-  if (typeof result === 'string') {
-    return {
-      content: [{ type: 'text', text: result }],
-      isError: false,
-    };
-  }
-
-  if (result && typeof result === 'object' && Array.isArray((result as any).content)) {
-    const toolResponse = result as ToolResponse;
-    return {
-      content: toolResponse.content,
-      isError: toolResponse.isError ?? false,
-    };
-  }
-
-  if (result === undefined || result === null) {
-    return {
-      content: [{ type: 'text', text: '' }],
-      isError: false,
-    };
-  }
-
-  return {
-    content: [{ type: 'text', text: typeof result === 'string' ? result : JSON.stringify(result, null, 2) }],
-    isError: false,
-  };
-}
 
 function toHttpHandlerMap(handlers: HttpHandlerDefinition[]): Record<string, HttpHandlerDefinition['handler']> {
   return handlers.reduce<Record<string, HttpHandlerDefinition['handler']>>((acc, handler) => {
@@ -416,10 +334,7 @@ function normalizeInputSchema(schema: any): any {
   return clone;
 }
 
-function normalizeRuntimeMcpConfig(
-  rawConfig: any,
-  legacyTool?: (params: unknown) => Promise<ToolResponse>
-): McpConfig | null {
+function normalizeRuntimeMcpConfig(rawConfig: any): McpConfig | null {
   if (isPlainObject(rawConfig) && rawConfig.enabled === true) {
     let normalizedMode: McpConfig['mode'] | undefined;
     if (typeof rawConfig.mode === 'string') {
@@ -450,10 +365,6 @@ function normalizeRuntimeMcpConfig(
     return config;
   }
 
-  if (legacyTool) {
-    return { enabled: true, mode: 'stdio' };
-  }
-
   return null;
 }
 
@@ -462,7 +373,7 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 }
 
 function isMcpEnabled(tool: InternalToolDefinition): boolean {
-  return Boolean(tool.mcpConfig?.enabled || tool.legacyTool);
+  return Boolean(tool.mcpConfig?.enabled);
 }
 
 export function resolveRuntimePath(value: string): string {

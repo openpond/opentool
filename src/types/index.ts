@@ -46,7 +46,6 @@ export interface InternalToolDefinition<
   inputSchema?: unknown;
   metadata: ToolMetadataOverrides | null;
   httpHandlers: HttpHandlerDefinition[];
-  legacyTool?: (params: any) => Promise<ToolResponse> | ToolResponse;
   mcpConfig?: McpConfig | null;
   sourcePath?: string;
   handler?: (params: any) => Promise<ToolResponse>;

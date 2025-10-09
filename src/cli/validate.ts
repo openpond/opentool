@@ -144,22 +144,12 @@ export async function loadAndValidateTools(
       const inputSchemaRaw = schema ? toJsonSchema(toolName, schema) : undefined;
       const inputSchema = normalizeInputSchema(inputSchemaRaw);
 
-      const legacyToolRaw =
-        typeof toolModule.TOOL === "function" ? toolModule.TOOL.bind(toolModule) : undefined;
-      const legacyTool = legacyToolRaw ? wrapLegacyTool(legacyToolRaw) : undefined;
-
       const httpHandlersRaw = collectHttpHandlers(toolModule, file);
       const httpHandlers = [...httpHandlersRaw];
-      if (httpHandlers.length === 0 && legacyTool) {
-        httpHandlers.push({
-          method: "POST",
-          handler: synthesizeHttpHandlerFromLegacy(legacyTool, schema),
-        });
-      }
 
       if (httpHandlers.length === 0) {
         throw new Error(
-          `${file} must export at least one HTTP handler (e.g. POST) or a legacy TOOL function`
+          `${file} must export at least one HTTP handler (e.g. POST)`
         );
       }
 
@@ -182,7 +172,6 @@ export async function loadAndValidateTools(
       const adapter = createMcpAdapter({
         name: toolName,
         httpHandlers: httpHandlerMap,
-        ...(legacyTool ? { legacyTool } : {}),
         ...(defaultMethod ? { defaultMethod } : {}),
         ...(schema ? { schema } : {}),
       });
@@ -214,7 +203,6 @@ export async function loadAndValidateTools(
         inputSchema,
         metadata: metadataOverrides,
         httpHandlers,
-        ...(legacyTool ? { legacyTool } : {}),
         mcpConfig: normalizeMcpConfig(toolModule.mcp, file),
         filename: toBaseName(file),
         sourcePath: path.join(toolsDir, file),
@@ -238,16 +226,15 @@ function extractToolModule(exportsObject: any, filename: string): any {
   const candidates = [exportsObject, exportsObject?.default];
   for (const candidate of candidates) {
     if (candidate && typeof candidate === "object") {
-      const hasLegacy = typeof candidate.TOOL === "function";
       const hasSchema = candidate.schema && typeof candidate.schema === "object";
       const hasHttp = HTTP_METHODS.some((method) => typeof candidate[method] === "function");
-      if (hasLegacy || hasSchema || hasHttp) {
+      if (hasSchema || hasHttp) {
         return candidate;
       }
     }
   }
   throw new Error(
-    `${filename} must export a tool definition. Expected a Zod schema plus either HTTP handlers (export async function POST) or a legacy TOOL function.`
+    `${filename} must export a tool definition. Expected a Zod schema plus HTTP handlers (export async function POST).`
   );
 }
 
@@ -313,81 +300,6 @@ function collectHttpHandlers(module: any, filename: string): HttpHandlerDefiniti
   return handlers;
 }
 
-function synthesizeHttpHandlerFromLegacy(
-  legacyTool: (params: unknown) => Promise<ToolResponse>,
-  schema?: ZodSchema
-): (request: Request) => Promise<Response> {
-  return async (request: Request) => {
-    let payload: unknown = {};
-
-    if (request.method === "GET" || request.method === "HEAD") {
-      const url = new URL(request.url);
-      payload = Object.fromEntries(url.searchParams.entries());
-    } else {
-      const text = await request.text();
-      if (text) {
-        try {
-          payload = JSON.parse(text);
-        } catch {
-          payload = { raw: text };
-        }
-      }
-    }
-
-    const validated = schema ? schema.parse(payload) : payload;
-    const responsePayload = await legacyTool(validated);
-    const normalized = normalizeToolResult(responsePayload);
-    const status = normalized.isError ? 400 : 200;
-
-    return new Response(JSON.stringify(normalized), {
-      status,
-      headers: { "Content-Type": "application/json" },
-    });
-  };
-}
-
-function wrapLegacyTool(
-  toolFn: (params: unknown) => Promise<unknown> | unknown
-): (params: unknown) => Promise<ToolResponse> {
-  return async (params: unknown) => {
-    const result = await toolFn(params);
-    return normalizeToolResult(result);
-  };
-}
-
-function normalizeToolResult(result: unknown): ToolResponse {
-  if (typeof result === "string") {
-    return {
-      content: [{ type: "text", text: result }],
-      isError: false,
-    };
-  }
-
-  if (result && typeof result === "object" && Array.isArray((result as any).content)) {
-    const toolResponse = result as ToolResponse;
-    return {
-      content: toolResponse.content,
-      isError: toolResponse.isError ?? false,
-    };
-  }
-
-  if (result === undefined || result === null) {
-    return {
-      content: [{ type: "text", text: "" }],
-      isError: false,
-    };
-  }
-
-  return {
-    content: [
-      {
-        type: "text",
-        text: typeof result === "string" ? result : JSON.stringify(result, null, 2),
-      },
-    ],
-    isError: false,
-  };
-}
 
 function toHttpHandlerMap(handlers: HttpHandlerDefinition[]): Record<string, HttpHandlerDefinition["handler"]> {
   return handlers.reduce<Record<string, HttpHandlerDefinition["handler"]>>((acc, handler) => {

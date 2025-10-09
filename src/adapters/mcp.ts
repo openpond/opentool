@@ -18,7 +18,6 @@ export interface CreateMcpAdapterOptions {
   name: string;
   schema?: ZodSchema;
   httpHandlers: Record<string, ((request: Request) => Promise<Response> | Response) | undefined>;
-  legacyTool?: (params: unknown) => Promise<ToolResponse> | ToolResponse;
   defaultMethod?: string;
 }
 
@@ -29,35 +28,26 @@ export function createMcpAdapter(options: CreateMcpAdapterOptions) {
   const normalizedSchema = ensureSchema(options.schema);
   const defaultMethod = resolveDefaultMethod(options);
   const httpHandler = options.httpHandlers[defaultMethod];
-  const legacyTool = options.legacyTool;
 
-  if (!httpHandler && !legacyTool) {
+  if (!httpHandler) {
     throw new Error(
-      `Tool "${options.name}" does not export an HTTP handler for ${defaultMethod} or a legacy TOOL()`
+      `Tool "${options.name}" does not export an HTTP handler for ${defaultMethod}`
     );
   }
 
   return async function invoke(rawArguments: unknown): Promise<ToolResponse> {
     const validated = normalizedSchema ? normalizedSchema.parse(rawArguments ?? {}) : rawArguments;
 
-    if (httpHandler) {
-      const request = buildRequest(options.name, defaultMethod, validated);
-      try {
-        const response = await Promise.resolve(httpHandler(request));
-        return await responseToToolResponse(response);
-      } catch (error) {
-        if (error instanceof PaymentRequiredError) {
-          return await responseToToolResponse(error.response);
-        }
-        throw error;
+    const request = buildRequest(options.name, defaultMethod, validated);
+    try {
+      const response = await Promise.resolve(httpHandler(request));
+      return await responseToToolResponse(response);
+    } catch (error) {
+      if (error instanceof PaymentRequiredError) {
+        return await responseToToolResponse(error.response);
       }
+      throw error;
     }
-
-    if (!legacyTool) {
-      throw new Error(`Tool "${options.name}" cannot handle MCP invocation`);
-    }
-
-    return await Promise.resolve(legacyTool(validated));
   };
 }
 
@@ -72,10 +62,6 @@ function resolveDefaultMethod(options: CreateMcpAdapterOptions): HttpMethod {
     if (typeof options.httpHandlers[method] === "function") {
       return method;
     }
-  }
-
-  if (options.legacyTool) {
-    return "POST";
   }
 
   const available = Object.keys(options.httpHandlers).filter(

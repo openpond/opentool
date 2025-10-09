@@ -3,10 +3,6 @@ import { test } from "node:test";
 import { z } from "zod";
 import { createMcpAdapter, responseToToolResponse } from "../src/adapters/mcp";
 
-const noopLegacy = async () => ({
-  content: [{ type: "text", text: "legacy" }],
-});
-
 test("createMcpAdapter bridges HTTP handler responses", async () => {
   const schema = z.object({ name: z.string() });
   const adapter = createMcpAdapter({
@@ -26,18 +22,6 @@ test("createMcpAdapter bridges HTTP handler responses", async () => {
   assert.equal(result.content.length, 1);
   assert.equal(result.content[0]?.type, "text");
   assert.match(result.content[0]?.text ?? "", /Hello world!/);
-});
-
-test("createMcpAdapter falls back to legacy TOOL handlers", async () => {
-  const adapter = createMcpAdapter({
-    name: "legacy",
-    httpHandlers: {},
-    legacyTool: noopLegacy,
-  });
-
-  const result = await adapter({});
-  assert.equal(result.isError ?? false, false);
-  assert.equal(result.content[0]?.text, "legacy");
 });
 
 test("responseToToolResponse converts JSON payloads", async () => {
