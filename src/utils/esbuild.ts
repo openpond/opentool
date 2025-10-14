@@ -8,6 +8,8 @@ interface TranspileOptions {
   projectRoot: string;
   outDir?: string;
   format: "cjs" | "esm";
+  bundle?: boolean;
+  external?: string[];
 }
 
 function resolveTsconfig(projectRoot: string): string | undefined {
@@ -39,14 +41,13 @@ export async function transpileWithEsbuild(options: TranspileOptions): Promise<T
   const buildOptions: BuildOptions = {
     entryPoints: options.entryPoints,
     outdir: tempBase,
-    bundle: false,
+    bundle: options.bundle ?? false,
     format: options.format,
     platform: "node",
     target: "node20",
     logLevel: "warning",
     sourcesContent: false,
     sourcemap: false,
-    packages: "external",
     loader: {
       ".ts": "ts",
       ".tsx": "tsx",
@@ -56,11 +57,20 @@ export async function transpileWithEsbuild(options: TranspileOptions): Promise<T
       ".jsx": "jsx",
       ".mjs": "js",
       ".cjs": "js",
+      ".json": "json",
     },
     metafile: false,
     allowOverwrite: true,
     absWorkingDir: projectRoot,
   };
+
+  if (options.external && options.external.length > 0) {
+    buildOptions.external = options.external;
+  }
+
+  if (!buildOptions.bundle) {
+    buildOptions.packages = "external";
+  }
 
   if (tsconfig) {
     buildOptions.tsconfig = tsconfig;

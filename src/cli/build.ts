@@ -128,6 +128,7 @@ async function emitTools(
     projectRoot: config.projectRoot,
     format: "cjs",
     outDir: toolsOutDir,
+    bundle: true,
   });
 
   const compiled: CompiledToolArtifact[] = tools.map((tool) => {
