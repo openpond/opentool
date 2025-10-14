@@ -1,5 +1,11 @@
 # opentool
 
+## 0.6.2
+
+### Patch Changes
+
+- c5cbd5d: updated to default bundle
+
 ## 0.6.1
 
 ### Patch Changes
