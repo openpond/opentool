@@ -122,6 +122,8 @@ export async function loadAndValidateTools(
     projectRoot,
     format: "esm",
     outDir: tempDir,
+    bundle: true,
+    external: ["opentool", "opentool/*"],
   });
 
   const tools: InternalToolDefinition[] = [];
