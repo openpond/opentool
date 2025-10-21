@@ -1,5 +1,7 @@
 import { z } from "zod";
+import { hello } from "../utils";
 
+hello();
 export const schema = z.object({
   name: z.string().describe("Name of the person to greet"),
 });
@@ -19,6 +21,6 @@ export async function POST(request: Request) {
 
   return Response.json({
     message: `Hello, ${name}!`,
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
   });
 }

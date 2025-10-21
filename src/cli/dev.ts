@@ -60,13 +60,22 @@ export async function devCommand(options: DevOptions): Promise<void> {
       : null;
 
     if (watch) {
-      fs.watch(toolsDir, async (_eventType, filename) => {
-        if (filename && !/\.(ts|js|mjs|cjs|tsx|jsx)$/.test(filename)) {
+      const reloadableExtensions = /\.(ts|js|mjs|cjs|tsx|jsx)$/i;
+      const tempDir = path.join(toolsDir, ".opentool-temp");
+      const watchTargets = new Set<string>([toolsDir]);
+      if (projectRoot !== toolsDir) {
+        watchTargets.add(projectRoot);
+      }
+
+      let reloading = false;
+      const scheduleReload = async (changedPath?: string) => {
+        if (reloading) {
           return;
         }
+        reloading = true;
         log(
           `${dim}\nDetected change in ${
-            filename ?? "tools directory"
+            changedPath ?? "tools directory"
           }, reloading...${reset}`
         );
         try {
@@ -75,8 +84,31 @@ export async function devCommand(options: DevOptions): Promise<void> {
           logReload(toolDefinitions, enableStdio, log);
         } catch (error) {
           console.error("Failed to reload tools:", error);
+        } finally {
+          reloading = false;
         }
-      });
+      };
+
+      for (const target of watchTargets) {
+        fs.watch(target, async (_eventType, rawFilename) => {
+          const filename = rawFilename?.toString();
+          if (filename && !reloadableExtensions.test(filename)) {
+            return;
+          }
+
+          const fullPath = filename ? path.join(target, filename) : undefined;
+          if (fullPath && fullPath.startsWith(tempDir)) {
+            return;
+          }
+
+          // Normalize display path relative to the project root for clarity.
+          const displayPath = fullPath
+            ? path.relative(projectRoot, fullPath) || path.basename(fullPath)
+            : path.relative(projectRoot, target) || path.basename(target);
+
+          await scheduleReload(displayPath);
+        });
+      }
     }
 
     const server = http.createServer(async (req, res) => {
