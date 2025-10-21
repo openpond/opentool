@@ -3,50 +3,37 @@
 [![npm version](https://badge.fury.io/js/opentool.svg)](https://badge.fury.io/js/opentool)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-A comprehensive TypeScript framework for building, deploying, and monetizing serverless MCP (Model Context Protocol) tools with integrated AI, blockchain wallets, and crypto payments.
+Build serverless TypeScript tools that work with AI assistants, handle crypto payments, and deploy to AWS Lambda automatically.
 
 **For LLMs/AI Code Generation:** [`dist/opentool-context.ts`](./scripts/build-context.ts)
 
-## Overview
+## What is it?
 
-OpenTool is a complete platform for creating intelligent, payment-enabled tools that run on AWS Lambda. It combines:
+OpenTool lets you write simple TypeScript functions that can be called by other agents, monetized with crypto payments, and deployed as serverless functions. It handles the boring stuff like:
 
-- **MCP Protocol** - Full Model Context Protocol implementation with stdio and HTTP transports
-- **AI Integration** - Built-in AI client with text generation, streaming, and tool calling capabilities
-- **Wallet System** - Multi-chain blockchain wallet support with Turnkey and private key providers
-- **Payment Infrastructure** - Crypto payment integration for monetizing tools on-chain
-- **Serverless Deployment** - Automatic AWS Lambda deployment via [OpenPond](https://openpond.ai)
-- **Type Safety** - Full TypeScript support with Zod schema validation
+- Type validation with Zod schemas
+- AI client integration (OpenAI, Anthropic, etc.)
+- Multi-chain wallet support (Ethereum, Base, Arbitrum, etc.)
+- Automatic AWS Lambda deployment via [OpenPond](https://openpond.ai)
+- Payment infrastructure for on-chain tool monetization
+
+## Recent Updates
+
+- **Selective MCP mode** - tools now support `mcp = { enabled: true }` to enable MCP clients on a per-tool basis
+- **Context bundling** - generates consolidated context files for AI code generation (see `dist/opentool-context.ts`)
+- **Default bundling enabled** - tools now bundle by default for cleaner deployments
+- **Improved CLI** - better validation and metadata generation commands
 
 ## Features
 
-### Core Framework
-
-- **Serverless-first**: Tools automatically deploy to AWS Lambda with Function URLs
-- **Type-safe**: Full TypeScript support with Zod schema validation and automatic JSON schema generation
-- **CLI Tools**: Build, develop, validate, and generate metadata with comprehensive CLI
-- **Hot Reloading**: Development server with optional watch mode for rapid iteration
-- **MCP Compatible**: Works with any MCP client (Claude Desktop, MCP Inspector, etc.)
-
-### AI Capabilities
-
-- **Multi-Model Support**: OpenAI, Anthropic, and compatible providers
-- **Text Generation**: Simple and streaming text generation with tool calling
-- **Built-in Tools**: Web search and custom tool integration
-- **Model Management**: Automatic model normalization and capability detection
-
-### Blockchain & Payments
-
-- **Multi-Chain Wallets**: Support for Ethereum, Base, Optimism, Arbitrum, Polygon, and more
-- **Provider Flexibility**: Private key or Turnkey-managed signing
-- **Crypto Payments**: On-chain payment integration with ERC-20 token support
-- **Token Registry**: Built-in registry for common tokens (USDC, USDT, DAI, etc.)
-
-### Discovery & Metadata
-
-- **Three-Tier Metadata**: Smart defaults, enhanced metadata, and per-tool overrides
-- **On-Chain Registration**: Metadata formatted for blockchain discovery
-- **Rich Annotations**: Icons, categories, tags, and custom branding
+- **TypeScript-first** with Zod validation and auto-generated JSON schemas
+- **Serverless by default** - deploys to AWS Lambda with Function URLs
+- **MCP support** - works with Claude Desktop, MCP Inspector, or any MCP client
+- **Built-in AI client** for OpenAI, Anthropic, and compatible providers
+- **Multi-chain wallets** - Ethereum, Base, Arbitrum, Polygon, etc.
+- **Crypto payments** - monetize tools with ERC-20 tokens (USDC, USDT, DAI)
+- **CLI tools** for building, validating, and local dev with watch mode
+- **Context bundling** - generates consolidated context files for AI code generation
 
 ## Installation
 
@@ -102,33 +89,44 @@ npx opentool validate
 npx opentool dev
 ```
 
-### MCP Inspector
+### 4. Enable MCP mode (optional)
 
-The `examples/full-metadata` project includes an `inspector.json` preset so you can exercise MCP tools with the official MCP Inspector:
+By default, tools are HTTP-only. Want them accessible via MCP clients like Claude Desktop? Just add this to your tool file:
+
+```typescript
+// tools/greet.ts
+export const mcp = {
+  enabled: true, // Now works with Claude Desktop, MCP Inspector, etc.
+};
+```
+
+Tools without this export stay HTTP-only, which is useful when you want selective access. Mix and match as needed.
+
+### Testing with MCP Inspector
+
+The `examples/full-metadata` project has an `inspector.json` config ready to go:
 
 ```bash
 cd examples/full-metadata
 npx mcp-inspector --config inspector.json --server opentool-dev
 ```
 
-Before starting the inspector, copy `examples/full-metadata/.env.example` to `examples/full-metadata/.env` and populate the Turnkey, 0x, and Alchemy secrets with your own credentials. The actual `.env` file is git-ignored so you can keep real keys out of version control.
+Copy `.env.example` to `.env` and add your credentials if you're using wallet/payment features. The inspector starts `opentool dev` automatically, so you only need one terminal. Only tools with `mcp = { enabled: true }` show up in the inspector - HTTP-only tools keep running on localhost.
 
-The inspector spawns `opentool dev --stdio --no-watch --input tools`, so you don’t need a second terminal. Only tools that export `mcp = { enabled: true }` (for example `mcp_ping`) appear in the inspector’s tool list; HTTP-only tools like `calculate` and `hello` keep responding on the local HTTP port.
-
-### 4. Build for deployment
+### 5. Build for deployment
 
 ```bash
 # Build tools for Lambda deployment
 npx opentool build
 ```
 
-### 5. Deploy to OpenPond
+### 6. Deploy to OpenPond
 
 Create an account on [OpenPond](https://openpond.ai) and create a new project.
 
 Add your project to the OpenPond project and connect it to your GitHub repository.
 
-OpenPond will automatically detect the `opentool` dependency and deploy your tools to AWS Lambda using the UI.
+OpenPond will automatically detect the `opentool` dependency and deploy your tools to AWS Lambda.
 
 ## CLI Commands
 
@@ -171,7 +169,7 @@ Options:
 
 ### Generate Metadata
 
-Generate OpenTool metadata JSON without building:
+Generate `metadata.json` without building:
 
 ```bash
 npx opentool metadata [options]
@@ -183,33 +181,37 @@ Options:
   --version <version>    Server version (default: "1.0.0")
 ```
 
-This command generates the `metadata.json` file that contains all the information needed for on-chain registration and discovery, including tool schemas, payment configurations, and discovery metadata. It's useful when you need to inspect or share the metadata without performing a full build.
+Generates the metadata file with tool schemas, payment configs, and discovery info. Useful for inspecting or sharing metadata without a full build.
 
 ## Tool Definition
 
-Each tool is defined by exporting:
-
-1. **schema**: Zod schema for input validation
-2. **metadata**: Tool information and MCP annotations
-3. **HTTP handler**: Async function that implements the tool logic (e.g., POST, GET, PUT, DELETE)
+Tools are just TypeScript files with a few exports:
 
 ```typescript
 import { z } from "zod";
 
+// 1. Schema for input validation
 export const schema = z.object({
-  // Define your input parameters here
+  input: z.string().describe("Some input parameter"),
 });
 
+// 2. Metadata
 export const metadata = {
   name: "my_tool",
-  description: "Description of what this tool does",
+  description: "What this tool does",
 };
 
+// 3. Optional: enable MCP mode
+export const mcp = {
+  enabled: true, // Makes it work with Claude Desktop, etc.
+};
+
+// 4. Handler (POST, GET, PUT, DELETE, etc.)
 export async function POST(request: Request) {
   const payload = await request.json();
   const params = schema.parse(payload);
 
-  // Implement your tool logic here
+  // Your tool logic here
   return Response.json({
     result: "Tool response",
   });
@@ -218,7 +220,7 @@ export async function POST(request: Request) {
 
 ## Error Handling
 
-Return appropriate HTTP status codes and error messages in your response:
+Just return standard HTTP responses:
 
 ```typescript
 export async function POST(request: Request) {
@@ -235,72 +237,66 @@ export async function POST(request: Request) {
 
 ## Local Development
 
-The development server runs your tools locally using the MCP protocol over stdio. You can:
+Run `npx opentool dev` to test your tools locally. It runs them via stdio (for MCP clients) or HTTP (for direct API calls). Good for:
 
-1. Test individual tools
-2. Validate schemas
-3. Check tool responses
-4. Debug issues before deployment
+- Testing tool logic
+- Validating schemas
+- Debugging before deployment
 
 ## Deployment
 
-When you push a project with `opentool` dependency to GitHub and connect it to OpenPond:
+Push your repo to GitHub and connect it to [OpenPond](https://openpond.ai):
 
-1. **Detection**: OpenPond detects the `opentool` package
-2. **Routing**: Project is routed to AWS Lambda deployment
-3. **Build**: Tools are built using `npx opentool build`
-4. **Deploy**: Lambda function is created with Function URLs
-5. **Ready**: Your tools are available as serverless MCP servers!
+1. OpenPond detects the `opentool` dependency
+2. Runs `npx opentool build`
+3. Deploys to AWS Lambda with Function URLs
+4. Done - your tools are live
 
 ## Examples
 
-See the `examples/` directory for a comprehensive example:
-
-- **`examples/full-metadata/`** - Metadata configuration with payment and discovery features
+Check `examples/full-metadata/` for a complete example with payment and discovery features.
 
 ### Testing Examples Locally
 
-To test the examples using the local development version:
-
 ```bash
-# Build the OpenTool package
+# Build and link the OpenTool package
 npm run build
 npm link
 
-# Test the full metadata example
+# Test the example
 cd examples/full-metadata
 npm link opentool
 npm run build
 
-# Examine generated output
+# Check the output
 cat dist/metadata.json
 
 # Test the MCP server
 echo '{"jsonrpc": "2.0", "id": 1, "method": "tools/list"}' | node dist/mcp-server.js
 
-# Quick regression helpers from the repo root
-npm run examples:build      # Build full metadata example (CJS+ESM)
-npm run examples:validate   # Validate example metadata and tools
-npm run examples:metadata   # Regenerate metadata.json without rebuilding tools
+# Or from repo root:
+npm run examples:build      # Build example (CJS+ESM)
+npm run examples:validate   # Validate metadata and tools
+npm run examples:metadata   # Regenerate metadata.json
 ```
 
 ## Metadata System
 
-OpenTool features a sophisticated **three-tier metadata system**:
+OpenTool has three levels of metadata config:
 
-1. **Smart Defaults** - Zero configuration, automatic generation from `package.json`
-2. **Enhanced Metadata** - Optional `metadata.ts` for custom branding and crypto payments
-3. **Full Control** - Tool-level overrides for rich discovery metadata
+1. **Default** - pulls from your `package.json` automatically
+2. **Project-level** - add a `metadata.ts` file for branding, payments, etc.
+3. **Tool-level** - override metadata per tool
 
-See [`METADATA.md`](./METADATA.md) for the complete guide to configuring metadata for on-chain registration and payments.
+See [`METADATA.md`](./METADATA.md) for details on configuring metadata for on-chain registration and payments.
 
-## Future Work
+## What's Next
 
-- Explore an esbuild-powered watch mode that keeps metadata and tool artifacts up to date for the dev server. This remains on the follow-up list once the new pipeline settles.
+- Better watch mode that keeps metadata and tool artifacts synced during dev
 
 ## Contributing
 
-We welcome contributions! Please see our [Contributing Guide](https://github.com/openpond/opentool/blob/master/CONTRIBUTING.md) for details.
+Contributions welcome! See the [Contributing Guide](https://github.com/openpond/opentool/blob/master/CONTRIBUTING.md).
 
 ## License
 
