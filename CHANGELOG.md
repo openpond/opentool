@@ -1,5 +1,11 @@
 # opentool
 
+## 0.6.3
+
+### Patch Changes
+
+- beb24d3: updated dev to pick up outside of tools dir
+
 ## 0.6.2
 
 ### Patch Changes
