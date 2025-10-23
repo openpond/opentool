@@ -1,5 +1,11 @@
 # opentool
 
+## 0.6.4
+
+### Patch Changes
+
+- 765f6ec: added chains field to metadata
+
 ## 0.6.3
 
 ### Patch Changes
