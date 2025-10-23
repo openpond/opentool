@@ -9,6 +9,12 @@ export const metadata = {
   repository: "https://github.com/openpond/opentool",
   category: "example", // Single category for top-level field
   termsOfService: "Please review terms before use.",
+
+  // Blockchain networks this agent uses
+  // Numbers = EVM chain IDs (e.g., 1=Ethereum, 8453=Base)
+  // Strings = chain names following Alchemy spec (e.g., "base-sepolia", "solana", "hyperliquid")
+  chains: [8453, "base-sepolia"],
+
   // Payment configuration  
   payment: {
     amountUSDC: 0.001,

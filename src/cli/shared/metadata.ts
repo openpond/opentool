@@ -193,6 +193,7 @@ export async function buildMetadataArtifact(options: MetadataBuildOptions): Prom
     }
 
     const toolDiscovery = overrides.discovery ?? undefined;
+    const toolChains = overrides.chains ?? authored.chains ?? undefined;
 
     const toolDefinition: Tool = {
       name: toolName,
@@ -208,6 +209,9 @@ export async function buildMetadataArtifact(options: MetadataBuildOptions): Prom
     }
     if (toolDiscovery) {
       toolDefinition.discovery = toolDiscovery;
+    }
+    if (toolChains) {
+      toolDefinition.chains = toolChains;
     }
 
     return toolDefinition;
@@ -233,6 +237,7 @@ export async function buildMetadataArtifact(options: MetadataBuildOptions): Prom
     videoPath: authored.videoPath,
     image: baseImage,
     animation_url: animation,
+    chains: authored.chains,
   });
 
   return {

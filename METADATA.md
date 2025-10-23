@@ -23,9 +23,9 @@ For simple projects, OpenTool generates complete metadata automatically:
 **What OpenTool generates automatically:**
 ```json
 {
-  "metadataSpecVersion": "1.0.0",
+  "metadataSpecVersion": "1.1.0",
   "name": "package-name",           // From package.json name
-  "displayName": "Package Name",   // Formatted from name  
+  "displayName": "Package Name",   // Formatted from name
   "version": "2.5.0",              // From package.json version (semantic string)
   "description": "...",            // From package.json description
   "author": "...",                 // From package.json author
@@ -210,15 +210,57 @@ export const metadata = {
 - **openpondDirect**: Enables direct settlement through OpenPond
 - **chainIds**: Supported blockchain networks (8453=Base, 1=Ethereum)
 
+## Blockchain Networks (Chains)
+
+Specify which blockchain networks your agent/tools interact with using the `chains` field:
+
+```typescript
+// Agent-level chains (metadata.ts)
+export const metadata = {
+  displayName: "Multi-Chain Trading Bot",
+
+  // Chains accepts numbers (EVM chain IDs) or strings (chain names)
+  chains: [
+    1,                  // Ethereum mainnet (EVM chain ID)
+    8453,               // Base (EVM chain ID)
+    "base-sepolia",     // Base testnet (Alchemy naming)
+    "solana",           // Solana (chain name)
+    "hyperliquid"       // Hyperliquid (chain name)
+  ]
+};
+
+// Tool-level override (tools/ethereum-swap.ts)
+export const metadata = {
+  name: "ethereum-swap",
+  chains: [1, "ethereum"]  // Only Ethereum for this tool
+};
+```
+
+**Chain Format:**
+- **Numbers**: EVM chain IDs (e.g., `1`=Ethereum, `8453`=Base, `42161`=Arbitrum)
+- **Strings**: Chain names following Alchemy naming conventions (e.g., `"base-sepolia"`, `"solana"`, `"hyperliquid"`)
+
+**Common Chain IDs:**
+- Ethereum: `1`
+- Base: `8453`
+- Arbitrum: `42161`
+- Polygon: `137`
+- Optimism: `10`
+
+**Hierarchy:**
+- Tools inherit agent-level chains by default
+- Tool-level chains override agent chains for that specific tool
+- Used for discovery, filtering, and showing network-specific UI
+
 ## Generated Metadata JSON
 
 The final `metadata.json` combines all metadata into a standardized format:
 
 ```json
 {
-  "metadataSpecVersion": "1.0.0",
+  "metadataSpecVersion": "1.1.0",
   "name": "my-assistant",
-  "displayName": "My AI Assistant Pro", 
+  "displayName": "My AI Assistant Pro",
   "version": "2.5.0",
   "description": "A helpful AI assistant for productivity tasks",
   "author": "Jane Developer",
@@ -226,18 +268,20 @@ The final `metadata.json` combines all metadata into a standardized format:
   "website": "https://my-ai-assistant.com",
   "category": "productivity",
   "termsOfService": "Please review terms before use.",
-  
+  "chains": [8453, "base-sepolia"],
+
   "tools": [
     {
       "name": "text-analyzer",
-      "description": "Advanced text analysis with sentiment and keywords", 
+      "description": "Advanced text analysis with sentiment and keywords",
       "inputSchema": { /* JSON Schema from Zod */ },
       "payment": { /* Tool-specific payment config */ },
       "annotations": { /* MCP behavior hints */ },
-      "discovery": { /* SEO and discovery metadata */ }
+      "discovery": { /* SEO and discovery metadata */ },
+      "chains": [8453, "base-sepolia"]
     }
   ],
-  
+
   "payment": { /* Agent-level payment defaults */ },
   "discovery": { /* Agent-level discovery metadata */ }
 }
