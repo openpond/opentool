@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const METADATA_SPEC_VERSION = "1.0.0";
+export const METADATA_SPEC_VERSION = "1.1.0";
 
 export const McpAnnotationsSchema = z
   .object({
@@ -54,6 +54,7 @@ export const ToolMetadataOverridesSchema = z
     annotations: McpAnnotationsSchema.optional(),
     payment: PaymentConfigSchema.optional(),
     discovery: DiscoveryMetadataSchema.optional(),
+    chains: z.array(z.union([z.string(), z.number()])).optional(),
   })
   .catchall(z.any());
 
@@ -67,6 +68,7 @@ export const ToolSchema = z
     annotations: McpAnnotationsSchema.optional(),
     payment: PaymentConfigSchema.optional(),
     discovery: DiscoveryMetadataSchema.optional(),
+    chains: z.array(z.union([z.string(), z.number()])).optional(),
   })
   .strict();
 
@@ -99,6 +101,7 @@ export const AuthoredMetadataSchema = z
     requirements: z.record(z.any()).optional(),
     pricing: z.record(z.any()).optional(),
     compatibility: z.record(z.any()).optional(),
+    chains: z.array(z.union([z.string(), z.number()])).optional(),
   })
   .catchall(z.any());
 
@@ -125,6 +128,7 @@ export const MetadataSchema = z
     videoPath: z.string().optional(),
     image: z.string().optional(),
     animation_url: z.string().optional(),
+    chains: z.array(z.union([z.string(), z.number()])).optional(),
   })
   .strict();
 
