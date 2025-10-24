@@ -113,6 +113,37 @@ npx mcp-inspector --config inspector.json --server opentool-dev
 
 Copy `.env.example` to `.env` and add your credentials if you're using wallet/payment features. The inspector starts `opentool dev` automatically, so you only need one terminal. Only tools with `mcp = { enabled: true }` show up in the inspector - HTTP-only tools keep running on localhost.
 
+### Quick x402 test with curl
+
+1. Start the dev server against the example tools:
+
+   ```bash
+   npx opentool dev --input examples/full-metadata/tools
+   ```
+
+2. Trigger the paywall and inspect the returned payment requirements:
+
+   ```bash
+   curl -i \
+     -X POST http://localhost:7000/premium-report \
+     -H "content-type: application/json" \
+     -d '{"symbol":"BTC"}'
+   ```
+
+   The response includes a `402 Payment Required` status and JSON body with an `x402.accepts[0]` object describing the payment request.
+
+3. Submit a follow-up request with an `X-PAYMENT` header produced by your x402 facilitator (for example, by using the Coinbase [x402](https://github.com/coinbase/x402) tooling or your own signing flow):
+
+   ```bash
+   curl -i \
+     -X POST http://localhost:7000/premium-report \
+     -H "content-type: application/json" \
+     -H "X-PAYMENT: ${X402_HEADER}" \
+     -d '{"symbol":"BTC"}'
+   ```
+
+   Replace `${X402_HEADER}` with the base64-encoded payment payload returned by your facilitator’s `/verify` or `/pay` workflow. If the payment is valid the server responds with `200 OK`; otherwise it returns a new `402` with failure details.
+
 ### 5. Build for deployment
 
 ```bash
