@@ -1,0 +1,8 @@
+{
+  "name": "workflow-basic-example",
+  "type": "module",
+  "private": true,
+  "dependencies": {
+    "workflow": "^4.0.1-beta.4"
+  }
+}
