@@ -11,30 +11,6 @@ Build serverless TypeScript tools that work with AI assistants, handle crypto pa
 
 OpenTool lets you write simple TypeScript functions that can be called by other agents, monetized with crypto payments, and deployed as serverless functions. It handles the boring stuff like:
 
-- Type validation with Zod schemas
-- AI client integration (OpenAI, Anthropic, etc.)
-- Multi-chain wallet support (Ethereum, Base, Arbitrum, etc.)
-- Automatic AWS Lambda deployment via [OpenPond](https://openpond.ai)
-- Payment infrastructure for on-chain tool monetization
-
-## Recent Updates
-
-- **Selective MCP mode** - tools now support `mcp = { enabled: true }` to enable MCP clients on a per-tool basis
-- **Context bundling** - generates consolidated context files for AI code generation (see `dist/opentool-context.ts`)
-- **Default bundling enabled** - tools now bundle by default for cleaner deployments
-- **Improved CLI** - better validation and metadata generation commands
-
-## Features
-
-- **TypeScript-first** with Zod validation and auto-generated JSON schemas
-- **Serverless by default** - deploys to AWS Lambda with Function URLs
-- **MCP support** - works with Claude Desktop, MCP Inspector, or any MCP client
-- **Built-in AI client** for OpenAI, Anthropic, and compatible providers
-- **Multi-chain wallets** - Ethereum, Base, Arbitrum, Polygon, etc.
-- **Crypto payments** - monetize tools with ERC-20 tokens (USDC, USDT, DAI)
-- **CLI tools** for building, validating, and local dev with watch mode
-- **Context bundling** - generates consolidated context files for AI code generation
-
 ## Installation
 
 ```bash
@@ -89,7 +65,36 @@ npx opentool validate
 npx opentool dev
 ```
 
-### 4. Enable MCP mode (optional)
+### 4. x402
+
+Include the definePayment function from the opentool package to define your payment config.
+
+```typescript
+import { generateText } from "opentool/ai";
+import { definePayment } from "opentool/payment";
+
+export const payment = definePayment({
+  amount: "0.50",
+  currency: "USDC",
+  payTo: "0x...",
+  message: "Premium analytics require payment before access.",
+  acceptedMethods: ["x402", "402"],
+  acceptedCurrencies: ["USDC"],
+  chains: ["base"],
+  facilitator: "opentool",
+});
+
+export async function POST(request: Request) {
+  const payload = await request.json();
+  const { symbol } = schema.parse(payload);
+  const report = await generateText("Premium Content " + symbol);
+  return Response.json({
+    message: `Premium analytics for ${symbol}`,
+  });
+}
+```
+
+### 4. MCP
 
 By default, tools are HTTP-only. Want them accessible via MCP clients like Claude Desktop? Just add this to your tool file:
 

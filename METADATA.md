@@ -72,7 +72,7 @@ export const metadata = {
     x402: true,
     openpondDirect: true,
     acceptedMethods: ["USDC", "ETH"],
-    chainIds: [8453] // Base
+    chains: [8453] // Base
   },
   
   // Smart defaults still apply for: name, version, description, author, etc.
@@ -103,7 +103,7 @@ export const metadata = {
     acceptETH: true,
     acceptSolana: true,
     acceptX402: true,
-    chainIds: [8453]
+    chains: [8453]
   },
   
   // MCP annotations for behavior hints
@@ -188,7 +188,7 @@ export const metadata = {
     acceptETH: true,
     acceptSolana: true,
     acceptX402: true,
-    chainIds: [8453]
+    chains: [8453]
   }
 };
 
@@ -199,7 +199,7 @@ export const metadata = {
     x402: true,
     openpondDirect: true,
     acceptedMethods: ["USDC"],
-    chainIds: [8453]
+    chains: [8453]
   }
 };
 ```
@@ -208,7 +208,7 @@ export const metadata = {
 - **acceptedMethods**: Currency codes accepted for settlement (e.g. `USDC`, `ETH`)
 - **x402**: Enables HTTP 402 (paywall) flows
 - **openpondDirect**: Enables direct settlement through OpenPond
-- **chainIds**: Supported blockchain networks (8453=Base, 1=Ethereum)
+- **chains**: Supported blockchain networks (accepts numbers like `8453` or strings like `"base"`)
 
 ## Blockchain Networks (Chains)
 
