@@ -50,7 +50,6 @@
     "access": "public"
   },
   "dependencies": {
-    "@workflow/cli": "^4.0.1-beta.4",
     "workflow": "^4.0.1-beta.4",
     "@aws/run-mcp-servers-with-aws-lambda": "^0.2.2",
     "@modelcontextprotocol/sdk": "^1.15.1",
@@ -75,7 +74,13 @@
     "typescript": "^5.0.0"
   },
   "peerDependencies": {
-    "typescript": "^5.0.0"
+    "typescript": "^5.0.0",
+    "@workflow/cli": "^4.0.1-beta.4"
+  },
+  "peerDependenciesMeta": {
+    "@workflow/cli": {
+      "optional": true
+    }
   },
   "engines": {
     "node": ">=20.0.0"
