@@ -4,7 +4,7 @@ import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprot
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
-import { zodToJsonSchema } from 'zod-to-json-schema';
+import { zodToJsonSchema } from '@alcyone-labs/zod-to-json-schema';
 import { createMcpAdapter, HTTP_METHODS } from '../adapters/mcp';
 import { withPaymentRequirement } from '../payment/index';
 import {

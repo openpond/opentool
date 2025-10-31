@@ -157,7 +157,7 @@ export interface DefinePaymentConfig {
   resource?: string;
   acceptedMethods?: ("x402" | "402")[];
   acceptedCurrencies?: string[];
-  chainIds?: number[];
+  chains?: (string | number)[];
   facilitator?:
     | "opentool"
     | "coinbase"
@@ -304,8 +304,8 @@ export function definePayment(config: DefinePaymentConfig): DefinedPayment {
   baseMetadata.plain402 = includePlain402;
   baseMetadata.acceptedMethods = methods;
   baseMetadata.acceptedCurrencies = config.acceptedCurrencies ?? [currencyCode];
-  if (config.chainIds) {
-    baseMetadata.chainIds = config.chainIds;
+  if (config.chains) {
+    baseMetadata.chains = config.chains;
   }
   if (facilitatorLabel) {
     baseMetadata.facilitator = facilitatorLabel;

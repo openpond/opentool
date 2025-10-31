@@ -60,8 +60,8 @@
     "esbuild": "^0.25.0",
     "tsx": "^4.0.0",
     "viem": "^2.31.7",
-    "zod": "^3.24.1",
-    "zod-to-json-schema": "^3.24.6"
+    "zod": "^4.1.11",
+    "@alcyone-labs/zod-to-json-schema": "^4.0.10"
   },
   "devDependencies": {
     "@changesets/cli": "^2.29.5",

@@ -17,7 +17,7 @@ export const payment = definePayment({
   message: "Premium analytics require payment before access.",
   acceptedMethods: ["x402", "402"],
   acceptedCurrencies: ["USDC"],
-  chainIds: ["base"],
+  chains: ["base"],
   facilitator: "opentool",
 });
 

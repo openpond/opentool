@@ -25,7 +25,7 @@ export const PaymentConfigSchema = z
       .array(z.union([z.literal("x402"), z.literal("402")]))
       .optional(),
     acceptedCurrencies: z.array(z.string()).optional(),
-    chainIds: z.array(z.number().int()).optional(),
+    chains: z.array(z.union([z.string(), z.number()])).optional(),
     facilitator: z.string().optional(),
   })
   .strict();
@@ -38,9 +38,9 @@ export const DiscoveryMetadataSchema = z
     category: z.string().optional(),
     useCases: z.array(z.string()).optional(),
     capabilities: z.array(z.string()).optional(),
-    requirements: z.record(z.any()).optional(),
-    pricing: z.record(z.any()).optional(),
-    compatibility: z.record(z.any()).optional(),
+    requirements: z.record(z.string(), z.any()).optional(),
+    pricing: z.record(z.string(), z.any()).optional(),
+    compatibility: z.record(z.string(), z.any()).optional(),
     documentation: z.union([z.string(), z.array(z.string())]).optional(),
   })
   .catchall(z.any());
@@ -98,9 +98,9 @@ export const AuthoredMetadataSchema = z
     keywords: z.array(z.string()).optional(),
     useCases: z.array(z.string()).optional(),
     capabilities: z.array(z.string()).optional(),
-    requirements: z.record(z.any()).optional(),
-    pricing: z.record(z.any()).optional(),
-    compatibility: z.record(z.any()).optional(),
+    requirements: z.record(z.string(), z.any()).optional(),
+    pricing: z.record(z.string(), z.any()).optional(),
+    compatibility: z.record(z.string(), z.any()).optional(),
     chains: z.array(z.union([z.string(), z.number()])).optional(),
   })
   .catchall(z.any());

@@ -1,7 +1,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import { z, type ZodSchema } from "zod";
-import { zodToJsonSchema, type JsonSchema7Type } from "zod-to-json-schema";
+import { zodToJsonSchema, type JsonSchema7Type } from "@alcyone-labs/zod-to-json-schema";
 import { createMcpAdapter } from "../adapters/mcp";
 import {
   HTTP_METHODS,

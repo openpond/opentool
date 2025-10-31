@@ -1,6 +1,6 @@
 import * as fs from "fs";
 import * as path from "path";
-import { JsonSchema7Type } from "zod-to-json-schema";
+import { JsonSchema7Type } from "@alcyone-labs/zod-to-json-schema";
 import {
   AuthoredMetadata,
   AuthoredMetadataSchema,
@@ -318,8 +318,8 @@ function resolvePayment(authored: AuthoredMetadata, defaults: string[]): Payment
     acceptedCurrencies: Array.isArray(pricing.acceptedCurrencies)
       ? (pricing.acceptedCurrencies as string[])
       : ["USDC"],
-    chainIds: Array.isArray(pricing.chainIds)
-      ? (pricing.chainIds as number[])
+    chains: Array.isArray(pricing.chains)
+      ? (pricing.chains as (string | number)[])
       : [8453],
   } satisfies PaymentConfig;
 }
