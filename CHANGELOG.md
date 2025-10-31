@@ -1,5 +1,12 @@
 # opentool
 
+## 0.7.2
+
+### Patch Changes
+
+- b7a7944: fix package locl
+- 5b49c43: updated workflow and made optional
+
 ## 0.7.1
 
 ### Patch Changes
