@@ -359,11 +359,39 @@ async function buildWorkflowsIfPresent(
     return null;
   }
 
-  const { BaseBuilder } = await import(
-    "@workflow/cli/dist/lib/builders/base-builder.js"
-  );
+  type WorkflowBaseBuilderCtor = new (config: any) => {
+    config: any;
+    getInputFiles(): Promise<string[]>;
+    getTsConfigOptions(): Promise<{
+      baseUrl?: string;
+      paths?: Record<string, string[]>;
+    }>;
+    createStepsBundle(options: any): Promise<void>;
+    createWorkflowsBundle(options: any): Promise<void>;
+    createWebhookBundle(options: any): Promise<void>;
+  };
+
+  let BaseBuilder: WorkflowBaseBuilderCtor;
+  try {
+    ({ BaseBuilder } = (await import(
+      "@workflow/cli/dist/lib/builders/base-builder.js"
+    )) as { BaseBuilder: WorkflowBaseBuilderCtor });
+  } catch (error) {
+    const details =
+      error instanceof Error ? `\nReason: ${error.message}` : "";
+    throw new Error(
+      `[${timestamp()}] Workflow sources detected, but optional dependency ` +
+        "'@workflow/cli' is not installed. Install it with \"npm install " +
+        "@workflow/cli\" (or add it to devDependencies) and rerun the build." +
+        details
+    );
+  }
 
   class OpenToolWorkflowBuilder extends BaseBuilder {
+    constructor(config: ConstructorParameters<WorkflowBaseBuilderCtor>[0]) {
+      super(config);
+    }
+
     async build(): Promise<void> {
       const inputFiles = await this.getInputFiles();
       const tsConfig = await this.getTsConfigOptions();
@@ -443,6 +471,27 @@ async function buildWorkflowsIfPresent(
         recursive: true,
       });
       await this.createWebhookBundle({ outfile: webhookBundlePath });
+    }
+
+    private async buildClientLibrary(): Promise<void> {
+      if (!this.config?.clientBundlePath) {
+        return;
+      }
+
+      // Workflow CLI normally emits a client bundle for UI tooling. OpenTool
+      // currently doesn't surface it, but we keep the hook to remain compatible
+      // with future versions.
+      const clientBundlePath = path.resolve(
+        this.config.workingDir,
+        this.config.clientBundlePath
+      );
+      await fs.promises.mkdir(path.dirname(clientBundlePath), {
+        recursive: true,
+      });
+      await this.createWorkflowsBundle({
+        outfile: clientBundlePath,
+        bundleFinalOutput: true,
+      });
     }
   }
 
