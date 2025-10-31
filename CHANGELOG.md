@@ -1,5 +1,11 @@
 # opentool
 
+## 0.7.0
+
+### Minor Changes
+
+- bd9ff30: upgrade to zod 4
+
 ## 0.6.5
 
 ### Patch Changes
