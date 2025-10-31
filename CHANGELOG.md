@@ -1,5 +1,11 @@
 # opentool
 
+## 0.7.1
+
+### Patch Changes
+
+- 9fe557e: removed mandatory workflow
+
 ## 0.7.0
 
 ### Minor Changes
