@@ -50,7 +50,6 @@
     "access": "public"
   },
   "dependencies": {
-    "workflow": "^4.0.1-beta.4",
     "@aws/run-mcp-servers-with-aws-lambda": "^0.2.2",
     "@modelcontextprotocol/sdk": "^1.15.1",
     "@turnkey/sdk-server": "4.10.2",
@@ -71,14 +70,19 @@
     "ts-node": "^10.9.2",
     "tsup": "^8.5.0",
     "tsx": "^4.0.0",
-    "typescript": "^5.0.0"
+    "typescript": "^5.0.0",
+    "workflow": "^4.0.1-beta.6"
   },
   "peerDependencies": {
     "typescript": "^5.0.0",
-    "@workflow/cli": "^4.0.1-beta.4"
+    "@workflow/cli": "^4.0.1-beta.6",
+    "workflow": "^4.0.1-beta.6"
   },
   "peerDependenciesMeta": {
     "@workflow/cli": {
+      "optional": true
+    },
+    "workflow": {
       "optional": true
     }
   },
