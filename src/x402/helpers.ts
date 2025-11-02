@@ -122,6 +122,7 @@ export async function verifyX402Payment(
   const headers = buildFacilitatorHeaders(facilitator);
 
   try {
+    console.log("[x402] Calling facilitator /verify", { url: verifierUrl });
     const verifyResponse = await fetchImpl(verifierUrl, {
       method: "POST",
       headers,
@@ -131,6 +132,7 @@ export async function verifyX402Payment(
         paymentRequirements: requirement,
       }),
     });
+    console.log("[x402] Facilitator /verify response", { status: verifyResponse.status });
 
     if (!verifyResponse.ok) {
       return {
@@ -165,6 +167,7 @@ export async function verifyX402Payment(
       ).toString();
 
       try {
+        console.log("[x402] Calling facilitator /settle", { url: settleUrl });
         const settleResponse = await fetchImpl(settleUrl, {
           method: "POST",
           headers,
@@ -174,6 +177,7 @@ export async function verifyX402Payment(
             paymentRequirements: requirement,
           }),
         });
+        console.log("[x402] Facilitator /settle response", { status: settleResponse.status });
 
         if (!settleResponse.ok) {
           return {
