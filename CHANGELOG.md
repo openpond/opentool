@@ -1,5 +1,11 @@
 # opentool
 
+## 0.7.3
+
+### Patch Changes
+
+- 6cdcade: reworked x402
+
 ## 0.7.2
 
 ### Patch Changes
