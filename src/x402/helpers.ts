@@ -175,20 +175,34 @@ export async function verifyX402Payment(
           }),
         });
 
-        if (settleResponse.ok) {
-          const settlePayload = (await settleResponse.json()) as {
-            txHash?: string;
-            [key: string]: unknown;
+        if (!settleResponse.ok) {
+          return {
+            success: false,
+            failure: {
+              reason: `Facilitator settlement failed: ${settleResponse.status}`,
+              code: "settlement_failed",
+            },
           };
-          if (settlePayload.txHash) {
-            responseHeaders[HEADER_PAYMENT_RESPONSE] = JSON.stringify({
-              settled: true,
-              txHash: settlePayload.txHash,
-            });
-          }
         }
-      } catch {
-        // Settlement failure doesn't fail verification
+
+        const settlePayload = (await settleResponse.json()) as {
+          txHash?: string;
+          [key: string]: unknown;
+        };
+        if (settlePayload.txHash) {
+          responseHeaders[HEADER_PAYMENT_RESPONSE] = JSON.stringify({
+            settled: true,
+            txHash: settlePayload.txHash,
+          });
+        }
+      } catch (error) {
+        return {
+          success: false,
+          failure: {
+            reason: error instanceof Error ? error.message : "Settlement failed",
+            code: "settlement_failed",
+          },
+        };
       }
     }
 
