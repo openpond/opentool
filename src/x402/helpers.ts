@@ -122,23 +122,29 @@ export async function verifyX402Payment(
   const headers = buildFacilitatorHeaders(facilitator);
 
   try {
-    console.log("[x402] Calling facilitator /verify", { url: verifierUrl });
+    const verifyBody = {
+      x402Version: attempt.payload.x402Version,
+      paymentPayload: attempt.payload,
+      paymentRequirements: requirement,
+    };
+    console.log("[x402] Calling facilitator /verify", {
+      url: verifierUrl,
+      bodyPreview: JSON.stringify(verifyBody).substring(0, 200)
+    });
     const verifyResponse = await fetchImpl(verifierUrl, {
       method: "POST",
       headers,
-      body: JSON.stringify({
-        x402Version: attempt.payload.x402Version,
-        paymentPayload: attempt.payload,
-        paymentRequirements: requirement,
-      }),
+      body: JSON.stringify(verifyBody),
     });
     console.log("[x402] Facilitator /verify response", { status: verifyResponse.status });
 
     if (!verifyResponse.ok) {
+      const errorText = await verifyResponse.text().catch(() => "");
+      console.error("[x402] Facilitator /verify error", { status: verifyResponse.status, body: errorText });
       return {
         success: false,
         failure: {
-          reason: `Facilitator verify request failed: ${verifyResponse.status}`,
+          reason: `Facilitator verify request failed: ${verifyResponse.status}${errorText ? ` - ${errorText}` : ""}`,
           code: "verification_failed",
         },
       };
