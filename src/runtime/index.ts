@@ -6,14 +6,14 @@ import * as path from 'path';
 import { fileURLToPath } from 'url';
 import { zodToJsonSchema } from '@alcyone-labs/zod-to-json-schema';
 import { createMcpAdapter, HTTP_METHODS } from '../adapters/mcp';
-import { withPaymentRequirement } from '../payment/index';
+import { withX402Payment } from '../x402/index';
 import {
   type HttpHandlerDefinition,
   type InternalToolDefinition,
   type McpConfig,
   type ToolResponse,
 } from '../types/index';
-import { Metadata, Tool } from '../types/metadata';
+import { BuildMetadata, Tool } from '../types/metadata';
 
 interface AdapterEntry {
   tool: InternalToolDefinition;
@@ -198,7 +198,7 @@ async function loadToolsFromDirectory(metadataMap: Map<string, Tool>): Promise<I
           const entry = httpHandlers[index];
           httpHandlers[index] = {
             ...entry,
-            handler: withPaymentRequirement(entry.handler, payment),
+            handler: withX402Payment(entry.handler, payment),
           };
         }
       }
@@ -233,21 +233,21 @@ async function loadToolsFromDirectory(metadataMap: Map<string, Tool>): Promise<I
   return tools;
 }
 
-function loadMetadata(): Metadata | null {
+function loadMetadata(): BuildMetadata | null {
   const metadataPath = path.join(process.cwd(), 'metadata.json');
   if (!fs.existsSync(metadataPath)) {
     return null;
   }
   try {
     const contents = fs.readFileSync(metadataPath, 'utf8');
-    return JSON.parse(contents) as Metadata;
+    return JSON.parse(contents) as BuildMetadata;
   } catch (error) {
     console.warn(`Failed to parse metadata.json: ${error}`);
     return null;
   }
 }
 
-function buildMetadataMap(metadata: Metadata | null): Map<string, Tool> {
+function buildMetadataMap(metadata: BuildMetadata | null): Map<string, Tool> {
   const map = new Map<string, Tool>();
   if (!metadata?.tools) {
     return map;

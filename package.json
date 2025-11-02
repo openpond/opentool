@@ -94,9 +94,9 @@
       "import": "./dist/index.js",
       "types": "./dist/index.d.ts"
     },
-    "./payment": {
-      "import": "./dist/payment/index.js",
-      "types": "./dist/payment/index.d.ts"
+    "./x402": {
+      "import": "./dist/x402/index.js",
+      "types": "./dist/x402/index.d.ts"
     },
     "./wallets": {
       "import": "./dist/wallets/index.js",

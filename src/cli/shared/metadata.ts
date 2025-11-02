@@ -2,11 +2,11 @@ import * as fs from "fs";
 import * as path from "path";
 import { JsonSchema7Type } from "@alcyone-labs/zod-to-json-schema";
 import {
-  AuthoredMetadata,
-  AuthoredMetadataSchema,
-  DiscoveryMetadata,
   Metadata,
   MetadataSchema,
+  DiscoveryMetadata,
+  BuildMetadata,
+  BuildMetadataSchema,
   METADATA_SPEC_VERSION,
   PaymentConfig,
   Tool,
@@ -17,14 +17,14 @@ import { InternalToolDefinition } from "../../types/index";
 import { transpileWithEsbuild } from "../../utils/esbuild";
 import { importFresh, resolveCompiledPath } from "../../utils/module-loader";
 
-interface LoadAuthoredMetadataResult {
-  metadata: AuthoredMetadata;
+interface LoadMetadataResult {
+  metadata: Metadata;
   sourcePath: string;
 }
 
 const METADATA_ENTRY = "metadata.ts";
 
-export async function loadAuthoredMetadata(projectRoot: string): Promise<LoadAuthoredMetadataResult> {
+export async function loadMetadata(projectRoot: string): Promise<LoadMetadataResult> {
   const absPath = path.join(projectRoot, METADATA_ENTRY);
   if (!fs.existsSync(absPath)) {
     throw new Error(
@@ -47,7 +47,7 @@ export async function loadAuthoredMetadata(projectRoot: string): Promise<LoadAut
     const compiledPath = resolveCompiledPath(outDir, METADATA_ENTRY);
     const moduleExports = await importFresh(compiledPath);
     const metadataExport = extractMetadataExport(moduleExports);
-    const parsed = AuthoredMetadataSchema.parse(metadataExport);
+    const parsed = MetadataSchema.parse(metadataExport);
     return { metadata: parsed, sourcePath: absPath };
   } finally {
     cleanup();
@@ -108,7 +108,7 @@ interface MetadataBuildOptions {
 }
 
 export interface MetadataBuildResult {
-  metadata: Metadata;
+  metadata: BuildMetadata;
   defaultsApplied: string[];
   sourceMetadataPath: string;
 }
@@ -116,7 +116,7 @@ export interface MetadataBuildResult {
 export async function buildMetadataArtifact(options: MetadataBuildOptions): Promise<MetadataBuildResult> {
   const projectRoot = options.projectRoot;
   const packageInfo = readPackageJson(projectRoot);
-  const { metadata: authored, sourcePath } = await loadAuthoredMetadata(projectRoot);
+  const { metadata: authored, sourcePath } = await loadMetadata(projectRoot);
   const defaultsApplied: string[] = [];
 
   const folderName = path.basename(projectRoot);
@@ -217,7 +217,7 @@ export async function buildMetadataArtifact(options: MetadataBuildOptions): Prom
     return toolDefinition;
   });
 
-  const metadata: Metadata = MetadataSchema.parse({
+  const metadata: BuildMetadata = BuildMetadataSchema.parse({
     metadataSpecVersion: authored.metadataSpecVersion ?? METADATA_SPEC_VERSION,
     name,
     displayName,
@@ -262,7 +262,7 @@ function resolveField<T>(
   return resolved;
 }
 
-function determineCategory(authored: AuthoredMetadata, defaultsApplied: string[]): string {
+function determineCategory(authored: Metadata, defaultsApplied: string[]): string {
   if (authored.category) {
     return authored.category;
   }
@@ -284,47 +284,11 @@ function extractRepository(repository: PackageInfo["repository"]): string | unde
   return repository.url;
 }
 
-function resolvePayment(authored: AuthoredMetadata, defaults: string[]): PaymentConfig | undefined {
-  if (authored.payment) {
-    return authored.payment;
-  }
-
-  const discoveryPricing = authored.discovery?.pricing as Record<string, unknown> | undefined;
-  const legacyPricing = authored.pricing as Record<string, unknown> | undefined;
-  const pricing = discoveryPricing ?? legacyPricing;
-
-  if (!pricing) {
-    return undefined;
-  }
-
-  const amount = typeof pricing.defaultAmount === "number" ? pricing.defaultAmount : 0;
-  const sourceLabel = discoveryPricing
-    ? "discovery.pricing.defaultAmount"
-    : "pricing.defaultAmount";
-  defaults.push(`payment → synthesized from ${sourceLabel}`);
-
-  const acceptedMethodsRaw = Array.isArray(pricing.acceptedMethods)
-    ? (pricing.acceptedMethods as string[])
-    : ["402"];
-  const acceptedMethods = acceptedMethodsRaw.map((method) =>
-    method === "x402" ? "x402" : "402"
-  ) as ("x402" | "402")[];
-  return {
-    amountUSDC: amount,
-    description: typeof pricing.description === "string" ? pricing.description : undefined,
-    x402: acceptedMethods.includes("x402"),
-    plain402: acceptedMethods.includes("402"),
-    acceptedMethods,
-    acceptedCurrencies: Array.isArray(pricing.acceptedCurrencies)
-      ? (pricing.acceptedCurrencies as string[])
-      : ["USDC"],
-    chains: Array.isArray(pricing.chains)
-      ? (pricing.chains as (string | number)[])
-      : [8453],
-  } satisfies PaymentConfig;
+function resolvePayment(authored: Metadata, _defaults: string[]): PaymentConfig | undefined {
+  return authored.payment ?? undefined;
 }
 
-function buildDiscovery(authored: AuthoredMetadata): DiscoveryMetadata | undefined {
+function buildDiscovery(authored: Metadata): DiscoveryMetadata | undefined {
   const legacyDiscovery: DiscoveryMetadata = {};
 
   if (Array.isArray(authored.keywords) && authored.keywords.length > 0) {
@@ -344,9 +308,6 @@ function buildDiscovery(authored: AuthoredMetadata): DiscoveryMetadata | undefin
   }
   if (Array.isArray(authored.categories) && authored.categories.length > 0) {
     legacyDiscovery.category = authored.categories[0];
-  }
-  if (authored.pricing) {
-    legacyDiscovery.pricing = authored.pricing;
   }
 
   const merged = {

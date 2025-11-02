@@ -1,7 +1,6 @@
 export * from "./runtime/index";
 export * from "./types/index";
-export * from "./helpers/payment";
-export * from "./payment/index";
+export * from "./x402/index";
 export * from "./wallets/index";
 export * from "./ai/index";
 export { createMcpAdapter, responseToToolResponse } from "./adapters/mcp";

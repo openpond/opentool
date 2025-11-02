@@ -8,7 +8,7 @@
  * Build system converts to:
  *   export const POST = wrapHandler(userPOST);
  */
-import { PaymentRequiredError } from "./payment/index";
+import { X402PaymentRequiredError } from "./x402/index";
 
 export function wrapHandler(
   handler: (request: Request) => Promise<Response>
@@ -61,7 +61,7 @@ export function wrapHandler(
         body: await response.text(),
       };
     } catch (error: any) {
-      if (error instanceof PaymentRequiredError) {
+      if (error instanceof X402PaymentRequiredError) {
         const response = error.response;
         const headers: Record<string, string> = {};
         response.headers.forEach((value, key) => {
