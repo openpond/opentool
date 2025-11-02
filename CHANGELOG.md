@@ -1,5 +1,11 @@
 # opentool
 
+## 0.7.7
+
+### Patch Changes
+
+- 9843c9a: added more logging
+
 ## 0.7.6
 
 ### Patch Changes
