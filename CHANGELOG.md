@@ -1,5 +1,11 @@
 # opentool
 
+## 0.7.6
+
+### Patch Changes
+
+- 9ad7d22: added logging
+
 ## 0.7.5
 
 ### Patch Changes
