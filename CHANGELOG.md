@@ -1,5 +1,11 @@
 # opentool
 
+## 0.7.4
+
+### Patch Changes
+
+- 59e3a44: set default to settle
+
 ## 0.7.3
 
 ### Patch Changes

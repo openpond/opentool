@@ -1,6 +1,6 @@
 {
   "name": "opentool",
-  "version": "0.7.3",
+  "version": "0.7.4",
   "description": "OpenTool framework for building serverless MCP tools",
   "type": "module",
   "main": "dist/index.js",
