@@ -9,7 +9,7 @@ import * as http from "http";
 import * as path from "path";
 import { fileURLToPath } from "url";
 import { createMcpAdapter } from "../adapters/mcp";
-import { PaymentRequiredError } from "../payment/index";
+import { X402PaymentRequiredError } from "../x402/index";
 import {
   HTTP_METHODS,
   type HttpHandlerDefinition,
@@ -358,7 +358,7 @@ async function handleRequest(params: {
   try {
     response = await route.handler(request);
   } catch (error) {
-    if (error instanceof PaymentRequiredError) {
+    if (error instanceof X402PaymentRequiredError) {
       response = error.response;
     } else {
       throw error;

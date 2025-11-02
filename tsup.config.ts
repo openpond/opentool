@@ -4,7 +4,7 @@ export default defineConfig({
   entry: [
     "src/index.ts",
     "src/cli/index.ts",
-    "src/payment/index.ts",
+    "src/x402/index.ts",
     "src/wallets/index.ts",
     "src/ai/index.ts",
   ],

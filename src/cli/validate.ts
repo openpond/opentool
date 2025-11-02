@@ -10,8 +10,7 @@ import {
   type McpConfig,
 } from "../types/index";
 import { Metadata, ToolMetadataOverrides } from "../types/metadata";
-import type { DefinedPayment } from "../payment/index";
-import { withPaymentRequirement } from "../payment/index";
+import { withX402Payment, type X402Payment } from "../x402/index";
 import { transpileWithEsbuild } from "../utils/esbuild";
 import { importFresh, resolveCompiledPath } from "../utils/module-loader";
 import { buildMetadataArtifact } from "./shared/metadata";
@@ -139,7 +138,7 @@ export async function loadAndValidateTools(
       const toolModule = extractToolModule(moduleExports, file);
 
       const schema = ensureZodSchema(toolModule.schema, file);
-      const paymentExport = toolModule.payment as DefinedPayment | undefined;
+      const paymentExport = toolModule.payment as X402Payment | undefined;
       const toolName =
         toolModule.metadata?.name ?? toolModule.metadata?.title ?? toBaseName(file);
       const inputSchemaRaw = schema ? toJsonSchema(toolName, schema) : undefined;
@@ -159,7 +158,7 @@ export async function loadAndValidateTools(
           const entry = httpHandlers[index];
           httpHandlers[index] = {
             ...entry,
-            handler: withPaymentRequirement(entry.handler, paymentExport),
+            handler: withX402Payment(entry.handler, paymentExport),
           };
         }
       }
@@ -180,11 +179,11 @@ export async function loadAndValidateTools(
       let metadataOverrides: ToolMetadataOverrides | null =
         toolModule.metadata ?? null;
 
-      if (paymentExport?.metadata) {
+      if (paymentExport) {
         if (metadataOverrides) {
           metadataOverrides = {
             ...metadataOverrides,
-            payment: metadataOverrides.payment ?? (paymentExport.metadata as any),
+            payment: metadataOverrides.payment ?? (paymentExport as any),
             annotations: {
               ...(metadataOverrides.annotations ?? {}),
               requiresPayment:
@@ -193,7 +192,7 @@ export async function loadAndValidateTools(
           };
         } else {
           metadataOverrides = {
-            payment: paymentExport.metadata as any,
+            payment: paymentExport as any,
             annotations: { requiresPayment: true },
           } as ToolMetadataOverrides;
         }

@@ -15,20 +15,44 @@ export const McpAnnotationsSchema = z
 
 export type McpAnnotations = z.infer<typeof McpAnnotationsSchema>;
 
-export const PaymentConfigSchema = z
+// X402Payment structure (from defineX402Payment)
+const X402PaymentSchema = z
   .object({
-    amountUSDC: z.number().nonnegative().optional(),
-    description: z.string().optional(),
-    x402: z.boolean().optional(),
-    plain402: z.boolean().optional(),
-    acceptedMethods: z
-      .array(z.union([z.literal("x402"), z.literal("402")]))
-      .optional(),
-    acceptedCurrencies: z.array(z.string()).optional(),
-    chains: z.array(z.union([z.string(), z.number()])).optional(),
-    facilitator: z.string().optional(),
+    definition: z.object({
+      amount: z.string(),
+      currency: z.object({
+        code: z.string(),
+        symbol: z.string(),
+        decimals: z.number(),
+      }),
+      asset: z.object({
+        symbol: z.string(),
+        network: z.string(),
+        address: z.string(),
+        decimals: z.number(),
+      }),
+      payTo: z.string(),
+      resource: z.string().optional(),
+      description: z.string().optional(),
+      scheme: z.string(),
+      network: z.string(),
+      facilitator: z.object({
+        url: z.string(),
+        verifyPath: z.string().optional(),
+        settlePath: z.string().optional(),
+        apiKeyHeader: z.string().optional(),
+      }),
+      metadata: z.record(z.string(), z.unknown()).optional(),
+    }),
+    metadata: z.record(z.string(), z.unknown()).optional(),
   })
-  .strict();
+  .passthrough();
+
+// Accept x402 or any custom payment config
+export const PaymentConfigSchema = z.union([
+  X402PaymentSchema,
+  z.record(z.string(), z.unknown()),
+]);
 
 export type PaymentConfig = z.infer<typeof PaymentConfigSchema>;
 
@@ -39,7 +63,6 @@ export const DiscoveryMetadataSchema = z
     useCases: z.array(z.string()).optional(),
     capabilities: z.array(z.string()).optional(),
     requirements: z.record(z.string(), z.any()).optional(),
-    pricing: z.record(z.string(), z.any()).optional(),
     compatibility: z.record(z.string(), z.any()).optional(),
     documentation: z.union([z.string(), z.array(z.string())]).optional(),
   })
@@ -74,7 +97,7 @@ export const ToolSchema = z
 
 export type Tool = z.infer<typeof ToolSchema>;
 
-export const AuthoredMetadataSchema = z
+export const MetadataSchema = z
   .object({
     metadataSpecVersion: z.string().optional(),
     name: z.string().optional(),
@@ -99,15 +122,14 @@ export const AuthoredMetadataSchema = z
     useCases: z.array(z.string()).optional(),
     capabilities: z.array(z.string()).optional(),
     requirements: z.record(z.string(), z.any()).optional(),
-    pricing: z.record(z.string(), z.any()).optional(),
     compatibility: z.record(z.string(), z.any()).optional(),
     chains: z.array(z.union([z.string(), z.number()])).optional(),
   })
   .catchall(z.any());
 
-export type AuthoredMetadata = z.infer<typeof AuthoredMetadataSchema>;
+export type Metadata = z.infer<typeof MetadataSchema>;
 
-export const MetadataSchema = z
+export const BuildMetadataSchema = z
   .object({
     metadataSpecVersion: z.string().default(METADATA_SPEC_VERSION),
     name: z.string(),
@@ -132,4 +154,4 @@ export const MetadataSchema = z
   })
   .strict();
 
-export type Metadata = z.infer<typeof MetadataSchema>;
+export type BuildMetadata = z.infer<typeof BuildMetadataSchema>;

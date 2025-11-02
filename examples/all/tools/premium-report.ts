@@ -1,5 +1,4 @@
-import { generateText } from "opentool/ai";
-import { definePayment } from "opentool/payment";
+import { defineX402Payment } from "opentool/x402";
 import { z } from "zod";
 
 export const schema = z.object({
@@ -10,15 +9,15 @@ export const schema = z.object({
     .describe("Ticker symbol to generate a premium market summary for"),
 });
 
-export const payment = definePayment({
-  amount: "0.50",
+export const payment = defineX402Payment({
+  amount: "0.001",
   currency: "USDC",
-  payTo: "0x...",
+  payTo: process.env.WALLET_ADDRESS!,
   message: "Premium analytics require payment before access.",
-  acceptedMethods: ["x402", "402"],
-  acceptedCurrencies: ["USDC"],
-  chains: ["base"],
-  facilitator: "opentool",
+  resource: "https://localhost:7000/premium-report",
+  network: "base-sepolia",
+  assetAddress: "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+  scheme: "exact",
 });
 
 export const mcp = { enabled: true };
@@ -26,10 +25,9 @@ export const mcp = { enabled: true };
 export async function POST(request: Request) {
   const payload = await request.json();
   const { symbol } = schema.parse(payload);
-  const report = await generateText("Premium Content " + symbol);
   return new Response(
     JSON.stringify({
-      report,
+      report: "Hello World",
     }),
     {
       status: 200,

@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { ToolMetadataOverrides } from "./metadata";
-import type { DefinedPayment } from "../payment/index";
+import type { X402Payment } from "../x402/index";
 
 export interface ToolContent {
   type: "text" | "image" | "resource";
@@ -49,7 +49,7 @@ export interface InternalToolDefinition<
   mcpConfig?: McpConfig | null;
   sourcePath?: string;
   handler?: (params: any) => Promise<ToolResponse>;
-  payment?: DefinedPayment | null;
+  payment?: X402Payment | null;
 }
 
 export interface ServerConfig {
@@ -65,5 +65,4 @@ export interface BuildConfig {
   serverVersion?: string;
 }
 
-export type { Tool, ToolMetadataOverrides, Metadata } from "./metadata";
-export * from "./payment";
+export type { Tool, ToolMetadataOverrides, Metadata, BuildMetadata, PaymentConfig } from "./metadata";
