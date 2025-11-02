@@ -164,10 +164,9 @@ export async function requireX402Payment(
     throw new X402PaymentRequiredError(response);
   }
 
-  const verifyOptions: Parameters<typeof verifyX402Payment>[2] = {};
-  if (options.settle !== undefined) {
-    verifyOptions.settle = options.settle;
-  }
+  const verifyOptions: Parameters<typeof verifyX402Payment>[2] = {
+    settle: options.settle !== undefined ? options.settle : true,
+  };
   if (options.fetchImpl !== undefined) {
     verifyOptions.fetchImpl = options.fetchImpl;
   }
