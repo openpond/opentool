@@ -1,5 +1,11 @@
 # opentool
 
+## 0.7.5
+
+### Patch Changes
+
+- ecb90ed: reject on falure in settlement
+
 ## 0.7.4
 
 ### Patch Changes
