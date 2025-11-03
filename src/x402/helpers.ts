@@ -108,9 +108,11 @@ export async function verifyX402Payment(
   options: {
     settle?: boolean;
     fetchImpl?: typeof fetch;
+    timeout?: number;
   } = {}
 ): Promise<X402VerificationResult> {
   const fetchImpl = options.fetchImpl ?? fetch;
+  const timeout = options.timeout ?? 25000; // 25 second default timeout
   const facilitator = definition.facilitator;
 
   const verifierUrl = new URL(
@@ -129,13 +131,18 @@ export async function verifyX402Payment(
     };
     console.log("[x402] Calling facilitator /verify", {
       url: verifierUrl,
-      bodyPreview: JSON.stringify(verifyBody).substring(0, 200)
+      fullBody: JSON.stringify(verifyBody, null, 2)
     });
-    const verifyResponse = await fetchImpl(verifierUrl, {
-      method: "POST",
-      headers,
-      body: JSON.stringify(verifyBody),
-    });
+    const verifyResponse = await Promise.race([
+      fetchImpl(verifierUrl, {
+        method: "POST",
+        headers,
+        body: JSON.stringify(verifyBody),
+      }),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error(`Verification timeout after ${timeout}ms`)), timeout)
+      ),
+    ]);
     console.log("[x402] Facilitator /verify response", { status: verifyResponse.status });
 
     if (!verifyResponse.ok) {
@@ -173,23 +180,34 @@ export async function verifyX402Payment(
       ).toString();
 
       try {
-        console.log("[x402] Calling facilitator /settle", { url: settleUrl });
-        const settleResponse = await fetchImpl(settleUrl, {
-          method: "POST",
-          headers,
-          body: JSON.stringify({
-            x402Version: attempt.payload.x402Version,
-            paymentPayload: attempt.payload,
-            paymentRequirements: requirement,
-          }),
+        const settleBody = {
+          x402Version: attempt.payload.x402Version,
+          paymentPayload: attempt.payload,
+          paymentRequirements: requirement,
+        };
+        console.log("[x402] Calling facilitator /settle", {
+          url: settleUrl,
+          bodyPreview: JSON.stringify(settleBody).substring(0, 300)
         });
+        const settleResponse = await Promise.race([
+          fetchImpl(settleUrl, {
+            method: "POST",
+            headers,
+            body: JSON.stringify(settleBody),
+          }),
+          new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error(`Settlement timeout after ${timeout}ms`)), timeout)
+          ),
+        ]);
         console.log("[x402] Facilitator /settle response", { status: settleResponse.status });
 
         if (!settleResponse.ok) {
+          const errorText = await settleResponse.text().catch(() => "");
+          console.error("[x402] Facilitator /settle error", { status: settleResponse.status, body: errorText });
           return {
             success: false,
             failure: {
-              reason: `Facilitator settlement failed: ${settleResponse.status}`,
+              reason: `Facilitator settlement failed: ${settleResponse.status}${errorText ? ` - ${errorText}` : ""}`,
               code: "settlement_failed",
             },
           };
@@ -199,6 +217,7 @@ export async function verifyX402Payment(
           txHash?: string;
           [key: string]: unknown;
         };
+        console.log("[x402] Facilitator /settle success", { txHash: settlePayload.txHash });
         if (settlePayload.txHash) {
           responseHeaders[HEADER_PAYMENT_RESPONSE] = JSON.stringify({
             settled: true,
@@ -206,6 +225,7 @@ export async function verifyX402Payment(
           });
         }
       } catch (error) {
+        console.error("[x402] Settlement exception", { error: error instanceof Error ? error.message : String(error) });
         return {
           success: false,
           failure: {

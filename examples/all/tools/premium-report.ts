@@ -18,6 +18,7 @@ export const payment = defineX402Payment({
   network: "base-sepolia",
   assetAddress: "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
   scheme: "exact",
+  facilitator: "http://localhost:8080",
 });
 
 export const mcp = { enabled: true };
