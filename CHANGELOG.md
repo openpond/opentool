@@ -1,5 +1,11 @@
 # opentool
 
+## 0.7.8
+
+### Patch Changes
+
+- 79578a9: updated settled in facilitator
+
 ## 0.7.7
 
 ### Patch Changes
