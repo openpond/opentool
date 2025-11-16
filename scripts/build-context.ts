@@ -14,7 +14,7 @@ import * as fs from "fs";
 import * as path from "path";
 
 const ROOT_DIR = path.resolve(__dirname, "..");
-const OUTPUT_FILE = path.join(ROOT_DIR, "dist/opentool-context.ts");
+const OUTPUT_FILE = path.join(ROOT_DIR, "context/opentool-context.ts");
 
 function loadFile(filePath: string): string {
   try {
@@ -25,7 +25,10 @@ function loadFile(filePath: string): string {
   }
 }
 
-function loadDirectory(dirPath: string, extension: string = ".ts"): Record<string, string> {
+function loadDirectory(
+  dirPath: string,
+  extension: string = ".ts"
+): Record<string, string> {
   const files: Record<string, string> = {};
 
   if (!fs.existsSync(dirPath)) {
@@ -63,13 +66,15 @@ function main() {
 
   const readme = loadFile(path.join(ROOT_DIR, "README.md"));
   const metadataGuide = loadFile(path.join(ROOT_DIR, "METADATA.md"));
-  const examples = loadDirectory(path.join(ROOT_DIR, "examples/full-metadata/tools"));
+  const examples = loadDirectory(path.join(ROOT_DIR, "examples/all/tools"));
   const walletSource = loadDirectory(path.join(ROOT_DIR, "src/wallets"));
 
   console.log(`✓ Loaded README.md (${readme.length} bytes)`);
   console.log(`✓ Loaded METADATA.md (${metadataGuide.length} bytes)`);
   console.log(`✓ Loaded ${Object.keys(examples).length} example tools`);
-  console.log(`✓ Loaded ${Object.keys(walletSource).length} wallet source files\n`);
+  console.log(
+    `✓ Loaded ${Object.keys(walletSource).length} wallet source files\n`
+  );
 
   const output = `/**
  * AUTO-GENERATED FILE - DO NOT EDIT MANUALLY
@@ -92,15 +97,23 @@ export const OPENTOOL_README = \`${escapeForTemplate(readme)}\`;
 export const OPENTOOL_METADATA_GUIDE = \`${escapeForTemplate(metadataGuide)}\`;
 
 export const OPENTOOL_EXAMPLES: Record<string, string> = {
-${Object.entries(examples).map(([name, content]) =>
-  `  ${JSON.stringify(name)}: \`${escapeForTemplate(content)}\`,`
-).join("\n")}
+${Object.entries(examples)
+  .map(
+    ([name, content]) =>
+      `  ${JSON.stringify(name)}: \`${escapeForTemplate(content)}\`,`
+  )
+  .join("\n")}
 };
 
 export const OPENTOOL_WALLET_SOURCE: Record<string, string> = {
-${Object.entries(walletSource).map(([name, content]) =>
-  `  ${JSON.stringify(`src/wallets/${name}`)}: \`${escapeForTemplate(content)}\`,`
-).join("\n")}
+${Object.entries(walletSource)
+  .map(
+    ([name, content]) =>
+      `  ${JSON.stringify(`src/wallets/${name}`)}: \`${escapeForTemplate(
+        content
+      )}\`,`
+  )
+  .join("\n")}
 };
 
 /**
@@ -208,9 +221,9 @@ export function getOpenToolContext(): string {
 `;
 
   // Ensure dist directory exists
-  const distDir = path.dirname(OUTPUT_FILE);
-  if (!fs.existsSync(distDir)) {
-    fs.mkdirSync(distDir, { recursive: true });
+  const contextDir = path.dirname(OUTPUT_FILE);
+  if (!fs.existsSync(contextDir)) {
+    fs.mkdirSync(contextDir, { recursive: true });
   }
 
   fs.writeFileSync(OUTPUT_FILE, output);
@@ -220,8 +233,12 @@ export function getOpenToolContext(): string {
   console.log(`📊 File size: ${(stats.size / 1024).toFixed(2)} KB\n`);
   console.log("📋 Next steps:");
   console.log("   1. Copy this file to your deployment system");
-  console.log("   2. Import with: import { getOpenToolContext } from './opentool-context';");
-  console.log("   3. Use in AI prompt: const context = getOpenToolContext();\n");
+  console.log(
+    "   2. Import with: import { getOpenToolContext } from './opentool-context';"
+  );
+  console.log(
+    "   3. Use in AI prompt: const context = getOpenToolContext();\n"
+  );
 }
 
 main();

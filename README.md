@@ -5,7 +5,7 @@
 
 Build serverless TypeScript tools that work with AI assistants, handle crypto payments, and deploy to AWS Lambda automatically.
 
-**For LLMs/AI Code Generation:** [`dist/opentool-context.ts`](./scripts/build-context.ts)
+**For LLMs/AI Code Generation:** [`context/opentool-context.ts`](./context/opentool-context.ts)
 
 ## What is it?
 
