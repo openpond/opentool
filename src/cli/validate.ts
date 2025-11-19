@@ -114,6 +114,14 @@ export async function loadAndValidateTools(
   if (fs.existsSync(tempDir)) {
     fs.rmSync(tempDir, { recursive: true, force: true });
   }
+  // Enforce kebab-case filenames (tool key = filename)
+  const kebabCase = /^[a-z0-9]+(?:-[a-z0-9]+)*\.[a-z]+$/;
+  for (const f of files) {
+    if (!kebabCase.test(f)) {
+      throw new Error(`Tool filename must be kebab-case: ${f}`);
+    }
+  }
+
   const entryPoints = files.map((file) => path.join(toolsDir, file));
 
   const { outDir, cleanup } = await transpileWithEsbuild({
@@ -145,6 +153,31 @@ export async function loadAndValidateTools(
       const inputSchema = normalizeInputSchema(inputSchemaRaw);
 
       const httpHandlersRaw = collectHttpHandlers(toolModule, file);
+      // Enforce strict authoring rules: exactly one of GET or POST
+      const hasGET = typeof (toolModule as any).GET === "function";
+      const hasPOST = typeof (toolModule as any).POST === "function";
+      const otherMethods = HTTP_METHODS.filter((m) => m !== "GET" && m !== "POST").filter(
+        (m) => typeof (toolModule as any)[m] === "function"
+      );
+      if (otherMethods.length > 0) {
+        throw new Error(
+          `${file} must not export ${otherMethods.join(", ")}. Only one of GET or POST is allowed.`
+        );
+      }
+      if (hasGET === hasPOST) {
+        throw new Error(`${file}: export exactly one of GET or POST`);
+      }
+      if (hasGET) {
+        const schedule = (toolModule as any)?.profile?.schedule;
+        if (!schedule || typeof schedule?.cron !== "string" || schedule.cron.trim().length === 0) {
+          throw new Error(`${file}: GET tools require profile.schedule { cron }`);
+        }
+      }
+      if (hasPOST) {
+        if (!schema) {
+          throw new Error(`${file}: POST tools must export a Zod schema as 'schema'`);
+        }
+      }
       const httpHandlers = [...httpHandlersRaw];
 
       if (httpHandlers.length === 0) {
