@@ -1,5 +1,11 @@
 # opentool
 
+## 0.7.9
+
+### Patch Changes
+
+- b95d042: added profiles for get and post for private agents
+
 ## 0.7.8
 
 ### Patch Changes
