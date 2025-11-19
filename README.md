@@ -11,6 +11,8 @@ Build serverless TypeScript tools that work with AI assistants, handle crypto pa
 
 OpenTool lets you write simple TypeScript functions that can be called by other agents, monetized with crypto payments, and deployed as serverless functions. It handles the boring stuff like:
 
+Tools are either Public or Private. Public tools are accessible to the public and are monetized with crypto payments using x402. Private tools are accessible only to the app developer and are mainly for trading and onchain interaction use cases.
+
 ## Installation
 
 ```bash
@@ -65,9 +67,57 @@ npx opentool validate
 npx opentool dev
 ```
 
-### 4. Add x402 payments (optional)
+### Private tools: GET-only and POST-only
 
-Protect your tools with crypto payments using x402:
+For private tools, say for internal trading apps:
+
+- GET-only (scheduled default profile)
+- POST-only (one-off, parameterized with Zod)
+
+GET-only (scheduled default)
+
+```typescript
+// tools/aave-stake.ts
+export const profile = {
+  description: "Stake 100 USDC daily at 12:00 UTC",
+  fixedAmount: "100",
+  tokenSymbol: "USDC",
+  schedule: { cron: "0 12 * * *", enabled: true },
+  limits: { concurrency: 1, dailyCap: 1 },
+};
+
+export async function GET(_req: Request) {
+  const amount = profile.fixedAmount;
+  return Response.json({
+    ok: true,
+    action: "stake",
+    amount,
+    token: profile.tokenSymbol,
+  });
+}
+```
+
+POST-only (one-off)
+
+```typescript
+// tools/aave-unstake.ts
+import { z } from "zod";
+
+export const schema = z.object({
+  amount: z.string(),
+  token: z.string().default("USDC"),
+});
+
+export async function POST(req: Request) {
+  const body = await req.json();
+  const { amount, token } = schema.parse(body);
+  return Response.json({ ok: true, action: "unstake", amount, token });
+}
+```
+
+### Public tools: Add x402 payments (optional)
+
+Protect your public tools with crypto payments using x402:
 
 ```typescript
 // tools/premium-report.ts

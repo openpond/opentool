@@ -68,6 +68,16 @@ function main() {
   const metadataGuide = loadFile(path.join(ROOT_DIR, "METADATA.md"));
   const examples = loadDirectory(path.join(ROOT_DIR, "examples/all/tools"));
   const walletSource = loadDirectory(path.join(ROOT_DIR, "src/wallets"));
+  let version = "0.0.0";
+  try {
+    const pkgRaw = fs.readFileSync(path.join(ROOT_DIR, "package.json"), "utf-8");
+    const pkg = JSON.parse(pkgRaw);
+    if (pkg && typeof pkg.version === "string") {
+      version = pkg.version;
+    }
+  } catch {
+    // leave default
+  }
 
   console.log(`✓ Loaded README.md (${readme.length} bytes)`);
   console.log(`✓ Loaded METADATA.md (${metadataGuide.length} bytes)`);
@@ -90,7 +100,7 @@ function main() {
  * To use: Copy this file to your deployment system and import getOpenToolContext()
  */
 
-export const OPENTOOL_VERSION = "0.6.0";
+export const OPENTOOL_VERSION = "${version}";
 
 export const OPENTOOL_README = \`${escapeForTemplate(readme)}\`;
 
