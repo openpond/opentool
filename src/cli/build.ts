@@ -1,6 +1,6 @@
 import * as fs from "fs";
 import * as path from "path";
-import { InternalToolDefinition } from "../types/index";
+import { InternalToolDefinition, ScheduleType } from "../types/index";
 import { Metadata } from "../types/metadata";
 import { transpileWithEsbuild } from "../utils/esbuild";
 import { buildMetadataArtifact } from "./shared/metadata";
@@ -45,7 +45,7 @@ interface WorkflowBundleArtifact {
 interface CronManifestEntry {
   toolName: string;
   description?: string;
-  scheduleType: "cron";
+  scheduleType: ScheduleType;
   scheduleExpression: string;
   enabledDefault: boolean;
   authoredEnabled?: boolean;
@@ -351,9 +351,8 @@ function writeCronManifest(options: {
     const description = tool.metadata?.description ?? tool.profileDescription ?? undefined;
     const payloadPath = compiled.modulePath.replace(/\\/g, "/");
 
-    return {
+    const entry: CronManifestEntry = {
       toolName,
-      description,
       scheduleType: schedule.type,
       scheduleExpression: schedule.expression,
       enabledDefault: false,
@@ -365,6 +364,12 @@ function writeCronManifest(options: {
         httpMethod: "GET",
       },
     };
+
+    if (description !== undefined) {
+      entry.description = description;
+    }
+
+    return entry;
   });
 
   const manifest: CronManifest = {
