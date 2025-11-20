@@ -82,7 +82,7 @@ export const profile = {
   description: "Stake 100 USDC daily at 12:00 UTC",
   fixedAmount: "100",
   tokenSymbol: "USDC",
-  schedule: { cron: "0 12 * * *", enabled: true },
+  schedule: { cron: "0 12 * * *", enabled: false },
   limits: { concurrency: 1, dailyCap: 1 },
 };
 
@@ -114,6 +114,11 @@ export async function POST(req: Request) {
   return Response.json({ ok: true, action: "unstake", amount, token });
 }
 ```
+
+### Cron schedules (`profile.schedule`)
+
+- GET-only tools require `profile.schedule` with a standard 5–6 field cron expression (e.g., `0 12 * * *` or `0 0 ? * MON-FRI *`).
+- Build validates the cron shape and emits `.well-known/opentool/cron.json` capturing each scheduled tool (`toolName`, `toolPath`, `scheduleExpression`). Enabled defaults to `false` even if authors set it to `true` in code. Deployment targets can translate these cron strings to their provider format (e.g., EventBridge) downstream.
 
 ### Public tools: Add x402 payments (optional)
 

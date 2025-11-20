@@ -3,7 +3,13 @@
 
 import type { z } from "zod";
 
-export type CronSpec = { cron: string; enabled?: boolean };
+export type CronSpec = {
+  /**
+   * AWS EventBridge schedule expression (`cron(...)` or `rate(...)`).
+   */
+  cron: string;
+  enabled?: boolean;
+};
 
 export type ToolProfileGET = {
   description: string;
@@ -37,4 +43,3 @@ export type ToolModulePOST<B = unknown> = {
 };
 
 export type ToolModule = ToolModuleGET | ToolModulePOST<any>;
-
