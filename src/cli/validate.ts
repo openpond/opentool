@@ -8,12 +8,14 @@ import {
   type HttpHandlerDefinition,
   type InternalToolDefinition,
   type McpConfig,
+  type NormalizedSchedule,
 } from "../types/index";
 import { Metadata, ToolMetadataOverrides } from "../types/metadata";
 import { withX402Payment, type X402Payment } from "../x402/index";
 import { transpileWithEsbuild } from "../utils/esbuild";
 import { importFresh, resolveCompiledPath } from "../utils/module-loader";
 import { buildMetadataArtifact } from "./shared/metadata";
+import { normalizeScheduleExpression } from "../utils/schedule";
 
 export interface ValidateOptions {
   input: string;
@@ -167,10 +169,16 @@ export async function loadAndValidateTools(
       if (hasGET === hasPOST) {
         throw new Error(`${file}: export exactly one of GET or POST`);
       }
+
+      let normalizedSchedule: NormalizedSchedule | null = null;
       if (hasGET) {
         const schedule = (toolModule as any)?.profile?.schedule;
         if (!schedule || typeof schedule?.cron !== "string" || schedule.cron.trim().length === 0) {
           throw new Error(`${file}: GET tools require profile.schedule { cron }`);
+        }
+        normalizedSchedule = normalizeScheduleExpression(schedule.cron, file);
+        if (typeof schedule.enabled === "boolean") {
+          normalizedSchedule.authoredEnabled = schedule.enabled;
         }
       }
       if (hasPOST) {
@@ -241,6 +249,11 @@ export async function loadAndValidateTools(
         sourcePath: path.join(toolsDir, file),
         handler: async (params: unknown) => adapter(params),
         payment: paymentExport ?? null,
+        schedule: normalizedSchedule,
+        profileDescription:
+          typeof (toolModule as any)?.profile?.description === "string"
+            ? toolModule.profile?.description ?? null
+            : null,
       };
 
       tools.push(tool);

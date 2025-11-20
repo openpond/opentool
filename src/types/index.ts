@@ -31,6 +31,14 @@ export interface HttpHandlerDefinition {
   handler: (request: Request) => Promise<Response> | Response;
 }
 
+export type ScheduleType = "cron" | "rate";
+
+export interface NormalizedSchedule {
+  type: ScheduleType;
+  expression: string;
+  authoredEnabled?: boolean;
+}
+
 export interface McpConfig {
   enabled: boolean;
   mode?: "stdio" | "lambda" | "dual";
@@ -50,6 +58,8 @@ export interface InternalToolDefinition<
   sourcePath?: string;
   handler?: (params: any) => Promise<ToolResponse>;
   payment?: X402Payment | null;
+  schedule?: NormalizedSchedule | null;
+  profileDescription?: string | null;
 }
 
 export interface ServerConfig {
