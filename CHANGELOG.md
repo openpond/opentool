@@ -1,5 +1,13 @@
 # opentool
 
+## 0.7.10
+
+### Patch Changes
+
+- e020d50: fix version
+- 1a7e2f1: fix version
+- 7f79f59: schedule well known
+
 ## 0.7.9
 
 ### Patch Changes
