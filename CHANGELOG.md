@@ -1,5 +1,11 @@
 # opentool
 
+## 0.7.12
+
+### Patch Changes
+
+- 325578b: updated chain types for writecontract and downstream viem
+
 ## 0.7.11
 
 ### Patch Changes
