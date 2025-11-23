@@ -7,6 +7,7 @@ export default defineConfig({
     "src/x402/index.ts",
     "src/wallets/index.ts",
     "src/ai/index.ts",
+    "src/store/index.ts",
   ],
   format: ["esm"],
   dts: true,

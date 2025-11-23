@@ -106,6 +106,10 @@
       "import": "./dist/wallets/index.js",
       "types": "./dist/wallets/index.d.ts"
     },
+    "./store": {
+      "import": "./dist/store/index.js",
+      "types": "./dist/store/index.d.ts"
+    },
     "./cli": {
       "import": "./dist/cli/index.js",
       "types": "./dist/cli/index.d.ts"
