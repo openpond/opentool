@@ -43,8 +43,7 @@ export interface StoreOptions {
 
 export interface StoreResponse {
   id: string;
-  historyId?: string;
-  status?: StoreStatus;
+  status?: StoreStatus | null;
 }
 export class StoreError extends Error {
   constructor(
@@ -122,11 +121,10 @@ export async function store(
     const data = (await response.json()) as Partial<StoreResponse>;
     return {
       id: data.id ?? "",
-      historyId: data.historyId,
-      status: data.status,
+      status: data.status ?? null,
     };
   } catch {
     // Response is optional; return empty success
-    return { id: "" };
+    return { id: "", status: null };
   }
 }
