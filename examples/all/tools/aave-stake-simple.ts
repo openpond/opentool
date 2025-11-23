@@ -1,7 +1,21 @@
-// GET-only scheduled staking tool using OpenTool wallet + Aave V3 Pool
+import { z } from "zod";
 import { wallet } from "opentool/wallet";
-import { store } from "opentool/store";
 import { parseUnits } from "viem";
+
+// POST-only one-off staking tool mirroring aave-stake.ts behavior
+export const profile = {
+  description: "Stake a user-specified USDC amount to Aave (Base Sepolia)",
+};
+
+export const schema = z.object({
+  amount: z
+    .string()
+    .min(1, "amount is required")
+    .refine(
+      (v) => /^\d+(?:\.\d+)?$/.test(v),
+      "amount must be a decimal string"
+    ),
+});
 
 const ERC20_ABI = [
   {
@@ -30,17 +44,12 @@ const AAVE_POOL_ABI = [
     outputs: [],
   },
 ];
-export const profile = {
-  description: "Stake 1 USDC every 2 minutes",
-  fixedAmount: "1",
-  tokenSymbol: "USDC",
-  schedule: { cron: "*/2 * * * *", enabled: true },
-  limits: { concurrency: 1, dailyCap: 1 },
-};
 
-export async function GET(_req: Request) {
-  const amount = profile.fixedAmount || "1";
+export async function POST(req: Request) {
+  const body = await req.json().catch(() => ({}));
+  const { amount } = schema.parse(body);
 
+  // Establish wallet context (same network and envs as aave-stake.ts)
   const ctx = await wallet({
     chain: "base-sepolia",
     apiKey: process.env.ALCHEMY_API_KEY,
@@ -97,21 +106,11 @@ export async function GET(_req: Request) {
     ...feeOverrides,
   });
 
-  // Record the supply tx in the OpenPond activity store
-  await store({
-    source: "aave-v3", // protocol identifier doubles as source
-    ref: supplyHash,
-    status: "submitted",
-    chainId: ctx.chain.id,
-    walletAddress: ctx.address,
+  return Response.json({
+    ok: true,
     action: "stake",
-    notional: amount,
-    metadata: {
-      tool: "aave-stake",
-      approveHash,
-    },
+    amount,
+    approveHash,
+    supplyHash,
   });
-
-  // No content response (intentionally empty)
-  return new Response(null, { status: 204 });
 }
