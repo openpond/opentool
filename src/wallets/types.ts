@@ -1,4 +1,4 @@
-import type { Chain, PublicClient, WalletClient } from "viem";
+import type { Chain, PublicClient, Transport, WalletClient } from "viem";
 import type { Account } from "viem/accounts";
 
 export type Hex = `0x${string}`;
@@ -94,8 +94,8 @@ export interface WalletTransferParams {
 export interface WalletSignerContext {
   address: HexAddress;
   account: Account;
-  walletClient: WalletClient;
-  publicClient: PublicClient;
+  walletClient: WalletClient<Transport, Chain, Account>;
+  publicClient: PublicClient<Transport, Chain>;
   sendTransaction(params: WalletSendTransactionParams): Promise<Hex>;
   getNativeBalance(): Promise<bigint>;
   transfer(params: WalletTransferParams): Promise<Hex>;
