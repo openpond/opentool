@@ -1,6 +1,14 @@
 import { Turnkey } from "@turnkey/sdk-server";
 import { createAccount } from "@turnkey/viem";
-import { createPublicClient, createWalletClient, http, type PublicClient, type WalletClient } from "viem";
+import {
+  createPublicClient,
+  createWalletClient,
+  http,
+  type Chain,
+  type PublicClient,
+  type Transport,
+} from "viem";
+import type { Account } from "viem/accounts";
 
 import type {
   ChainMetadata,
@@ -22,7 +30,7 @@ export interface TurnkeyProviderConfig {
 }
 
 export interface TurnkeyProviderResult extends WalletSignerContext {
-  publicClient: PublicClient;
+  publicClient: PublicClient<Transport, Chain>;
 }
 
 export async function createTurnkeyProvider(
@@ -36,19 +44,19 @@ export async function createTurnkeyProvider(
     apiPrivateKey: config.apiPrivateKey,
   });
 
-  const account = await createAccount({
+  const account = (await createAccount({
     client: turnkey.apiClient(),
     organizationId: config.organizationId,
     signWith: config.signWith,
-  });
+  })) as Account;
 
   const transport = http(config.rpcUrl);
-  const publicClient = createPublicClient({
+  const publicClient = createPublicClient<Transport, Chain>({
     chain: config.chain.chain,
     transport,
   });
 
-  const walletClient = createWalletClient({
+  const walletClient = createWalletClient<Transport, Chain, Account>({
     account,
     chain: config.chain.chain,
     transport,
@@ -86,7 +94,7 @@ export async function createTurnkeyProvider(
   return {
     address: account.address as HexAddress,
     account,
-    walletClient: walletClient as WalletClient,
+    walletClient,
     publicClient,
     sendTransaction,
     getNativeBalance,

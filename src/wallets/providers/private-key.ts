@@ -1,4 +1,4 @@
-import { createPublicClient, createWalletClient, http, type PublicClient, type WalletClient } from "viem";
+import { createPublicClient, createWalletClient, http, type Chain, type PublicClient, type Transport } from "viem";
 import { privateKeyToAccount, type Account } from "viem/accounts";
 
 import type {
@@ -25,7 +25,7 @@ export interface PrivateKeyProviderConfig {
 }
 
 export interface PrivateKeyProviderResult extends WalletSignerContext {
-  publicClient: PublicClient;
+  publicClient: PublicClient<Transport, Chain>;
 }
 
 export function createPrivateKeyProvider(
@@ -35,12 +35,12 @@ export function createPrivateKeyProvider(
   const account = privateKeyToAccount(privateKey);
 
   const transport = http(config.rpcUrl);
-  const publicClient = createPublicClient({
+  const publicClient = createPublicClient<Transport, Chain>({
     chain: config.chain.chain,
     transport,
   });
 
-  const walletClient = createWalletClient({
+  const walletClient = createWalletClient<Transport, Chain, Account>({
     account,
     chain: config.chain.chain,
     transport,
@@ -77,8 +77,8 @@ export function createPrivateKeyProvider(
 
   return {
     address: account.address as HexAddress,
-    account: account as Account,
-    walletClient: walletClient as WalletClient,
+    account,
+    walletClient,
     publicClient,
     sendTransaction,
     getNativeBalance,
