@@ -1,5 +1,11 @@
 # opentool
 
+## 0.7.11
+
+### Patch Changes
+
+- 4c6f8b3: added store
+
 ## 0.7.10
 
 ### Patch Changes
