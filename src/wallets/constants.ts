@@ -1,5 +1,11 @@
 import { zeroAddress } from "viem";
-import { base, baseSepolia, mainnet } from "viem/chains";
+import {
+  arbitrum,
+  arbitrumSepolia,
+  base,
+  baseSepolia,
+  mainnet,
+} from "viem/chains";
 
 import type {
   ChainMetadata,
@@ -12,6 +18,8 @@ import type {
 const BASE_ALCHEMY_HOST = "https://base-mainnet.g.alchemy.com/v2/";
 const ETHEREUM_ALCHEMY_HOST = "https://eth-mainnet.g.alchemy.com/v2/";
 const BASE_SEPOLIA_ALCHEMY_HOST = "https://base-sepolia.g.alchemy.com/v2/";
+const ARBITRUM_ALCHEMY_HOST = "https://arb-mainnet.g.alchemy.com/v2/";
+const ARBITRUM_SEPOLIA_ALCHEMY_HOST = "https://arb-sepolia.g.alchemy.com/v2/";
 
 function buildRpcResolver(
   host: string,
@@ -66,6 +74,28 @@ const chains: Record<string, ChainMetadata> = {
       baseSepolia.rpcUrls.default.http
     ),
   },
+  arbitrum: {
+    id: arbitrum.id,
+    slug: "arbitrum",
+    name: "Arbitrum One",
+    chain: arbitrum,
+    rpcUrl: buildRpcResolver(
+      ARBITRUM_ALCHEMY_HOST,
+      arbitrum.rpcUrls.default.http
+    ),
+    publicRpcUrls: arbitrum.rpcUrls.default.http,
+  },
+  arbitrumSepolia: {
+    id: arbitrumSepolia.id,
+    slug: "arbitrum-sepolia",
+    name: "Arbitrum Sepolia",
+    chain: arbitrumSepolia,
+    rpcUrl: buildRpcResolver(
+      ARBITRUM_SEPOLIA_ALCHEMY_HOST,
+      arbitrumSepolia.rpcUrls.default.http
+    ),
+    publicRpcUrls: arbitrumSepolia.rpcUrls.default.http,
+  },
 };
 
 function createNativeToken(
@@ -119,6 +149,26 @@ const tokens: Record<string, ChainTokenMap> = {
       "USDC",
       "USD Coin",
       "0xA0b86991c6218b36c1d19d4a2e9Eb0cE3606eB48",
+      6
+    ),
+  },
+  arbitrum: {
+    ...createNativeToken(arbitrum.id, "ETH", "Ether"),
+    USDC: token(
+      arbitrum.id,
+      "USDC",
+      "USD Coin",
+      "0xaf88d065e77c8cc2239327c5edb3a432268e5831",
+      6
+    ),
+  },
+  arbitrumSepolia: {
+    ...createNativeToken(arbitrumSepolia.id, "ETH", "Ether"),
+    USDC: token(
+      arbitrumSepolia.id,
+      "USDC",
+      "USD Coin",
+      "0x1baAbB04529D43a73232B713C0FE471f7c7334d5",
       6
     ),
   },
