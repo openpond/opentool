@@ -44,7 +44,6 @@ export async function transpileWithEsbuild(options: TranspileOptions): Promise<T
   const buildOptions: BuildOptions = {
     entryPoints: options.entryPoints,
     outdir: tempBase,
-    outbase: options.outBase,
     bundle: options.bundle ?? false,
     format: options.format,
     platform: "node",
@@ -70,6 +69,10 @@ export async function transpileWithEsbuild(options: TranspileOptions): Promise<T
 
   if (options.external && options.external.length > 0) {
     buildOptions.external = options.external;
+  }
+
+  if (options.outBase) {
+    buildOptions.outbase = options.outBase;
   }
 
   if (!buildOptions.bundle) {
