@@ -7,9 +7,12 @@ interface TranspileOptions {
   entryPoints: string[];
   projectRoot: string;
   outDir?: string;
+  outBase?: string;
   format: "cjs" | "esm";
   bundle?: boolean;
   external?: string[];
+  metafile?: boolean;
+  logLevel?: "silent" | "error" | "warning" | "info" | "debug";
 }
 
 function resolveTsconfig(projectRoot: string): string | undefined {
@@ -41,11 +44,12 @@ export async function transpileWithEsbuild(options: TranspileOptions): Promise<T
   const buildOptions: BuildOptions = {
     entryPoints: options.entryPoints,
     outdir: tempBase,
+    outbase: options.outBase,
     bundle: options.bundle ?? false,
     format: options.format,
     platform: "node",
     target: "node20",
-    logLevel: "warning",
+    logLevel: options.logLevel ?? "warning",
     sourcesContent: false,
     sourcemap: false,
     loader: {
@@ -59,7 +63,7 @@ export async function transpileWithEsbuild(options: TranspileOptions): Promise<T
       ".cjs": "js",
       ".json": "json",
     },
-    metafile: false,
+    metafile: options.metafile ?? false,
     allowOverwrite: true,
     absWorkingDir: projectRoot,
   };

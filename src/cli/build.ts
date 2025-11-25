@@ -20,6 +20,7 @@ interface BuildArtifacts {
   compiledTools: CompiledToolArtifact[];
   workflowBundles: WorkflowBundleArtifact | null;
   cronManifestPath: string | null;
+  sharedModules?: SharedModulesInfo | null;
 }
 
 interface CompiledToolArtifact {
@@ -59,6 +60,11 @@ interface CronManifest {
   version: number;
   generatedAt: string;
   entries: CronManifestEntry[];
+}
+
+interface SharedModulesInfo {
+  count: number;
+  outputDir: string;
 }
 
 export async function buildCommand(options: BuildOptions): Promise<void> {
@@ -106,6 +112,11 @@ export async function buildProject(options: BuildOptions): Promise<BuildArtifact
     outputDir,
   });
 
+  const sharedModules = await emitSharedModules({
+    projectRoot,
+    outputDir,
+  });
+
   const cronManifestPath = await writeCronManifest({
     tools,
     compiledTools,
@@ -142,6 +153,7 @@ export async function buildProject(options: BuildOptions): Promise<BuildArtifact
     compiledTools,
     workflowBundles,
     cronManifestPath,
+    sharedModules,
   };
 }
 
@@ -200,6 +212,64 @@ async function emitTools(
   });
 
   return compiled;
+}
+
+interface EmitSharedModulesConfig {
+  projectRoot: string;
+  outputDir: string;
+}
+
+async function emitSharedModules(
+  config: EmitSharedModulesConfig
+): Promise<SharedModulesInfo | null> {
+  const srcDir = path.join(config.projectRoot, "src");
+  if (!fs.existsSync(srcDir)) {
+    return null;
+  }
+
+  const sharedFiles = collectSourceFiles(srcDir);
+  if (sharedFiles.length === 0) {
+    return null;
+  }
+
+  const sharedOutDir = path.join(config.outputDir, "src");
+
+  await transpileWithEsbuild({
+    entryPoints: sharedFiles,
+    projectRoot: config.projectRoot,
+    outDir: sharedOutDir,
+    outBase: srcDir,
+    format: "cjs",
+    bundle: false,
+    logLevel: "warning",
+  });
+
+  return { count: sharedFiles.length, outputDir: sharedOutDir };
+}
+
+function collectSourceFiles(dir: string): string[] {
+  const supported = new Set([".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"]);
+  const results: string[] = [];
+  const ignoreDirs = new Set(["node_modules", ".git", "dist", ".opentool-temp"]);
+
+  const entries = fs.readdirSync(dir, { withFileTypes: true });
+  for (const entry of entries) {
+    const fullPath = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      if (ignoreDirs.has(entry.name)) {
+        continue;
+      }
+      results.push(...collectSourceFiles(fullPath));
+      continue;
+    }
+
+    const ext = path.extname(entry.name);
+    if (supported.has(ext) && !entry.name.endsWith(".d.ts")) {
+      results.push(fullPath);
+    }
+  }
+
+  return results;
 }
 
 interface ServerOptions {
@@ -393,6 +463,13 @@ function logBuildSummary(artifacts: BuildArtifacts, options: BuildOptions): void
     console.log("  • mcp-server.js (stdio server)");
   }
   console.log(`  • tools/ (${artifacts.compiledTools.length} compiled tools)`);
+  if (artifacts.sharedModules) {
+    console.log(
+      `  • src/ (${artifacts.sharedModules.count} shared module${
+        artifacts.sharedModules.count === 1 ? "" : "s"
+      } compiled)`
+    );
+  }
   artifacts.compiledTools.forEach((tool) => {
     const methods = tool.httpMethods.join(", ");
     const walletBadge = tool.hasWallet ? " [wallet]" : "";
