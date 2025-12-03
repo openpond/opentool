@@ -1,0 +1,20 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ES2020"],
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "allowSyntheticDefaultImports": true,
+    "paths": {
+      "opentool": ["../../dist/index.d.ts"],
+      "opentool/*": ["../../dist/*"],
+      "opentool/wallet": ["../../dist/wallets/index.d.ts"],
+      "opentool/wallets": ["../../dist/wallets/index.d.ts"]
+    }
+  },
+  "include": ["tools/**/*.ts"]
+}
