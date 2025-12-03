@@ -1,5 +1,11 @@
 # opentool
 
+## 0.8.1
+
+### Patch Changes
+
+- 17a60c1: removed workflow example
+
 ## 0.8.0
 
 ### Minor Changes
