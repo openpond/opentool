@@ -171,11 +171,8 @@ export async function loadAndValidateTools(
       }
 
       let normalizedSchedule: NormalizedSchedule | null = null;
-      if (hasGET) {
-        const schedule = (toolModule as any)?.profile?.schedule;
-        if (!schedule || typeof schedule?.cron !== "string" || schedule.cron.trim().length === 0) {
-          throw new Error(`${file}: GET tools require profile.schedule { cron }`);
-        }
+      const schedule = (toolModule as any)?.profile?.schedule;
+      if (hasGET && schedule && typeof schedule.cron === "string" && schedule.cron.trim().length > 0) {
         normalizedSchedule = normalizeScheduleExpression(schedule.cron, file);
         if (typeof schedule.enabled === "boolean") {
           normalizedSchedule.authoredEnabled = schedule.enabled;
@@ -184,6 +181,9 @@ export async function loadAndValidateTools(
       if (hasPOST) {
         if (!schema) {
           throw new Error(`${file}: POST tools must export a Zod schema as 'schema'`);
+        }
+        if (schedule && typeof schedule.cron === "string") {
+          throw new Error(`${file}: POST tools must not define profile.schedule; use GET + cron for scheduled tasks.`);
         }
       }
       const httpHandlers = [...httpHandlersRaw];

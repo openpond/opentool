@@ -16,6 +16,7 @@ import {
   type InternalToolDefinition,
 } from "../types/index";
 import { loadAndValidateTools } from "./validate";
+import dotenv from "dotenv";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const packageJson = JSON.parse(
@@ -49,6 +50,7 @@ export async function devCommand(options: DevOptions): Promise<void> {
     }
 
     const projectRoot = path.dirname(toolsDir);
+    loadEnvFiles(projectRoot);
     let toolDefinitions = await loadToolDefinitions(toolsDir, projectRoot);
     if (toolDefinitions.length === 0) {
       throw new Error("No tools found in the target directory");
@@ -405,6 +407,16 @@ function findRoute(
 
 function routeName(tool: InternalToolDefinition): string {
   return tool.metadata?.name ?? tool.filename;
+}
+
+function loadEnvFiles(projectRoot: string): void {
+  const envFiles = [".env.local", ".env"];
+  for (const file of envFiles) {
+    const candidate = path.join(projectRoot, file);
+    if (fs.existsSync(candidate)) {
+      dotenv.config({ path: candidate, override: false });
+    }
+  }
 }
 
 async function readRequestBody(req: http.IncomingMessage): Promise<Buffer> {

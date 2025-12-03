@@ -1,0 +1,20 @@
+{
+  "name": "hyperliquid-example",
+  "version": "1.0.0",
+  "description": "Hyperliquid OpenTool example project",
+  "private": true,
+  "scripts": {
+    "dev": "opentool dev",
+    "build": "opentool build --input tools --output dist",
+    "metadata": "opentool metadata --input tools --output metadata.json",
+    "validate": "opentool validate --input tools"
+  },
+  "dependencies": {
+    "opentool": "file:../..",
+    "zod": "^4.1.11"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
+  }
+}

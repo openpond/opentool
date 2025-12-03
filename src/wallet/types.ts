@@ -99,6 +99,10 @@ export interface WalletSignerContext {
   sendTransaction(params: WalletSendTransactionParams): Promise<Hex>;
   getNativeBalance(): Promise<bigint>;
   transfer(params: WalletTransferParams): Promise<Hex>;
+  /**
+   * Optional monotonic nonce provider for systems that require client-side nonces.
+   */
+  nonceSource?: () => number;
 }
 
 export interface WalletBaseContext {
@@ -108,6 +112,8 @@ export interface WalletBaseContext {
   providerType: WalletProviderType;
   publicClient: PublicClient;
   getRpcUrl(options?: RpcProviderOptions): string;
+  /** Address is present when a signer is configured; undefined for read-only wallets. */
+  address?: HexAddress;
 }
 
 export type WalletReadonlyContext = WalletBaseContext;

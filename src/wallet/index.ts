@@ -80,7 +80,32 @@ export function wallet(options: WalletPrivateKeyOptions): Promise<WalletFullCont
 export function wallet(options: WalletTurnkeyOptions): Promise<WalletFullContext>;
 export function wallet(options?: WalletReadonlyOptions): Promise<WalletReadonlyContext>;
 export async function wallet(options: WalletOptions = {}): Promise<WalletContext> {
-  if (options.privateKey && options.turnkey) {
+  const envPrivateKey = process.env.PRIVATE_KEY?.trim();
+  const envTurnkey = {
+    organizationId: process.env.TURNKEY_SUBORG_ID?.trim(),
+    apiPublicKey: process.env.TURNKEY_API_PUBLIC_KEY?.trim(),
+    apiPrivateKey: process.env.TURNKEY_API_PRIVATE_KEY?.trim(),
+    signWith: process.env.TURNKEY_WALLET_ADDRESS?.trim(),
+    apiBaseUrl: process.env.TURNKEY_API_BASE_URL?.trim(),
+  };
+
+  const effectivePrivateKey = options.privateKey ?? envPrivateKey;
+  const hasTurnkeyEnv =
+    envTurnkey.organizationId &&
+    envTurnkey.apiPublicKey &&
+    envTurnkey.apiPrivateKey &&
+    envTurnkey.signWith;
+  const effectiveTurnkey = options.turnkey ?? (hasTurnkeyEnv
+    ? {
+        organizationId: envTurnkey.organizationId!,
+        apiPublicKey: envTurnkey.apiPublicKey!,
+        apiPrivateKey: envTurnkey.apiPrivateKey!,
+        signWith: envTurnkey.signWith!,
+        ...(envTurnkey.apiBaseUrl ? { apiBaseUrl: envTurnkey.apiBaseUrl } : {}),
+      }
+    : undefined);
+
+  if (effectivePrivateKey && effectiveTurnkey) {
     throw new Error("wallet() cannot be initialized with both privateKey and turnkey credentials");
   }
 
@@ -88,11 +113,13 @@ export async function wallet(options: WalletOptions = {}): Promise<WalletContext
   const chain = chainRegistry[slug];
   const tokens = tokenRegistry[slug] ?? {};
   const overrides: RpcProviderOptions = {};
-  if (options.rpcUrl) {
-    overrides.url = options.rpcUrl;
+  const envRpcUrl = process.env.RPC_URL?.trim();
+  const envApiKey = process.env.ALCHEMY_API_KEY?.trim();
+  if (options.rpcUrl ?? envRpcUrl) {
+    overrides.url = (options.rpcUrl ?? envRpcUrl)!;
   }
-  if (options.apiKey) {
-    overrides.apiKey = options.apiKey;
+  if (options.apiKey ?? envApiKey) {
+    overrides.apiKey = (options.apiKey ?? envApiKey)!;
   }
 
   const rpcUrl = getRpcUrl(slug, overrides);
@@ -103,25 +130,25 @@ export async function wallet(options: WalletOptions = {}): Promise<WalletContext
     | (Awaited<ReturnType<typeof createTurnkeyProvider>>)
     | undefined;
 
-  if (options.privateKey) {
+  if (effectivePrivateKey) {
     signerProvider = createPrivateKeyProvider({
       chain,
       rpcUrl,
-      privateKey: options.privateKey,
+      privateKey: effectivePrivateKey,
     });
     providerType = "privateKey";
-  } else if (options.turnkey) {
+  } else if (effectiveTurnkey) {
     const turnkeyConfig = {
       chain,
       rpcUrl,
-      organizationId: options.turnkey.organizationId,
-      apiPublicKey: options.turnkey.apiPublicKey,
-      apiPrivateKey: options.turnkey.apiPrivateKey,
-      signWith: options.turnkey.signWith,
+      organizationId: effectiveTurnkey.organizationId,
+      apiPublicKey: effectiveTurnkey.apiPublicKey,
+      apiPrivateKey: effectiveTurnkey.apiPrivateKey,
+      signWith: effectiveTurnkey.signWith,
     } as Parameters<typeof createTurnkeyProvider>[0];
 
-    if (options.turnkey.apiBaseUrl) {
-      turnkeyConfig.apiBaseUrl = options.turnkey.apiBaseUrl;
+    if (effectiveTurnkey.apiBaseUrl) {
+      turnkeyConfig.apiBaseUrl = effectiveTurnkey.apiBaseUrl;
     }
 
     signerProvider = await createTurnkeyProvider(turnkeyConfig);
@@ -134,14 +161,15 @@ export async function wallet(options: WalletOptions = {}): Promise<WalletContext
       transport: http(rpcUrl),
     });
 
-  const baseContext: WalletReadonlyContext = {
+  const baseContext = {
     chain,
     tokens,
     rpcUrl,
     providerType,
     publicClient,
     getRpcUrl: (override?: RpcProviderOptions) => getRpcUrl(slug, override),
-  };
+    ...(signerProvider ? { address: signerProvider.address } : {}),
+  } satisfies WalletReadonlyContext;
 
   if (signerProvider) {
     const { publicClient: _ignored, ...rest } = signerProvider;

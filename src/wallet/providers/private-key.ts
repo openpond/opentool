@@ -1,54 +1,51 @@
-import { Turnkey } from "@turnkey/sdk-server";
-import { createAccount } from "@turnkey/viem";
-import {
-  createPublicClient,
-  createWalletClient,
-  http,
-  type Chain,
-  type PublicClient,
-  type Transport,
-} from "viem";
-import type { Account } from "viem/accounts";
+import { createPublicClient, createWalletClient, http, type Chain, type PublicClient, type Transport } from "viem";
+import { privateKeyToAccount, type Account } from "viem/accounts";
 
 import type {
   ChainMetadata,
   HexAddress,
-  TurnkeySignWith,
   WalletSignerContext,
   WalletSendTransactionParams,
   WalletTransferParams,
 } from "../types";
 
-export interface TurnkeyProviderConfig {
-  chain: ChainMetadata;
-  rpcUrl: string;
-  organizationId: string;
-  apiPublicKey: string;
-  apiPrivateKey: string;
-  signWith: TurnkeySignWith;
-  apiBaseUrl?: string;
+function normalizePrivateKey(raw: string): `0x${string}` {
+  const trimmed = raw.trim();
+  const withPrefix = trimmed.startsWith("0x") ? trimmed : `0x${trimmed}`;
+  if (!/^0x[0-9a-fA-F]{64}$/.test(withPrefix)) {
+    throw new Error("wallet() privateKey must be a 32-byte hex string");
+  }
+  return withPrefix as `0x${string}`;
 }
 
-export interface TurnkeyProviderResult extends WalletSignerContext {
+export interface PrivateKeyProviderConfig {
+  chain: ChainMetadata;
+  rpcUrl: string;
+  privateKey: string;
+}
+
+export interface PrivateKeyProviderResult extends WalletSignerContext {
   publicClient: PublicClient<Transport, Chain>;
 }
 
-export async function createTurnkeyProvider(
-  config: TurnkeyProviderConfig
-): Promise<TurnkeyProviderResult> {
-  const turnkey = new Turnkey({
-    apiBaseUrl: config.apiBaseUrl ?? "https://api.turnkey.com",
-    // The delegated sub-organization the API key pair belongs to.
-    defaultOrganizationId: config.organizationId,
-    apiPublicKey: config.apiPublicKey,
-    apiPrivateKey: config.apiPrivateKey,
-  });
+function createNonceSource(start: number = Date.now()) {
+  let last = start;
+  return () => {
+    const now = Date.now();
+    if (now > last) {
+      last = now;
+    } else {
+      last += 1;
+    }
+    return last;
+  };
+}
 
-  const account = (await createAccount({
-    client: turnkey.apiClient(),
-    organizationId: config.organizationId,
-    signWith: config.signWith,
-  })) as Account;
+export function createPrivateKeyProvider(
+  config: PrivateKeyProviderConfig
+): PrivateKeyProviderResult {
+  const privateKey = normalizePrivateKey(config.privateKey);
+  const account = privateKeyToAccount(privateKey);
 
   const transport = http(config.rpcUrl);
   const publicClient = createPublicClient<Transport, Chain>({
@@ -99,5 +96,6 @@ export async function createTurnkeyProvider(
     sendTransaction,
     getNativeBalance,
     transfer,
+    nonceSource: createNonceSource(),
   };
 }
