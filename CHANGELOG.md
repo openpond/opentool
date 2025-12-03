@@ -1,5 +1,11 @@
 # opentool
 
+## 0.8.0
+
+### Minor Changes
+
+- 4f654c4: breaking change for wallet, no more wallets (plural) and added hyerpliquid adapter
+
 ## 0.7.14
 
 ### Patch Changes
