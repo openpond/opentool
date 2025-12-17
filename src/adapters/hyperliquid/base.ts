@@ -132,6 +132,15 @@ export type ExchangeSignature = {
   v: 27 | 28;
 };
 
+export type HyperliquidUserPortfolioMarginAction = {
+  type: "userPortfolioMargin";
+  enabled: boolean;
+  hyperliquidChain: string;
+  signatureChainId: string;
+  user: `0x${string}`;
+  nonce: number;
+};
+
 export type HyperliquidExchangeResponse<T = unknown> = {
   status: "ok";
   response?: {
@@ -403,6 +412,45 @@ export async function signApproveBuilderFee(args: {
     domain,
     types,
     primaryType: "HyperliquidTransaction:ApproveBuilderFee",
+    message,
+  });
+
+  return splitSignature(signatureHex);
+}
+
+export async function signUserPortfolioMargin(args: {
+  wallet: WalletFullContext;
+  action: HyperliquidUserPortfolioMarginAction;
+}): Promise<ExchangeSignature> {
+  const { wallet, action } = args;
+  const domain = {
+    name: "HyperliquidSignTransaction",
+    version: "1",
+    chainId: Number.parseInt(action.signatureChainId, 16),
+    verifyingContract: ZERO_ADDRESS,
+  } as const;
+
+  const message = {
+    enabled: action.enabled,
+    hyperliquidChain: action.hyperliquidChain,
+    user: action.user,
+    nonce: BigInt(action.nonce),
+  };
+
+  const types = {
+    "HyperliquidTransaction:UserPortfolioMargin": [
+      { name: "enabled", type: "bool" },
+      { name: "hyperliquidChain", type: "string" },
+      { name: "user", type: "address" },
+      { name: "nonce", type: "uint64" },
+    ],
+  } as const;
+
+  const signatureHex = await wallet.walletClient.signTypedData({
+    account: wallet.account,
+    domain,
+    types,
+    primaryType: "HyperliquidTransaction:UserPortfolioMargin",
     message,
   });
 

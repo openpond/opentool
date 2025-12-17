@@ -9,6 +9,7 @@ import {
   HyperliquidTriggerOptions,
   type ExchangeOrderAction,
   type ExchangeSignature,
+  type HyperliquidUserPortfolioMarginAction,
   type NonceSource,
   type HyperliquidExchangeResponse,
   assertPositiveNumber,
@@ -17,6 +18,7 @@ import {
   normalizeAddress,
   resolveAssetIndex,
   signL1Action,
+  signUserPortfolioMargin,
   signSpotSend,
   toApiDecimal,
 } from "./base";
@@ -228,6 +230,82 @@ export class HyperliquidExchangeClient {
       ...params,
     });
   }
+
+  setPortfolioMargin(params: { enabled: boolean; user?: `0x${string}` }) {
+    const base = {
+      wallet: this.wallet,
+      enabled: params.enabled,
+      environment: this.environment,
+      vaultAddress: this.vaultAddress,
+      expiresAfter: this.expiresAfter,
+      nonceSource: this.nonceSource,
+    } satisfies Omit<Parameters<typeof setHyperliquidPortfolioMargin>[0], "user">;
+
+    return setHyperliquidPortfolioMargin(
+      params.user ? { ...base, user: params.user } : base
+    );
+  }
+}
+
+export async function setHyperliquidPortfolioMargin(options: {
+  wallet: WalletFullContext;
+  enabled: boolean;
+  user?: `0x${string}`;
+} & CommonActionOptions): Promise<HyperliquidExchangeResponse<unknown>> {
+  const env = options.environment ?? "mainnet";
+  if (!options.wallet?.account || !options.wallet.walletClient) {
+    throw new Error(
+      "Wallet with signing capability is required for portfolio margin."
+    );
+  }
+
+  const nonce =
+    options.nonce ??
+    options.walletNonceProvider?.() ??
+    options.wallet.nonceSource?.() ??
+    options.nonceSource?.() ??
+    Date.now();
+
+  const signatureChainId = getSignatureChainId(env);
+  const hyperliquidChain = HL_CHAIN_LABEL[env];
+  const user = normalizeAddress(
+    options.user ?? (options.wallet.address as `0x${string}`)
+  );
+
+  const action: HyperliquidUserPortfolioMarginAction = {
+    type: "userPortfolioMargin",
+    enabled: Boolean(options.enabled),
+    hyperliquidChain,
+    signatureChainId,
+    user,
+    nonce,
+  };
+
+  const signature: ExchangeSignature = await signUserPortfolioMargin({
+    wallet: options.wallet,
+    action,
+  });
+
+  const body: {
+    action: typeof action;
+    nonce: number;
+    signature: ExchangeSignature;
+    vaultAddress?: `0x${string}`;
+    expiresAfter?: number;
+  } = {
+    action,
+    nonce,
+    signature,
+  };
+
+  if (options.vaultAddress) {
+    body.vaultAddress = normalizeAddress(options.vaultAddress);
+  }
+  if (typeof options.expiresAfter === "number") {
+    body.expiresAfter = options.expiresAfter;
+  }
+
+  return postExchange(env, body);
 }
 
 export async function cancelHyperliquidOrders(options: {
