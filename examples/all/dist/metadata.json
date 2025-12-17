@@ -1,0 +1,626 @@
+{
+  "metadataSpecVersion": "1.1.0",
+  "name": "opentool-example",
+  "displayName": "OpenTool Example Agent",
+  "version": "1.0.0",
+  "description": "A demonstration agent showcasing basic OpenTool capabilities with mathematical operations",
+  "author": "OpenPond",
+  "repository": "https://github.com/openpond/opentool",
+  "website": "https://opentool.dev",
+  "category": "example",
+  "termsOfService": "Please review terms before use.",
+  "payment": {
+    "amountUSDC": 0.001,
+    "description": "Very low cost example tools for learning and testing",
+    "x402": true,
+    "plain402": true,
+    "acceptedMethods": [
+      "x402",
+      "402"
+    ],
+    "acceptedCurrencies": [
+      "USDC"
+    ],
+    "chains": [
+      8453
+    ],
+    "facilitator": "opentool"
+  },
+  "tools": [
+    {
+      "name": "ai_code_suggestion",
+      "description": "Draft language-specific code snippets with optional usage examples",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "idempotentHint": false
+      },
+      "payment": {
+        "amountUSDC": 0.001,
+        "description": "Very low cost example tools for learning and testing",
+        "x402": true,
+        "plain402": true,
+        "acceptedMethods": [
+          "x402",
+          "402"
+        ],
+        "acceptedCurrencies": [
+          "USDC"
+        ],
+        "chains": [
+          8453
+        ],
+        "facilitator": "opentool"
+      },
+      "discovery": {
+        "keywords": [
+          "code generation",
+          "ai",
+          "developer",
+          "snippet",
+          "typescript",
+          "python"
+        ],
+        "category": "developer_tools",
+        "useCases": [
+          "Produce quick reference snippets",
+          "Draft helper utilities",
+          "Prototype CLI commands",
+          "Bootstrap integration tests"
+        ],
+        "examples": [
+          {
+            "description": "Generate a TypeScript utility",
+            "input": {
+              "language": "typescript",
+              "task": "Convert snake_case keys to camelCase",
+              "constraints": [
+                "avoid lodash",
+                "include JSDoc"
+              ]
+            },
+            "expectedOutput": "Complete function with inline documentation and optional usage block."
+          },
+          {
+            "description": "Draft a Python CLI snippet",
+            "input": {
+              "language": "python",
+              "task": "List files in a directory with size metadata",
+              "tests": false
+            },
+            "expectedOutput": "Self-contained CLI using argparse with error handling."
+          }
+        ],
+        "relatedTools": [
+          "ai_research",
+          "ai_summarize",
+          "code_review"
+        ],
+        "performance": {
+          "estimatedDuration": 15,
+          "isAsync": false
+        }
+      },
+      "chains": [
+        8453,
+        "base-sepolia"
+      ]
+    },
+    {
+      "name": "ai_research",
+      "description": "Investigate a topic using the gateway websearch tool and return sourced findings",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "idempotentHint": false
+      },
+      "payment": {
+        "amountUSDC": 0.001,
+        "description": "Very low cost example tools for learning and testing",
+        "x402": true,
+        "plain402": true,
+        "acceptedMethods": [
+          "x402",
+          "402"
+        ],
+        "acceptedCurrencies": [
+          "USDC"
+        ],
+        "chains": [
+          8453
+        ],
+        "facilitator": "opentool"
+      },
+      "discovery": {
+        "keywords": [
+          "research",
+          "websearch",
+          "exa",
+          "analysis",
+          "ai",
+          "report"
+        ],
+        "category": "ai_assistant",
+        "useCases": [
+          "Collect recent news with citations",
+          "Summarize documentation updates",
+          "Scan market insights",
+          "Compile security advisories"
+        ],
+        "examples": [
+          {
+            "description": "Summarize the latest MCP protocol releases",
+            "input": {
+              "query": "Recent Model Context Protocol updates",
+              "maxResults": 3
+            },
+            "expectedOutput": "Short narrative with bullet citations pointing to authoritative sources."
+          },
+          {
+            "description": "Investigate a new AI model",
+            "input": {
+              "query": "OpenAI gpt-5-mini capabilities",
+              "maxResults": 4,
+              "model": "claude-4-sonnet-20250514"
+            },
+            "expectedOutput": "Structured analysis referencing each source and highlighting strengths/risks."
+          }
+        ],
+        "relatedTools": [
+          "ai_summarize",
+          "trend_monitor",
+          "intel_digest"
+        ]
+      },
+      "chains": [
+        8453,
+        "base-sepolia"
+      ]
+    },
+    {
+      "name": "ai_streaming_outline",
+      "description": "Demonstrate streaming outline generation with incremental deltas",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "idempotentHint": false
+      },
+      "payment": {
+        "amountUSDC": 0.001,
+        "description": "Very low cost example tools for learning and testing",
+        "x402": true,
+        "plain402": true,
+        "acceptedMethods": [
+          "x402",
+          "402"
+        ],
+        "acceptedCurrencies": [
+          "USDC"
+        ],
+        "chains": [
+          8453
+        ],
+        "facilitator": "opentool"
+      },
+      "discovery": {
+        "keywords": [
+          "streaming",
+          "outline",
+          "ai",
+          "demo"
+        ],
+        "category": "ai_generation",
+        "useCases": [
+          "Live-generate outlines for docs",
+          "Demonstrate streaming handler usage",
+          "Prototype interactive drafting workflows"
+        ],
+        "examples": [
+          {
+            "description": "Create a product launch outline",
+            "input": {
+              "topic": "OpenTool AI package launch",
+              "bulletCount": 5,
+              "includeSummary": true
+            },
+            "expectedOutput": "Outline text streamed in chunks, with a concluding summary paragraph."
+          }
+        ],
+        "relatedTools": [
+          "ai_summarize",
+          "ai_code_suggestion",
+          "ai_research"
+        ]
+      },
+      "chains": [
+        8453,
+        "base-sepolia"
+      ]
+    },
+    {
+      "name": "ai_summarize",
+      "description": "Generate concise summaries tailored to different tones and audiences",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "idempotentHint": false
+      },
+      "payment": {
+        "amountUSDC": 0.001,
+        "description": "Very low cost example tools for learning and testing",
+        "x402": true,
+        "plain402": true,
+        "acceptedMethods": [
+          "x402",
+          "402"
+        ],
+        "acceptedCurrencies": [
+          "USDC"
+        ],
+        "chains": [
+          8453
+        ],
+        "facilitator": "opentool"
+      },
+      "discovery": {
+        "keywords": [
+          "summary",
+          "writing",
+          "gpt",
+          "content",
+          "documentation",
+          "analysis"
+        ],
+        "category": "ai_generation",
+        "useCases": [
+          "Produce release note drafts",
+          "Summarize product feedback",
+          "Generate onboarding copy",
+          "Create meeting recaps"
+        ],
+        "examples": [
+          {
+            "description": "Summarize a new feature announcement",
+            "input": {
+              "topic": "OpenTool AI package release",
+              "focus": "Benefits for external tool builders",
+              "tone": "enthusiastic"
+            },
+            "expectedOutput": "A short paragraph highlighting what the AI package enables and why it matters."
+          },
+          {
+            "description": "Create a technical briefing",
+            "input": {
+              "topic": "Server-sent events in the OpenPond gateway",
+              "tone": "technical",
+              "maxTokens": 600
+            },
+            "expectedOutput": "Detailed explanation that references stream mechanics and abort behavior."
+          }
+        ],
+        "relatedTools": [
+          "ai_brainstorm",
+          "doc_generator",
+          "release_notes"
+        ]
+      },
+      "chains": [
+        8453,
+        "base-sepolia"
+      ]
+    },
+    {
+      "name": "calculate",
+      "description": "Perform basic mathematical operations on two numbers",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "idempotentHint": true
+      },
+      "payment": {
+        "amountUSDC": 0.001,
+        "description": "Basic mathematical operations",
+        "x402": true,
+        "plain402": true,
+        "acceptedMethods": [
+          "x402",
+          "402"
+        ],
+        "acceptedCurrencies": [
+          "USDC"
+        ],
+        "chains": [
+          8453
+        ],
+        "facilitator": "opentool"
+      },
+      "discovery": {
+        "keywords": [
+          "math",
+          "calculation",
+          "arithmetic",
+          "numbers",
+          "compute"
+        ],
+        "category": "mathematics",
+        "useCases": [
+          "Basic calculator functionality in applications",
+          "Financial calculations and cost computations",
+          "Mathematical operations in data processing",
+          "Educational tools for learning arithmetic"
+        ],
+        "examples": [
+          {
+            "description": "Simple addition",
+            "input": {
+              "operation": "add",
+              "a": 5,
+              "b": 3
+            },
+            "expectedOutput": "5 add 3 = 8"
+          },
+          {
+            "description": "Division with decimal result",
+            "input": {
+              "operation": "divide",
+              "a": 10,
+              "b": 3
+            },
+            "expectedOutput": "10 divide 3 = 3.3333333333333335"
+          }
+        ],
+        "relatedTools": [
+          "advanced_math",
+          "statistical_analysis"
+        ],
+        "performance": {
+          "estimatedDuration": 10,
+          "isAsync": false
+        },
+        "cost": {
+          "complexity": "low",
+          "resourceUsage": {
+            "cpu": "low",
+            "memory": "low",
+            "network": "low"
+          }
+        },
+        "safety": {
+          "requiresConfirmation": false,
+          "isReversible": true,
+          "sideEffects": [],
+          "validationErrors": [
+            "Division by zero"
+          ]
+        }
+      },
+      "chains": [
+        8453,
+        "base-sepolia"
+      ]
+    },
+    {
+      "name": "hello",
+      "description": "Simple greeting tool for testing",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "idempotentHint": true
+      },
+      "payment": {
+        "amountUSDC": 0.001,
+        "description": "Very low cost example tools for learning and testing",
+        "x402": true,
+        "plain402": true,
+        "acceptedMethods": [
+          "x402",
+          "402"
+        ],
+        "acceptedCurrencies": [
+          "USDC"
+        ],
+        "chains": [
+          8453
+        ],
+        "facilitator": "opentool"
+      },
+      "chains": [
+        8453,
+        "base-sepolia"
+      ]
+    },
+    {
+      "name": "mcp_ping",
+      "description": "Simple tool to verify MCP + HTTP dual-mode behaviour",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      },
+      "payment": {
+        "amountUSDC": 0.001,
+        "description": "Very low cost example tools for learning and testing",
+        "x402": true,
+        "plain402": true,
+        "acceptedMethods": [
+          "x402",
+          "402"
+        ],
+        "acceptedCurrencies": [
+          "USDC"
+        ],
+        "chains": [
+          8453
+        ],
+        "facilitator": "opentool"
+      },
+      "chains": [
+        8453,
+        "base-sepolia"
+      ]
+    },
+    {
+      "name": "premium-report",
+      "description": "premium-report tool",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      },
+      "annotations": {
+        "requiresPayment": true
+      },
+      "payment": {
+        "definition": {
+          "amount": "0.001",
+          "currency": {
+            "code": "USDC",
+            "symbol": "USDC",
+            "decimals": 6
+          },
+          "asset": {
+            "symbol": "USDC",
+            "network": "base-sepolia",
+            "address": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+            "decimals": 6
+          },
+          "payTo": "0x9B80834b9207fE3074E169517f945bDd8C1eB4B0",
+          "resource": "https://localhost:7000/premium-report",
+          "description": "Premium analytics require payment before access.",
+          "scheme": "exact",
+          "network": "base-sepolia",
+          "facilitator": {
+            "url": "https://facilitator.x402.rs",
+            "verifyPath": "/verify",
+            "settlePath": "/settle",
+            "apiKeyHeader": "Authorization"
+          }
+        },
+        "metadata": {
+          "amountUSDC": 0.001,
+          "facilitator": "x402rs",
+          "network": "base-sepolia"
+        }
+      },
+      "chains": [
+        8453,
+        "base-sepolia"
+      ]
+    },
+    {
+      "name": "wallet-inspector",
+      "description": "wallet-inspector tool",
+      "payment": {
+        "amountUSDC": 0.001,
+        "description": "Very low cost example tools for learning and testing",
+        "x402": true,
+        "plain402": true,
+        "acceptedMethods": [
+          "x402",
+          "402"
+        ],
+        "acceptedCurrencies": [
+          "USDC"
+        ],
+        "chains": [
+          8453
+        ],
+        "facilitator": "opentool"
+      },
+      "chains": [
+        8453,
+        "base-sepolia"
+      ]
+    }
+  ],
+  "discovery": {
+    "keywords": [
+      "example",
+      "demo",
+      "tutorial",
+      "basic",
+      "math"
+    ],
+    "category": "education",
+    "useCases": [
+      "Learning how to build MCP tools with OpenTool",
+      "Template for creating new OpenTool projects",
+      "Demonstrating basic tool functionality",
+      "Testing deployment and registration workflows"
+    ],
+    "capabilities": [
+      "mathematical-operations",
+      "basic-interactions",
+      "educational-examples"
+    ],
+    "requirements": {
+      "authentication": [],
+      "permissions": [],
+      "dependencies": [],
+      "minimumInputs": [
+        "varies by tool"
+      ]
+    },
+    "compatibility": {
+      "platforms": [
+        "web",
+        "mobile",
+        "server",
+        "cli"
+      ],
+      "languages": [
+        "any"
+      ],
+      "frameworks": [
+        "mcp",
+        "opentool"
+      ],
+      "regions": [
+        "global"
+      ]
+    },
+    "pricing": {
+      "model": "pay-per-use",
+      "defaultAmount": 0.001,
+      "description": "Very low cost example tools for learning and testing"
+    }
+  },
+  "promptExamples": [
+    "Calculate the square root of 144",
+    "Add 25 and 37 together",
+    "What's 15 multiplied by 8?",
+    "Help me solve: (10 + 5) * 3"
+  ],
+  "iconPath": "/icons/calculator.svg",
+  "videoPath": "/videos/opentool-demo.mp4",
+  "image": "/icons/calculator.svg",
+  "animation_url": "/videos/opentool-demo.mp4",
+  "chains": [
+    8453,
+    "base-sepolia"
+  ]
+}
