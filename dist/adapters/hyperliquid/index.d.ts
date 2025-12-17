@@ -62,7 +62,7 @@ type ExchangeSignature = {
     v: 27 | 28;
 };
 type HyperliquidExchangeResponse<T = unknown> = {
-    status: "ok";
+    status: string;
     response?: {
         type: string;
         data?: T;

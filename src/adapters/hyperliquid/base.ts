@@ -142,7 +142,7 @@ export type HyperliquidUserPortfolioMarginAction = {
 };
 
 export type HyperliquidExchangeResponse<T = unknown> = {
-  status: "ok";
+  status: string;
   response?: {
     type: string;
     data?: T;

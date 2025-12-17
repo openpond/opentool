@@ -912,15 +912,35 @@ async function postExchange(env, body) {
     headers: { "content-type": "application/json" },
     body: JSON.stringify(body)
   });
-  const json = await response.json().catch(() => null);
-  if (!response.ok || !json) {
-    throw new HyperliquidApiError(
-      "Hyperliquid exchange action failed.",
-      json ?? { status: response.status }
-    );
+  const text = await response.text().catch(() => "");
+  const json = (() => {
+    if (!text) return null;
+    try {
+      return JSON.parse(text);
+    } catch {
+      return null;
+    }
+  })();
+  if (!response.ok) {
+    throw new HyperliquidApiError("Hyperliquid exchange action failed.", {
+      status: response.status,
+      statusText: response.statusText,
+      body: json ?? (text ? text : null)
+    });
+  }
+  if (!json) {
+    throw new HyperliquidApiError("Hyperliquid exchange action failed.", {
+      status: response.status,
+      statusText: response.statusText,
+      body: text ? text : null
+    });
   }
   if (json.status !== "ok") {
-    throw new HyperliquidApiError("Hyperliquid exchange returned error.", json);
+    throw new HyperliquidApiError("Hyperliquid exchange returned error.", {
+      status: response.status,
+      statusText: response.statusText,
+      body: json
+    });
   }
   return json;
 }
