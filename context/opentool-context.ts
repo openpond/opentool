@@ -1744,7 +1744,7 @@ export async function POST(): Promise<Response> {
     chain: "base-sepolia",
     apiKey: process.env.ALCHEMY_API_KEY,
     turnkey: {
-      organizationId: process.env.TURNKEY_ORGANIZATION_ID!,
+      organizationId: process.env.TURNKEY_SUBORG_ID!,
       apiPublicKey: process.env.TURNKEY_API_PUBLIC_KEY!,
       apiPrivateKey: process.env.TURNKEY_API_PRIVATE_KEY!,
       signWith: process.env.TURNKEY_SIGN_WITH as \`0x\${string}\`,
