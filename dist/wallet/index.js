@@ -289,6 +289,29 @@ async function createTurnkeyProvider(config) {
   };
 }
 
+// src/wallet/env.ts
+function readTrimmed(name) {
+  const value = process.env[name];
+  const trimmed = typeof value === "string" ? value.trim() : "";
+  return trimmed.length ? trimmed : void 0;
+}
+function readTurnkeyEnv() {
+  const suborgId = readTrimmed("TURNKEY_SUBORG_ID");
+  if (!suborgId) return void 0;
+  const apiPublicKey = readTrimmed("TURNKEY_API_PUBLIC_KEY");
+  const apiPrivateKey = readTrimmed("TURNKEY_API_PRIVATE_KEY");
+  const signWith = readTrimmed("TURNKEY_WALLET_ADDRESS");
+  if (!apiPublicKey || !apiPrivateKey || !signWith) return void 0;
+  const apiBaseUrl = readTrimmed("TURNKEY_API_BASE_URL");
+  return {
+    organizationId: suborgId,
+    apiPublicKey,
+    apiPrivateKey,
+    signWith,
+    ...apiBaseUrl ? { apiBaseUrl } : {}
+  };
+}
+
 // src/wallet/index.ts
 function resolveChainSlug(reference) {
   if (reference === void 0) {
@@ -332,22 +355,9 @@ function getRpcUrl(chain, options) {
 }
 async function wallet(options = {}) {
   const envPrivateKey = process.env.PRIVATE_KEY?.trim();
-  const envTurnkey = {
-    organizationId: process.env.TURNKEY_SUBORG_ID?.trim(),
-    apiPublicKey: process.env.TURNKEY_API_PUBLIC_KEY?.trim(),
-    apiPrivateKey: process.env.TURNKEY_API_PRIVATE_KEY?.trim(),
-    signWith: process.env.TURNKEY_WALLET_ADDRESS?.trim(),
-    apiBaseUrl: process.env.TURNKEY_API_BASE_URL?.trim()
-  };
+  const envTurnkey = readTurnkeyEnv();
   const effectivePrivateKey = options.privateKey ?? envPrivateKey;
-  const hasTurnkeyEnv = envTurnkey.organizationId && envTurnkey.apiPublicKey && envTurnkey.apiPrivateKey && envTurnkey.signWith;
-  const effectiveTurnkey = options.turnkey ?? (hasTurnkeyEnv ? {
-    organizationId: envTurnkey.organizationId,
-    apiPublicKey: envTurnkey.apiPublicKey,
-    apiPrivateKey: envTurnkey.apiPrivateKey,
-    signWith: envTurnkey.signWith,
-    ...envTurnkey.apiBaseUrl ? { apiBaseUrl: envTurnkey.apiBaseUrl } : {}
-  } : void 0);
+  const effectiveTurnkey = options.turnkey ?? envTurnkey;
   if (effectivePrivateKey && effectiveTurnkey) {
     throw new Error("wallet() cannot be initialized with both privateKey and turnkey credentials");
   }

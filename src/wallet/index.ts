@@ -23,6 +23,7 @@ import {
 } from "./constants";
 import { createPrivateKeyProvider } from "./providers/private-key";
 import { createTurnkeyProvider } from "./providers/turnkey";
+import { readTurnkeyEnv } from "./env";
 
 type ChainSlug = keyof typeof chainRegistry;
 
@@ -81,29 +82,10 @@ export function wallet(options: WalletTurnkeyOptions): Promise<WalletFullContext
 export function wallet(options?: WalletReadonlyOptions): Promise<WalletReadonlyContext>;
 export async function wallet(options: WalletOptions = {}): Promise<WalletContext> {
   const envPrivateKey = process.env.PRIVATE_KEY?.trim();
-  const envTurnkey = {
-    organizationId: process.env.TURNKEY_SUBORG_ID?.trim(),
-    apiPublicKey: process.env.TURNKEY_API_PUBLIC_KEY?.trim(),
-    apiPrivateKey: process.env.TURNKEY_API_PRIVATE_KEY?.trim(),
-    signWith: process.env.TURNKEY_WALLET_ADDRESS?.trim(),
-    apiBaseUrl: process.env.TURNKEY_API_BASE_URL?.trim(),
-  };
+  const envTurnkey = readTurnkeyEnv();
 
   const effectivePrivateKey = options.privateKey ?? envPrivateKey;
-  const hasTurnkeyEnv =
-    envTurnkey.organizationId &&
-    envTurnkey.apiPublicKey &&
-    envTurnkey.apiPrivateKey &&
-    envTurnkey.signWith;
-  const effectiveTurnkey = options.turnkey ?? (hasTurnkeyEnv
-    ? {
-        organizationId: envTurnkey.organizationId!,
-        apiPublicKey: envTurnkey.apiPublicKey!,
-        apiPrivateKey: envTurnkey.apiPrivateKey!,
-        signWith: envTurnkey.signWith!,
-        ...(envTurnkey.apiBaseUrl ? { apiBaseUrl: envTurnkey.apiBaseUrl } : {}),
-      }
-    : undefined);
+  const effectiveTurnkey = options.turnkey ?? envTurnkey;
 
   if (effectivePrivateKey && effectiveTurnkey) {
     throw new Error("wallet() cannot be initialized with both privateKey and turnkey credentials");
