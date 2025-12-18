@@ -1,5 +1,11 @@
 # opentool
 
+## 0.8.2
+
+### Patch Changes
+
+- 3e81eff: added spot and broken PM
+
 ## 0.8.1
 
 ### Patch Changes
