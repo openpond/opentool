@@ -34,6 +34,11 @@ jobs:
           node-version: "22"
           registry-url: "https://registry.npmjs.org"
 
+      - name: Ensure npm supports trusted publishing
+        run: |
+          npm i -g npm@11.5.1
+          npm --version
+
       - name: Set npm userconfig path
         run: echo "NPM_CONFIG_USERCONFIG=$RUNNER_TEMP/.npmrc" >> "$GITHUB_ENV"
 
