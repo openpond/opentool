@@ -38,7 +38,9 @@ jobs:
         run: echo "NPM_CONFIG_USERCONFIG=$RUNNER_TEMP/.npmrc" >> "$GITHUB_ENV"
 
       - name: Configure npm for trusted publishing
-        run: echo "registry=https://registry.npmjs.org/" > "$NPM_CONFIG_USERCONFIG"
+        run: |
+          echo "registry=https://registry.npmjs.org/" > "$NPM_CONFIG_USERCONFIG"
+          echo "provenance=true" >> "$NPM_CONFIG_USERCONFIG"
 
       - name: Install dependencies
         run: npm ci
@@ -64,3 +66,7 @@ jobs:
           createGithubReleases: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_CONFIG_PROVENANCE: true
+          NPM_CONFIG_USERCONFIG: ${{ env.NPM_CONFIG_USERCONFIG }}
+          NODE_AUTH_TOKEN: ""
+          NPM_TOKEN: ""
