@@ -26,8 +26,8 @@ npm install opentool
 ```bash
 mkdir my-opentool-project
 cd my-opentool-project
-npm init -y
 npm install opentool
+npx opentool init
 ```
 
 ### 2. Create your first tool

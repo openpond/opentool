@@ -15,7 +15,7 @@
     "lint:fix": "eslint . --fix",
     "typecheck": "tsc --noEmit",
     "test": "tsx --test tests/*.test.ts",
-    "prepublishOnly": "npm run typecheck && npm run build",
+    "prepublishOnly": "npm run typecheck && npm run build && node scripts/sync-template.ts",
     "examples:build": "node dist/cli/index.js build --input examples/full-metadata/tools --output examples/full-metadata/dist",
     "examples:metadata": "node dist/cli/index.js metadata --input examples/full-metadata/tools --output examples/full-metadata/metadata.json",
     "examples:validate": "node dist/cli/index.js validate --input examples/full-metadata/tools",
@@ -26,6 +26,7 @@
   },
   "files": [
     "dist/**/*",
+    "templates/**/*",
     "README.md",
     "LICENSE"
   ],

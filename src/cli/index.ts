@@ -4,6 +4,7 @@ import { program } from "commander";
 import { buildCommand } from "./build";
 import { devCommand } from "./dev";
 import { generateMetadataCommand } from "./generate-metadata";
+import { initCommand } from "./init";
 import { validateCommand, validateFullCommand } from "./validate";
 
 program
@@ -65,6 +66,24 @@ program
   .option("--name <name>", "Server name", "opentool-server")
   .option("--version <version>", "Server version", "1.0.0")
   .action(generateMetadataCommand);
+
+// Init command
+program
+  .command("init")
+  .description("Create a new OpenTool project in the target directory")
+  .option("-d, --dir <dir>", "Target directory", ".")
+  .option("-n, --name <name>", "Project name")
+  .option("--description <description>", "Project description")
+  .option("--force", "Overwrite existing files", false)
+  .action(async (cmdOptions) => {
+    await initCommand({
+      dir: cmdOptions.dir,
+      name: cmdOptions.name,
+      description: cmdOptions.description,
+      force: cmdOptions.force,
+    });
+    console.log(`Initialized OpenTool project in ${cmdOptions.dir || "."}`);
+  });
 
 // Parse arguments
 program.parse();
