@@ -10,6 +10,9 @@ A comprehensive example showing all metadata features:
 - Tool-level payment overrides and discovery data
 - Dual ESM/CommonJS outputs for the compiled tools and servers
 
+### `polymarket/`
+Polymarket adapter examples (market list, orderbook, order placement, TA bot, market maker, and spread watcher).
+
 ## Testing Examples Locally
 
 To test these examples using the local OpenTool development version:
