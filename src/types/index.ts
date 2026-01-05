@@ -37,6 +37,7 @@ export interface NormalizedSchedule {
   type: ScheduleType;
   expression: string;
   authoredEnabled?: boolean;
+  notifyEmail?: boolean;
 }
 
 export interface McpConfig {

@@ -9,6 +9,7 @@ export type CronSpec = {
    */
   cron: string;
   enabled?: boolean;
+  notifyEmail?: boolean;
 };
 
 export type ToolProfileGET = {
