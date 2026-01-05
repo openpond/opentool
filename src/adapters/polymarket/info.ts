@@ -90,7 +90,7 @@ function normalizeGammaMarket(market: GammaMarket, event?: GammaEvent): Polymark
     getString(event?.title) ??
     null;
 
-  return {
+  const normalized: PolymarketMarket = {
     id: getString(market.id) ?? "",
     slug: getString(market.slug),
     question: getString(market.question),
@@ -100,10 +100,6 @@ function normalizeGammaMarket(market: GammaMarket, event?: GammaEvent): Polymark
     conditionId: getString(market.conditionId),
     marketMakerAddress: getString(market.marketMakerAddress),
     category,
-    tags: mergedTags.length ? mergedTags : undefined,
-    active: typeof market.active === "boolean" ? market.active : undefined,
-    closed: typeof market.closed === "boolean" ? market.closed : undefined,
-    resolved: typeof market.resolved === "boolean" ? market.resolved : undefined,
     startDate:
       parseOptionalDate(market.startDate) ??
       parseOptionalDate(event?.startDate) ??
@@ -130,6 +126,21 @@ function normalizeGammaMarket(market: GammaMarket, event?: GammaEvent): Polymark
     icon: getString(market.icon),
     image: getString(market.image),
   };
+
+  if (mergedTags.length) {
+    normalized.tags = mergedTags;
+  }
+  if (typeof market.active === "boolean") {
+    normalized.active = market.active;
+  }
+  if (typeof market.closed === "boolean") {
+    normalized.closed = market.closed;
+  }
+  if (typeof market.resolved === "boolean") {
+    normalized.resolved = market.resolved;
+  }
+
+  return normalized;
 }
 
 export class PolymarketInfoClient {
@@ -288,16 +299,12 @@ export async function fetchPolymarketMidpoint(params: {
   tokenId: string;
   environment?: PolymarketEnvironment;
 }): Promise<number | null> {
-  const buy = await fetchPolymarketPrice({
+  const baseArgs = {
     tokenId: params.tokenId,
-    side: "BUY",
-    environment: params.environment,
-  });
-  const sell = await fetchPolymarketPrice({
-    tokenId: params.tokenId,
-    side: "SELL",
-    environment: params.environment,
-  });
+    ...(params.environment ? { environment: params.environment } : {}),
+  };
+  const buy = await fetchPolymarketPrice({ ...baseArgs, side: "BUY" });
+  const sell = await fetchPolymarketPrice({ ...baseArgs, side: "SELL" });
   if (buy == null || sell == null) return null;
   return (buy + sell) / 2;
 }

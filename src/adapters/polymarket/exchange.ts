@@ -54,7 +54,7 @@ async function resolveAuthContext(args: {
       args.credentials ??
       (await createPolymarketApiKey({
         wallet: args.wallet,
-        environment: args.environment,
+        ...(args.environment ? { environment: args.environment } : {}),
       }));
     return {
       credentials,
@@ -107,9 +107,9 @@ export async function createPolymarketApiKey(args: {
   const headers = await buildL1Headers({
     wallet: args.wallet,
     environment,
-    timestamp: args.timestamp,
-    nonce: args.nonce,
-    message: args.message,
+    ...(args.timestamp !== undefined ? { timestamp: args.timestamp } : {}),
+    ...(args.nonce !== undefined ? { nonce: args.nonce } : {}),
+    ...(args.message !== undefined ? { message: args.message } : {}),
   });
   const data = (await requestJson(url, {
     method: "POST",
@@ -144,9 +144,9 @@ export async function derivePolymarketApiKey(args: {
   const headers = await buildL1Headers({
     wallet: args.wallet,
     environment,
-    timestamp: args.timestamp,
-    nonce: args.nonce,
-    message: args.message,
+    ...(args.timestamp !== undefined ? { timestamp: args.timestamp } : {}),
+    ...(args.nonce !== undefined ? { nonce: args.nonce } : {}),
+    ...(args.message !== undefined ? { message: args.message } : {}),
   });
   const data = (await requestJson(url, {
     method: "GET",
@@ -186,7 +186,7 @@ export async function placePolymarketOrder(args: {
 
   const auth = await resolveAuthContext({
     wallet: args.wallet,
-    credentials: args.credentials,
+    ...(args.credentials ? { credentials: args.credentials } : {}),
     environment,
   });
 
@@ -227,9 +227,9 @@ export async function cancelPolymarketOrder(args: {
   const body = { orderID: args.orderId };
 
   const auth = await resolveAuthContext({
-    wallet: args.wallet,
-    walletAddress: args.walletAddress,
-    credentials: args.credentials,
+    ...(args.wallet ? { wallet: args.wallet } : {}),
+    ...(args.walletAddress ? { walletAddress: args.walletAddress } : {}),
+    ...(args.credentials ? { credentials: args.credentials } : {}),
     environment,
   });
 
@@ -264,9 +264,9 @@ export async function cancelPolymarketOrders(args: {
   const body = { orderIDs: args.orderIds };
 
   const auth = await resolveAuthContext({
-    wallet: args.wallet,
-    walletAddress: args.walletAddress,
-    credentials: args.credentials,
+    ...(args.wallet ? { wallet: args.wallet } : {}),
+    ...(args.walletAddress ? { walletAddress: args.walletAddress } : {}),
+    ...(args.credentials ? { credentials: args.credentials } : {}),
     environment,
   });
 
@@ -298,9 +298,9 @@ export async function cancelAllPolymarketOrders(args: {
   const baseUrl = resolvePolymarketBaseUrl("clob", environment);
   const url = `${baseUrl}/cancel-all`;
   const auth = await resolveAuthContext({
-    wallet: args.wallet,
-    walletAddress: args.walletAddress,
-    credentials: args.credentials,
+    ...(args.wallet ? { wallet: args.wallet } : {}),
+    ...(args.walletAddress ? { walletAddress: args.walletAddress } : {}),
+    ...(args.credentials ? { credentials: args.credentials } : {}),
     environment,
   });
   const headers = buildL2Headers({
@@ -331,9 +331,9 @@ export async function cancelMarketPolymarketOrders(args: {
   const url = `${baseUrl}/cancel-market-orders`;
   const body = { market: args.tokenId };
   const auth = await resolveAuthContext({
-    wallet: args.wallet,
-    walletAddress: args.walletAddress,
-    credentials: args.credentials,
+    ...(args.wallet ? { wallet: args.wallet } : {}),
+    ...(args.walletAddress ? { walletAddress: args.walletAddress } : {}),
+    ...(args.credentials ? { credentials: args.credentials } : {}),
     environment,
   });
   const headers = buildL2Headers({
@@ -356,9 +356,9 @@ export async function cancelMarketPolymarketOrders(args: {
 
 export class PolymarketExchangeClient {
   private readonly wallet: WalletFullContext;
-  private readonly credentials?: PolymarketApiCredentials;
+  private readonly credentials: PolymarketApiCredentials | undefined;
   private readonly environment: PolymarketEnvironment;
-  private cachedCredentials?: PolymarketApiCredentials;
+  private cachedCredentials: PolymarketApiCredentials | undefined;
 
   constructor(args: {
     wallet: WalletFullContext;
@@ -374,7 +374,7 @@ export class PolymarketExchangeClient {
     if (this.cachedCredentials) return this.cachedCredentials;
     const resolved = await resolveAuthContext({
       wallet: this.wallet,
-      credentials: this.credentials,
+      ...(this.credentials ? { credentials: this.credentials } : {}),
       environment: this.environment,
     });
     this.cachedCredentials = resolved.credentials;
@@ -388,7 +388,7 @@ export class PolymarketExchangeClient {
       credentials,
       environment: this.environment,
       order,
-      orderType,
+      ...(orderType !== undefined ? { orderType } : {}),
     });
   }
 

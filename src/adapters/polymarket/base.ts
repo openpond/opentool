@@ -386,7 +386,7 @@ export function buildPolymarketOrderAmounts(args: {
   return { makerAmount: sizeUnits, takerAmount: quoteUnits };
 }
 
-export function buildSignedOrderPayload(args: {
+export async function buildSignedOrderPayload(args: {
   wallet: WalletFullContext;
   environment?: PolymarketEnvironment;
   tokenId: string;
@@ -409,8 +409,8 @@ export function buildSignedOrderPayload(args: {
   const chainId = POLYMARKET_CHAIN_ID[environment];
   const exchangeAddress = resolveExchangeAddress({
     environment,
-    negRisk: args.negRisk,
-    exchangeAddress: args.exchangeAddress,
+    ...(args.negRisk !== undefined ? { negRisk: args.negRisk } : {}),
+    ...(args.exchangeAddress ? { exchangeAddress: args.exchangeAddress } : {}),
   });
 
   const maker = args.maker ?? (args.wallet.address as `0x${string}`);
@@ -427,7 +427,7 @@ export function buildSignedOrderPayload(args: {
     side: args.side,
     price: args.price,
     size: args.size,
-    tickSize: args.tickSize,
+    ...(args.tickSize !== undefined ? { tickSize: args.tickSize } : {}),
   });
 
   const salt = BigInt(`0x${randomBytes(16).toString("hex")}`);
