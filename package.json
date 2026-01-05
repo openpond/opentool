@@ -110,6 +110,10 @@
       "import": "./dist/adapters/hyperliquid/index.js",
       "types": "./dist/adapters/hyperliquid/index.d.ts"
     },
+    "./adapters/polymarket": {
+      "import": "./dist/adapters/polymarket/index.js",
+      "types": "./dist/adapters/polymarket/index.d.ts"
+    },
     "./store": {
       "import": "./dist/store/index.js",
       "types": "./dist/store/index.d.ts"

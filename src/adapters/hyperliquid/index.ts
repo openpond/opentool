@@ -46,6 +46,24 @@ export {
   HyperliquidBuilderApprovalError,
   createMonotonicNonceFactory,
 } from "./base";
+export {
+  fetchHyperliquidMeta,
+  fetchHyperliquidMetaAndAssetCtxs,
+  fetchHyperliquidSpotMeta,
+  fetchHyperliquidSpotMetaAndAssetCtxs,
+  fetchHyperliquidAssetCtxs,
+  fetchHyperliquidSpotAssetCtxs,
+  fetchHyperliquidOpenOrders,
+  fetchHyperliquidFrontendOpenOrders,
+  fetchHyperliquidOrderStatus,
+  fetchHyperliquidHistoricalOrders,
+  fetchHyperliquidUserFills,
+  fetchHyperliquidUserFillsByTime,
+  fetchHyperliquidUserRateLimit,
+  fetchHyperliquidPreTransferCheck,
+  fetchHyperliquidSpotClearinghouseState,
+  HyperliquidInfoClient,
+} from "./info";
 
 export interface HyperliquidOrderOptions {
   wallet: WalletFullContext;

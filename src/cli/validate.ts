@@ -177,6 +177,9 @@ export async function loadAndValidateTools(
         if (typeof schedule.enabled === "boolean") {
           normalizedSchedule.authoredEnabled = schedule.enabled;
         }
+        if (typeof schedule.notifyEmail === "boolean") {
+          normalizedSchedule.notifyEmail = schedule.notifyEmail;
+        }
       }
       if (hasPOST) {
         if (!schema) {

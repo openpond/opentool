@@ -50,6 +50,7 @@ interface CronManifestEntry {
   scheduleExpression: string;
   enabledDefault: boolean;
   authoredEnabled?: boolean;
+  notifyEmail?: boolean;
   payload: {
     toolPath: string;
     httpMethod: "GET";
@@ -428,6 +429,9 @@ function writeCronManifest(options: {
       enabledDefault: false,
       ...(schedule.authoredEnabled !== undefined
         ? { authoredEnabled: schedule.authoredEnabled }
+        : {}),
+      ...(schedule.notifyEmail !== undefined
+        ? { notifyEmail: schedule.notifyEmail }
         : {}),
       payload: {
         toolPath: payloadPath,

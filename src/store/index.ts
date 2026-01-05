@@ -68,6 +68,40 @@ export type StoreRetrieveResult = {
   >;
   cursor?: string | null;
 };
+
+export type MyToolsResponse = {
+  tools: Array<{
+    id: string;
+    name: string;
+    displayName: string;
+    description?: string;
+    serverUrl: string;
+    source: "internal" | "public";
+    appId?: string;
+    deploymentId?: string;
+    metadata?: unknown;
+  }>;
+};
+
+export type ToolExecuteRequest = {
+  appId: string;
+  deploymentId: string;
+  toolName: string;
+  method?: "GET" | "POST" | "PUT" | "DELETE";
+  body?: unknown;
+};
+
+export type ToolExecuteResponse = {
+  ok: boolean;
+  status: number;
+  data: unknown;
+};
+
+export type AgentDigestRequest = {
+  content: string;
+  runAt?: string;
+  metadata?: Record<string, unknown>;
+};
 export class StoreError extends Error {
   constructor(
     message: string,
@@ -99,6 +133,46 @@ function resolveConfig(options?: StoreOptions) {
   }
 
   return { baseUrl: normalizedBaseUrl, apiKey, fetchFn };
+}
+
+async function requestJson(
+  url: string,
+  options: StoreOptions | undefined,
+  init: RequestInit
+): Promise<unknown> {
+  const { apiKey, fetchFn } = resolveConfig(options);
+  const response = await fetchFn(url, {
+    ...init,
+    headers: {
+      "content-type": "application/json",
+      "openpond-api-key": apiKey,
+      ...(init.headers ?? {}),
+    },
+  });
+
+  if (!response.ok) {
+    let body: unknown;
+    try {
+      body = await response.json();
+    } catch {
+      body = await response.text().catch(() => undefined);
+    }
+    throw new StoreError(
+      `Request failed with status ${response.status}`,
+      response.status,
+      body
+    );
+  }
+
+  if (response.status === 204) {
+    return null;
+  }
+
+  try {
+    return await response.json();
+  } catch {
+    return await response.text().catch(() => null);
+  }
 }
 
 /**
@@ -203,5 +277,43 @@ export async function retrieve(
   if (!data) {
     return { items: [], cursor: null };
   }
+  return data;
+}
+
+export async function getMyTools(options?: StoreOptions): Promise<MyToolsResponse> {
+  const { baseUrl } = resolveConfig(options);
+  const url = `${baseUrl}/apps/tools`;
+  const data = (await requestJson(url, options, { method: "GET" })) as MyToolsResponse;
+  return data;
+}
+
+export async function getMyPerformance(options?: StoreOptions): Promise<unknown> {
+  const { baseUrl } = resolveConfig(options);
+  const url = `${baseUrl}/apps/performance`;
+  return requestJson(url, options, { method: "GET" });
+}
+
+export async function postAgentDigest(
+  input: AgentDigestRequest,
+  options?: StoreOptions
+): Promise<unknown> {
+  const { baseUrl } = resolveConfig(options);
+  const url = `${baseUrl}/apps/agent/digest`;
+  return requestJson(url, options, {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export async function executeTool(
+  input: ToolExecuteRequest,
+  options?: StoreOptions
+): Promise<ToolExecuteResponse> {
+  const { baseUrl } = resolveConfig(options);
+  const url = `${baseUrl}/apps/tools/execute`;
+  const data = (await requestJson(url, options, {
+    method: "POST",
+    body: JSON.stringify(input),
+  })) as ToolExecuteResponse;
   return data;
 }
