@@ -1,5 +1,11 @@
 # opentool
 
+## 0.8.4
+
+### Patch Changes
+
+- 507a4f9: added polymarket and email
+
 ## 0.8.3
 
 ### Patch Changes
