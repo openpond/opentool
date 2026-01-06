@@ -1,5 +1,11 @@
 # opentool
 
+## 0.8.5
+
+### Patch Changes
+
+- 3182158: updated ai model
+
 ## 0.8.4
 
 ### Patch Changes
