@@ -2,7 +2,7 @@ import { AIClientConfig, ResolvedAIClientConfig } from "./types";
 
 export const DEFAULT_BASE_URL = "https://gateway.openpond.dev";
 export const DEFAULT_TIMEOUT_MS = 60_000;
-export const DEFAULT_MODEL = "openai/gpt-5-mini";
+export const DEFAULT_MODEL = "fireworks:accounts/fireworks/models/glm-4p7";
 
 function assertFetchAvailable(fetchImplementation?: typeof fetch): asserts fetchImplementation {
   if (!fetchImplementation) {
