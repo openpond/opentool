@@ -92,6 +92,7 @@ export const ToolSchema = z
     payment: PaymentConfigSchema.optional(),
     discovery: DiscoveryMetadataSchema.optional(),
     chains: z.array(z.union([z.string(), z.number()])).optional(),
+    notifyEmail: z.boolean().optional(),
   })
   .strict();
 

@@ -60,6 +60,7 @@ export interface InternalToolDefinition<
   handler?: (params: any) => Promise<ToolResponse>;
   payment?: X402Payment | null;
   schedule?: NormalizedSchedule | null;
+  notifyEmail?: boolean;
   profileDescription?: string | null;
 }
 

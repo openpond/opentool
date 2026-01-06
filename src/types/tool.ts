@@ -22,6 +22,7 @@ export type ToolProfileGET = {
 
 export type ToolProfilePOST = {
   description?: string; // optional for POST-only
+  notifyEmail?: boolean; // request email notification on POST runs
 };
 
 export type GetHandler = (req: Request) => Promise<Response> | Response;

@@ -103,6 +103,11 @@ POST-only (one-off)
 // tools/aave-unstake.ts
 import { z } from "zod";
 
+export const profile = {
+  description: "Unstake USDC on demand",
+  notifyEmail: true,
+};
+
 export const schema = z.object({
   amount: z.string(),
   token: z.string().default("USDC"),
@@ -115,10 +120,16 @@ export async function POST(req: Request) {
 }
 ```
 
+### Email notifications for one-off tools
+
+- POST-only tools can set `profile.notifyEmail = true` to request an email when the tool runs.
+- Scheduled tools should continue to use `profile.schedule.notifyEmail`.
+
 ### Cron schedules (`profile.schedule`)
 
 - GET-only tools require `profile.schedule` with a standard 5–6 field cron expression (e.g., `0 12 * * *` or `0 0 ? * MON-FRI *`).
 - Build validates the cron shape and emits `.well-known/opentool/cron.json` capturing each scheduled tool (`toolName`, `toolPath`, `scheduleExpression`). Enabled defaults to `false` even if authors set it to `true` in code. Deployment targets can translate these cron strings to their provider format (e.g., EventBridge) downstream.
+- Use `profile.schedule.notifyEmail = true` to request email delivery on schedule runs.
 
 ### Public tools: Add x402 payments (optional)
 
