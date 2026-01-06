@@ -1,5 +1,11 @@
 # opentool
 
+## 0.8.6
+
+### Patch Changes
+
+- ba76681: added email to post
+
 ## 0.8.5
 
 ### Patch Changes
