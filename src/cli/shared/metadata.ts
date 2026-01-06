@@ -213,6 +213,10 @@ export async function buildMetadataArtifact(options: MetadataBuildOptions): Prom
     if (toolChains) {
       toolDefinition.chains = toolChains;
     }
+    const notifyEmail = tool.notifyEmail ?? tool.schedule?.notifyEmail;
+    if (notifyEmail !== undefined) {
+      toolDefinition.notifyEmail = notifyEmail;
+    }
 
     return toolDefinition;
   });

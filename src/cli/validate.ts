@@ -172,6 +172,10 @@ export async function loadAndValidateTools(
 
       let normalizedSchedule: NormalizedSchedule | null = null;
       const schedule = (toolModule as any)?.profile?.schedule;
+      const profileNotifyEmail =
+        typeof (toolModule as any)?.profile?.notifyEmail === "boolean"
+          ? (toolModule as any).profile.notifyEmail
+          : undefined;
       if (hasGET && schedule && typeof schedule.cron === "string" && schedule.cron.trim().length > 0) {
         normalizedSchedule = normalizeScheduleExpression(schedule.cron, file);
         if (typeof schedule.enabled === "boolean") {
@@ -253,6 +257,7 @@ export async function loadAndValidateTools(
         handler: async (params: unknown) => adapter(params),
         payment: paymentExport ?? null,
         schedule: normalizedSchedule,
+        ...(profileNotifyEmail !== undefined ? { notifyEmail: profileNotifyEmail } : {}),
         profileDescription:
           typeof (toolModule as any)?.profile?.description === "string"
             ? toolModule.profile?.description ?? null
