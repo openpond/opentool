@@ -5,6 +5,7 @@ import { z } from "zod";
 export const profile = {
   description:
     "Transfer USDC between main account and a Hyperliquid sub-account.",
+  category: "strategy",
 };
 
 export async function GET(req: Request): Promise<Response> {

@@ -194,6 +194,10 @@ export async function buildMetadataArtifact(options: MetadataBuildOptions): Prom
 
     const toolDiscovery = overrides.discovery ?? undefined;
     const toolChains = overrides.chains ?? authored.chains ?? undefined;
+    const toolCategory = tool.profileCategory ?? "tracker";
+    if (!tool.profileCategory) {
+      defaultsApplied.push(`tool ${toolName} category → tracker (default)`);
+    }
 
     const toolDefinition: Tool = {
       name: toolName,
@@ -213,9 +217,13 @@ export async function buildMetadataArtifact(options: MetadataBuildOptions): Prom
     if (toolChains) {
       toolDefinition.chains = toolChains;
     }
+    toolDefinition.category = toolCategory;
     const notifyEmail = tool.notifyEmail ?? tool.schedule?.notifyEmail;
     if (notifyEmail !== undefined) {
       toolDefinition.notifyEmail = notifyEmail;
+    }
+    if (tool.profileCategory) {
+      toolDefinition.category = tool.profileCategory;
     }
 
     return toolDefinition;

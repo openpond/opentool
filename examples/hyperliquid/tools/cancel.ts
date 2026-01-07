@@ -18,6 +18,7 @@ function resolveChainConfig(environment: "mainnet" | "testnet") {
 export const profile = {
   description:
     "Cancel a Hyperliquid order by oid or client order id (cloid). Logs to store.",
+  category: "strategy",
 };
 
 export const schema = z.object({

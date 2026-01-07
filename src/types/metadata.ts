@@ -70,6 +70,9 @@ export const DiscoveryMetadataSchema = z
 
 export type DiscoveryMetadata = z.infer<typeof DiscoveryMetadataSchema>;
 
+export const ToolCategorySchema = z.enum(["strategy", "tracker"]);
+export type ToolCategory = z.infer<typeof ToolCategorySchema>;
+
 export const ToolMetadataOverridesSchema = z
   .object({
     name: z.string().optional(),
@@ -93,6 +96,7 @@ export const ToolSchema = z
     discovery: DiscoveryMetadataSchema.optional(),
     chains: z.array(z.union([z.string(), z.number()])).optional(),
     notifyEmail: z.boolean().optional(),
+    category: ToolCategorySchema.optional(),
   })
   .strict();
 

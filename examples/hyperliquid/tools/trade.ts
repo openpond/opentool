@@ -15,6 +15,7 @@ function resolveChainConfig(environment: "mainnet" | "testnet") {
 export const profile = {
   description:
     "Place a Hyperliquid perp order (symbol, side, price, size, tif) using the configured signer.",
+  category: "strategy",
 };
 
 const decimalString = z

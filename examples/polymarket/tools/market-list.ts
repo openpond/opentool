@@ -2,6 +2,7 @@ import { fetchPolymarketMarkets } from "opentool/adapters/polymarket";
 
 export const profile = {
   description: "List active Polymarket markets (active=true & closed=false).",
+  category: "tracker",
 };
 
 export async function GET(req: Request): Promise<Response> {

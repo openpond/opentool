@@ -176,6 +176,16 @@ export async function loadAndValidateTools(
         typeof (toolModule as any)?.profile?.notifyEmail === "boolean"
           ? (toolModule as any).profile.notifyEmail
           : undefined;
+      const profileCategoryRaw =
+        typeof (toolModule as any)?.profile?.category === "string"
+          ? (toolModule as any).profile.category
+          : undefined;
+      const allowedProfileCategories = new Set(["strategy", "tracker"]);
+      if (profileCategoryRaw && !allowedProfileCategories.has(profileCategoryRaw)) {
+        throw new Error(
+          `${file}: profile.category must be one of ${Array.from(allowedProfileCategories).join(", ")}`
+        );
+      }
       if (hasGET && schedule && typeof schedule.cron === "string" && schedule.cron.trim().length > 0) {
         normalizedSchedule = normalizeScheduleExpression(schedule.cron, file);
         if (typeof schedule.enabled === "boolean") {
@@ -262,6 +272,7 @@ export async function loadAndValidateTools(
           typeof (toolModule as any)?.profile?.description === "string"
             ? toolModule.profile?.description ?? null
             : null,
+        ...(profileCategoryRaw ? { profileCategory: profileCategoryRaw } : {}),
       };
 
       tools.push(tool);

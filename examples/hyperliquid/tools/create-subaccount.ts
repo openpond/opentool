@@ -4,6 +4,7 @@ import { z } from "zod";
 
 export const profile = {
   description: "Create a Hyperliquid sub-account for the configured wallet.",
+  category: "strategy",
 };
 
 export async function GET(req: Request): Promise<Response> {

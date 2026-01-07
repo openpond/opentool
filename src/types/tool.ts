@@ -12,17 +12,21 @@ export type CronSpec = {
   notifyEmail?: boolean;
 };
 
+export type ToolCategory = "strategy" | "tracker";
+
 export type ToolProfileGET = {
   description: string;
   schedule: CronSpec; // required for GET-only tools
   fixedAmount?: string; // UX hint only
   tokenSymbol?: string; // UX hint only
   limits?: { concurrency?: number; dailyCap?: number };
+  category?: ToolCategory;
 };
 
 export type ToolProfilePOST = {
   description?: string; // optional for POST-only
   notifyEmail?: boolean; // request email notification on POST runs
+  category?: ToolCategory;
 };
 
 export type GetHandler = (req: Request) => Promise<Response> | Response;

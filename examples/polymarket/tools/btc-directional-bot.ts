@@ -24,6 +24,7 @@ const schema = z.object({
 export const profile = {
   description:
     "BTC directional bot: uses Hyperliquid BTC price + SMA/RSI to trade Polymarket Up/Down outcomes.",
+  category: "strategy",
 };
 
 export async function POST(req: Request): Promise<Response> {

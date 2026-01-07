@@ -73,6 +73,7 @@ For private tools, say for internal trading apps:
 
 - GET-only (scheduled default profile)
 - POST-only (one-off, parameterized with Zod)
+ - `profile.category` defaults to `tracker` if omitted; set to `strategy` for PnL/automation tools.
 
 GET-only (scheduled default)
 
@@ -80,6 +81,7 @@ GET-only (scheduled default)
 // tools/aave-stake.ts
 export const profile = {
   description: "Stake 100 USDC daily at 12:00 UTC",
+  category: "strategy",
   fixedAmount: "100",
   tokenSymbol: "USDC",
   schedule: { cron: "0 12 * * *", enabled: false },
@@ -105,6 +107,7 @@ import { z } from "zod";
 
 export const profile = {
   description: "Unstake USDC on demand",
+  category: "tracker",
   notifyEmail: true,
 };
 

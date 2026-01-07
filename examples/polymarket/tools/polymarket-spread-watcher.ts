@@ -11,6 +11,7 @@ const schema = z.object({
 export const profile = {
   description:
     "Compute Polymarket spread and orderbook imbalance for a YES token.",
+  category: "tracker",
 };
 
 function aggregateDepth(levels: Array<{ price: number; size: number }>, depth: number) {

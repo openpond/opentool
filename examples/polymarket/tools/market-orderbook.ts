@@ -2,6 +2,7 @@ import { fetchPolymarketOrderbook } from "opentool/adapters/polymarket";
 
 export const profile = {
   description: "Fetch the Polymarket orderbook for a YES/NO token.",
+  category: "tracker",
 };
 
 export async function GET(req: Request): Promise<Response> {

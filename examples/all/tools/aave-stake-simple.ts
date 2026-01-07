@@ -5,6 +5,7 @@ import { parseUnits } from "viem";
 // POST-only one-off staking tool mirroring aave-stake.ts behavior
 export const profile = {
   description: "Stake a user-specified USDC amount to Aave (Base Sepolia)",
+  category: "strategy",
 };
 
 export const schema = z.object({

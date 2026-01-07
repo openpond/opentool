@@ -28,6 +28,7 @@ export const schema = z.object({
 export const profile = {
   description:
     "Place a Hyperliquid entry (market or limit) with optional leverage, TP, SL, and reduce-only flag. TP/SL placed as separate reduce-only trigger orders.",
+  category: "strategy",
 };
 
 export async function POST(req: Request): Promise<Response> {

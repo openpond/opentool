@@ -17,6 +17,7 @@ const schema = z.object({
 
 export const profile = {
   description: "Simple Polymarket market maker with configurable spread.",
+  category: "strategy",
 };
 
 function bestPrices(orderbook: {
