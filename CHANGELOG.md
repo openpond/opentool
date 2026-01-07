@@ -1,5 +1,11 @@
 # opentool
 
+## 0.8.7
+
+### Patch Changes
+
+- 3b7389f: added cateorgy strategy/tracker
+
 ## 0.8.6
 
 ### Patch Changes
