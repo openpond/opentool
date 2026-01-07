@@ -19,6 +19,7 @@ function resolveChainConfig(environment: "mainnet" | "testnet") {
 export const profile = {
   description:
     "Enable/disable Hyperliquid portfolio margin (account unification mode) for a wallet or subaccount user address.",
+  category: "strategy",
 };
 
 export const schema = z.object({

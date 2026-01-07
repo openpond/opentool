@@ -32,6 +32,7 @@ const AAVE_POOL_ABI = [
 
 export const profile = {
   description: "Stake 1 USDC every day at noon UTC",
+  category: "strategy",
   fixedAmount: "1",
   tokenSymbol: "USDC",
   schedule: { cron: "0 12 * * *", enabled: false },

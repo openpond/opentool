@@ -16,6 +16,7 @@ function resolveChainConfig(environment: "mainnet" | "testnet") {
 export const profile = {
   description:
     "Place a one-off BTC-USD limit buy (defaults: size 1000, price 85,000).",
+  category: "strategy",
 };
 
 const decimalString = z

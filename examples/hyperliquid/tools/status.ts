@@ -12,6 +12,7 @@ function resolveChainConfig(environment: "mainnet" | "testnet") {
 export const profile = {
   description:
     "Check Hyperliquid clearinghouse state for the configured Turnkey wallet (confirms user existence).",
+  category: "tracker",
 };
 
 export const schema = z.object({

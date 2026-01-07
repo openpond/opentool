@@ -19,6 +19,7 @@ function resolveChainConfig(environment: HyperliquidEnvironment) {
 export const profile = {
   description:
     "Approve the Hyperliquid builder code (signs and submits a max builder fee approval for the configured Turnkey wallet).",
+  category: "strategy",
 };
 
 export async function GET(): Promise<Response> {

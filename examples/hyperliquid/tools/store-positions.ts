@@ -3,6 +3,7 @@ import { wallet } from "opentool/wallet";
 export const profile = {
   description:
     "Retrieve all Hyperliquid store events for this wallet (no filters).",
+  category: "tracker",
 };
 
 export async function GET(_req: Request): Promise<Response> {

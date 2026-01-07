@@ -14,6 +14,7 @@ const schema = z.object({
 
 export const profile = {
   description: "TA signal-only tool for BTC using Hyperliquid pricing.",
+  category: "tracker",
 };
 
 export async function POST(req: Request): Promise<Response> {

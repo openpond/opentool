@@ -18,6 +18,7 @@ function resolveChainConfig(environment: "mainnet" | "testnet") {
 export const profile = {
   description:
     "Bridge USDC to the Hyperliquid bridge (creates the HL user on first deposit).",
+  category: "strategy",
 };
 
 const decimalString = z

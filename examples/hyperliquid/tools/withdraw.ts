@@ -15,6 +15,7 @@ function resolveChainConfig(environment: "mainnet" | "testnet") {
 export const profile = {
   description:
     "Withdraw USDC from Hyperliquid back to an on-chain address via withdraw3.",
+  category: "strategy",
 };
 
 const decimalString = z

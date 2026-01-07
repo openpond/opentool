@@ -13,6 +13,7 @@ function resolveChainConfig(environment: "mainnet" | "testnet") {
 export const profile = {
   description:
     "Example strategy stub: every 10 minutes compute a 200 SMA on 1m candles and place a buy/sell. Replace the SMA fetch stub with real market data.",
+  category: "strategy",
   schedule: { cron: "*/10 * * * *", enabled: true },
   limits: { concurrency: 1 },
   symbol: "BTC-USDC",

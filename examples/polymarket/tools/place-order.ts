@@ -29,6 +29,7 @@ const schema = z.object({
 
 export const profile = {
   description: "Place a Polymarket order using OpenTool wallet signing.",
+  category: "strategy",
 };
 
 export async function POST(req: Request): Promise<Response> {

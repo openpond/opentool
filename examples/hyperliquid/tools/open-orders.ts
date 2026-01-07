@@ -13,6 +13,7 @@ function resolveChainConfig(environment: "mainnet" | "testnet") {
 
 export const profile = {
   description: "Fetch Hyperliquid open orders for the configured wallet.",
+  category: "tracker",
 };
 
 export async function GET(req: Request): Promise<Response> {

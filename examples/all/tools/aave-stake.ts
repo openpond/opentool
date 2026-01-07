@@ -32,6 +32,7 @@ const AAVE_POOL_ABI = [
 ];
 export const profile = {
   description: "Stake 1 USDC every 2 minutes",
+  category: "strategy",
   fixedAmount: "1",
   tokenSymbol: "USDC",
   schedule: { cron: "*/2 * * * *", enabled: true },

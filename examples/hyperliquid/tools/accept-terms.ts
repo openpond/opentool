@@ -15,6 +15,7 @@ function resolveChainConfig(environment: "mainnet" | "testnet") {
 export const profile = {
   description:
     "Record a local acknowledgement of Hyperliquid API terms for the configured Turnkey wallet.",
+  category: "strategy",
 };
 
 export const schema = z.object({
