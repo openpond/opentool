@@ -12,7 +12,7 @@ export type CronSpec = {
   notifyEmail?: boolean;
 };
 
-export type ToolCategory = "strategy" | "tracker";
+export type ToolCategory = "strategy" | "tracker" | "orchestator";
 
 export type ToolProfileGET = {
   description: string;

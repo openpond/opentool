@@ -73,7 +73,7 @@ For private tools, say for internal trading apps:
 
 - GET-only (scheduled default profile)
 - POST-only (one-off, parameterized with Zod)
- - `profile.category` defaults to `tracker` if omitted; set to `strategy` for PnL/automation tools.
+- `profile.category` defaults to `tracker` if omitted; set to `strategy` or `orchestator` for PnL/automation tools.
 
 GET-only (scheduled default)
 

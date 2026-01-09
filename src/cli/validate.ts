@@ -180,7 +180,7 @@ export async function loadAndValidateTools(
         typeof (toolModule as any)?.profile?.category === "string"
           ? (toolModule as any).profile.category
           : undefined;
-      const allowedProfileCategories = new Set(["strategy", "tracker"]);
+      const allowedProfileCategories = new Set(["strategy", "tracker", "orchestator"]);
       if (profileCategoryRaw && !allowedProfileCategories.has(profileCategoryRaw)) {
         throw new Error(
           `${file}: profile.category must be one of ${Array.from(allowedProfileCategories).join(", ")}`
