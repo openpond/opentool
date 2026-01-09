@@ -1,5 +1,11 @@
 # opentool
 
+## 0.8.8
+
+### Patch Changes
+
+- 5382f75: bug in loader
+
 ## 0.8.7
 
 ### Patch Changes
