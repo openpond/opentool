@@ -2,7 +2,9 @@ import * as path from "path";
 import { createRequire } from "module";
 import { pathToFileURL } from "url";
 
-const requireModule = createRequire(import.meta.url);
+const requireModule = createRequire(
+  typeof __filename !== "undefined" ? __filename : import.meta.url
+);
 
 export function resolveCompiledPath(
   outDir: string,
