@@ -1,5 +1,11 @@
 # opentool
 
+## 0.8.9
+
+### Patch Changes
+
+- 374bd1a: updated category
+
 ## 0.8.8
 
 ### Patch Changes
