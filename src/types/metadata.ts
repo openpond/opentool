@@ -70,7 +70,7 @@ export const DiscoveryMetadataSchema = z
 
 export type DiscoveryMetadata = z.infer<typeof DiscoveryMetadataSchema>;
 
-export const ToolCategorySchema = z.enum(["strategy", "tracker"]);
+export const ToolCategorySchema = z.enum(["strategy", "tracker", "orchestator"]);
 export type ToolCategory = z.infer<typeof ToolCategorySchema>;
 
 export const ToolMetadataOverridesSchema = z
