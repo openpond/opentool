@@ -267,6 +267,10 @@ export async function loadAndValidateTools(
         handler: async (params: unknown) => adapter(params),
         payment: paymentExport ?? null,
         schedule: normalizedSchedule,
+        profile:
+          (toolModule as any)?.profile && typeof (toolModule as any).profile === "object"
+            ? (toolModule as any).profile
+            : null,
         ...(profileNotifyEmail !== undefined ? { notifyEmail: profileNotifyEmail } : {}),
         profileDescription:
           typeof (toolModule as any)?.profile?.description === "string"

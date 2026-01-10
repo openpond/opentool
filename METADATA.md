@@ -51,7 +51,7 @@ my-assistant/
     └── greeting.ts              # Tool with schema and POST handler
 ```
 
-## Tier 2: Enhanced Metadata (metadata.ts)
+## Tier 2: Enhanced Metadata (metadata.ts, optional)
 
 Add a `metadata.ts` file to customize agent-wide settings while keeping smart defaults for missing fields:
 
@@ -80,6 +80,8 @@ export const metadata = {
 ```
 
 The build process **merges** your metadata with smart defaults, so you only specify what you want to customize.
+
+If `metadata.ts` is missing, OpenTool uses smart defaults from `package.json` and folder name without failing the build.
 
 ## Tier 3: Full Tool-Level Control
 

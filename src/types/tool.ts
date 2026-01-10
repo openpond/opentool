@@ -5,7 +5,7 @@ import type { z } from "zod";
 
 export type CronSpec = {
   /**
-   * AWS EventBridge schedule expression (`cron(...)` or `rate(...)`).
+   * Standard 5–6 field cron expression (optionally wrapped in `cron(...)`).
    */
   cron: string;
   enabled?: boolean;
@@ -14,19 +14,23 @@ export type CronSpec = {
 
 export type ToolCategory = "strategy" | "tracker" | "orchestrator";
 
-export type ToolProfileGET = {
-  description: string;
-  schedule: CronSpec; // required for GET-only tools
-  fixedAmount?: string; // UX hint only
-  tokenSymbol?: string; // UX hint only
-  limits?: { concurrency?: number; dailyCap?: number };
-  category?: ToolCategory;
+export type ConnectedApp = {
+  appId: string;
+  deploymentId: string;
+  toolName: string;
+  displayName?: string;
+  method?: "GET" | "POST";
+  body?: unknown;
 };
 
-export type ToolProfilePOST = {
-  description?: string; // optional for POST-only
-  notifyEmail?: boolean; // request email notification on POST runs
+export type ToolProfile = {
+  description?: string;
   category?: ToolCategory;
+  schedule?: CronSpec;
+  notifyEmail?: boolean;
+  chains?: Array<string | number>;
+  connectedApps?: ConnectedApp[];
+  policies?: Array<Record<string, unknown>>;
 };
 
 export type GetHandler = (req: Request) => Promise<Response> | Response;
@@ -34,7 +38,7 @@ export type PostHandler = (req: Request) => Promise<Response> | Response;
 
 // GET-only tool (default scheduled profile)
 export type ToolModuleGET = {
-  profile: ToolProfileGET;
+  profile: ToolProfile;
   GET: GetHandler;
   POST?: never;
   schema?: never;
@@ -42,7 +46,7 @@ export type ToolModuleGET = {
 
 // POST-only tool (one-off, parameterized)
 export type ToolModulePOST<B = unknown> = {
-  profile?: ToolProfilePOST;
+  profile?: ToolProfile;
   POST: PostHandler;
   schema: z.ZodType<B>;
   GET?: never;

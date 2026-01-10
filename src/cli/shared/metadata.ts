@@ -27,9 +27,10 @@ const METADATA_ENTRY = "metadata.ts";
 export async function loadMetadata(projectRoot: string): Promise<LoadMetadataResult> {
   const absPath = path.join(projectRoot, METADATA_ENTRY);
   if (!fs.existsSync(absPath)) {
-    throw new Error(
-      `metadata.ts not found in ${projectRoot}. Create metadata.ts to describe your agent.`
-    );
+    return {
+      metadata: MetadataSchema.parse({}),
+      sourcePath: "smart defaults (metadata.ts missing)",
+    };
   }
 
   const tempDir = path.join(projectRoot, ".opentool-temp");
