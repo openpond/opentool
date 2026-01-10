@@ -19,7 +19,7 @@
     "examples:build": "node dist/cli/index.js build --input examples/full-metadata/tools --output examples/full-metadata/dist",
     "examples:metadata": "node dist/cli/index.js metadata --input examples/full-metadata/tools --output examples/full-metadata/metadata.json",
     "examples:validate": "node dist/cli/index.js validate --input examples/full-metadata/tools",
-    "changeset": "changeset",
+    "changeset": "changeset && bun run scripts/build-context.ts",
     "changeset:version": "changeset version",
     "changeset:publish": "changeset publish",
     "release": "npm run build && npm run changeset:publish"
