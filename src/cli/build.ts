@@ -1,6 +1,6 @@
 import * as fs from "fs";
 import * as path from "path";
-import { InternalToolDefinition, ScheduleType } from "../types/index";
+import { InternalToolDefinition } from "../types/index";
 import { Metadata } from "../types/metadata";
 import { transpileWithEsbuild } from "../utils/esbuild";
 import { buildMetadataArtifact } from "./shared/metadata";
@@ -19,7 +19,7 @@ interface BuildArtifacts {
   tools: InternalToolDefinition[];
   compiledTools: CompiledToolArtifact[];
   workflowBundles: WorkflowBundleArtifact | null;
-  cronManifestPath: string | null;
+  toolsManifestPath: string | null;
   sharedModules?: SharedModulesInfo | null;
 }
 
@@ -43,24 +43,13 @@ interface WorkflowBundleArtifact {
   manifestPath?: string;
 }
 
-interface CronManifestEntry {
-  toolName: string;
-  description?: string;
-  scheduleType: ScheduleType;
-  scheduleExpression: string;
-  enabledDefault: boolean;
-  authoredEnabled?: boolean;
-  notifyEmail?: boolean;
-  payload: {
-    toolPath: string;
-    httpMethod: "GET";
-  };
-}
-
-interface CronManifest {
-  version: number;
-  generatedAt: string;
-  entries: CronManifestEntry[];
+interface ToolsManifestEntry {
+  name: string;
+  method: string;
+  inputSchema?: unknown;
+  profile?: Record<string, unknown> | null;
+  schedule?: InternalToolDefinition["schedule"] | null;
+  toolPath: string;
 }
 
 interface SharedModulesInfo {
@@ -118,7 +107,7 @@ export async function buildProject(options: BuildOptions): Promise<BuildArtifact
     outputDir,
   });
 
-  const cronManifestPath = await writeCronManifest({
+  const toolsManifestPath = await writeToolsManifest({
     tools,
     compiledTools,
     outputDir,
@@ -153,7 +142,7 @@ export async function buildProject(options: BuildOptions): Promise<BuildArtifact
     tools,
     compiledTools,
     workflowBundles,
-    cronManifestPath,
+    toolsManifestPath,
     sharedModules,
   };
 }
@@ -389,28 +378,22 @@ async function writeMcpServer(options: ServerOptions): Promise<void> {
   fs.chmodSync(serverPath, 0o755);
 }
 
-function writeCronManifest(options: {
+function writeToolsManifest(options: {
   tools: InternalToolDefinition[];
   compiledTools: CompiledToolArtifact[];
   outputDir: string;
 }): string | null {
-  const scheduledTools = options.tools.filter((tool) => tool.schedule?.expression);
-  const manifestDir = path.join(options.outputDir, ".well-known", "opentool");
-  const manifestPath = path.join(manifestDir, "cron.json");
-
-  if (scheduledTools.length === 0) {
-    if (fs.existsSync(manifestPath)) {
-      fs.rmSync(manifestPath);
-    }
-    return null;
+  const manifestPath = path.join(options.outputDir, "tools.json");
+  const legacyManifestPath = path.join(
+    options.outputDir,
+    ".well-known",
+    "opentool",
+    "cron.json"
+  );
+  if (fs.existsSync(legacyManifestPath)) {
+    fs.rmSync(legacyManifestPath, { force: true });
   }
-
-  const entries: CronManifestEntry[] = scheduledTools.map((tool) => {
-    const schedule = tool.schedule;
-    if (!schedule) {
-      throw new Error(`Internal error: missing schedule for tool ${tool.filename}`);
-    }
-
+  const entries: ToolsManifestEntry[] = options.tools.map((tool) => {
     const compiled = options.compiledTools.find(
       (artifact) => artifact.filename === tool.filename
     );
@@ -418,42 +401,30 @@ function writeCronManifest(options: {
       throw new Error(`Internal error: missing compiled artifact for ${tool.filename}`);
     }
 
-    const toolName = tool.metadata?.name ?? tool.filename;
-    const description = tool.metadata?.description ?? tool.profileDescription ?? undefined;
-    const payloadPath = compiled.modulePath.replace(/\\/g, "/");
+    const handler = tool.httpHandlers[0];
+    const method = handler ? handler.method.toUpperCase() : "GET";
+    const toolPath = compiled.modulePath.replace(/\\/g, "/");
 
-    const entry: CronManifestEntry = {
-      toolName,
-      scheduleType: schedule.type,
-      scheduleExpression: schedule.expression,
-      enabledDefault: false,
-      ...(schedule.authoredEnabled !== undefined
-        ? { authoredEnabled: schedule.authoredEnabled }
-        : {}),
-      ...(schedule.notifyEmail !== undefined
-        ? { notifyEmail: schedule.notifyEmail }
-        : {}),
-      payload: {
-        toolPath: payloadPath,
-        httpMethod: "GET",
-      },
+    const entry: ToolsManifestEntry = {
+      name: tool.metadata?.name ?? tool.filename,
+      method,
+      toolPath,
     };
 
-    if (description !== undefined) {
-      entry.description = description;
+    if (tool.inputSchema) {
+      entry.inputSchema = tool.inputSchema;
+    }
+    if (tool.profile) {
+      entry.profile = tool.profile as Record<string, unknown>;
+    }
+    if (tool.schedule) {
+      entry.schedule = tool.schedule;
     }
 
     return entry;
   });
 
-  const manifest: CronManifest = {
-    version: 1,
-    generatedAt: new Date().toISOString(),
-    entries,
-  };
-
-  fs.mkdirSync(manifestDir, { recursive: true });
-  fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
+  fs.writeFileSync(manifestPath, JSON.stringify(entries, null, 2));
   return manifestPath;
 }
 
@@ -480,8 +451,8 @@ function logBuildSummary(artifacts: BuildArtifacts, options: BuildOptions): void
     console.log(`     - ${tool.name} [${methods}]${walletBadge}`);
   });
   console.log("  • metadata.json (registry artifact)");
-  if (artifacts.cronManifestPath) {
-    console.log("  • .well-known/opentool/cron.json (cron manifest)");
+  if (artifacts.toolsManifestPath) {
+    console.log("  • tools.json (runtime tool manifest)");
   }
   if (artifacts.workflowBundles) {
     console.log("  • .well-known/workflow/v1/ (workflow bundles)");

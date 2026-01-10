@@ -33,14 +33,11 @@ const AAVE_POOL_ABI = [
 export const profile = {
   description: "Stake 1 USDC every day at noon UTC",
   category: "strategy",
-  fixedAmount: "1",
-  tokenSymbol: "USDC",
   schedule: { cron: "0 12 * * *", enabled: false },
-  limits: { concurrency: 1, dailyCap: 1 },
 };
 
 export async function GET(_req: Request) {
-  const amount = profile.fixedAmount || "1";
+  const amount = "1";
 
   const ctx = await wallet({
     chain: "base-sepolia",

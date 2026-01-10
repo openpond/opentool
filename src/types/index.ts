@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { ToolMetadataOverrides } from "./metadata";
-import type { ToolCategory } from "./tool";
+import type { ToolCategory, ToolProfile } from "./tool";
 import type { X402Payment } from "../x402/index";
 
 export interface ToolContent {
@@ -62,6 +62,7 @@ export interface InternalToolDefinition<
   payment?: X402Payment | null;
   schedule?: NormalizedSchedule | null;
   notifyEmail?: boolean;
+  profile?: ToolProfile | null;
   profileDescription?: string | null;
   profileCategory?: ToolCategory;
 }
