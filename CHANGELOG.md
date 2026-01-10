@@ -1,5 +1,11 @@
 # opentool
 
+## 0.8.12
+
+### Patch Changes
+
+- 2475a35: hardcode build context to changeset
+
 ## 0.8.11
 
 ### Patch Changes
