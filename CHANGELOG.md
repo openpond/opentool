@@ -1,5 +1,11 @@
 # opentool
 
+## 0.8.11
+
+### Patch Changes
+
+- 0141ed8: added tool.json for profile and depreciated cron.json
+
 ## 0.8.10
 
 ### Patch Changes
