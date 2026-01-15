@@ -1,5 +1,11 @@
 # opentool
 
+## 0.8.13
+
+### Patch Changes
+
+- 3528568: fix hype dex support
+
 ## 0.8.12
 
 ### Patch Changes
