@@ -14,9 +14,8 @@ import {
   type HyperliquidExchangeResponse,
   assertPositiveNumber,
   getSignatureChainId,
-  getUniverse,
   normalizeAddress,
-  resolveAssetIndex,
+  resolveHyperliquidAssetIndex,
   signL1Action,
   signUserPortfolioMargin,
   signSpotSend,
@@ -402,12 +401,12 @@ export async function placeHyperliquidTwapOrder(options: {
   assertPositiveDecimal(twap.size, "size");
   assertPositiveNumber(twap.minutes, "minutes");
   const env = options.environment ?? "mainnet";
-  const universe = await getUniverse({
+  const asset = await resolveHyperliquidAssetIndex({
+    symbol: twap.symbol,
     baseUrl: API_BASES[env],
     environment: env,
     fetcher: fetch,
   });
-  const asset = resolveAssetIndex(twap.symbol, universe);
   const action = {
     type: "twapOrder",
     twap: {
@@ -428,12 +427,12 @@ export async function cancelHyperliquidTwapOrder(options: {
 } & CommonActionOptions) {
   assertSymbol(options.cancel.symbol);
   const env = options.environment ?? "mainnet";
-  const universe = await getUniverse({
+  const asset = await resolveHyperliquidAssetIndex({
+    symbol: options.cancel.symbol,
     baseUrl: API_BASES[env],
     environment: env,
     fetcher: fetch,
   });
-  const asset = resolveAssetIndex(options.cancel.symbol, universe);
   const action = {
     type: "twapCancel",
     a: asset,
@@ -449,12 +448,12 @@ export async function updateHyperliquidLeverage(options: {
   assertSymbol(options.input.symbol);
   assertPositiveNumber(options.input.leverage, "leverage");
   const env = options.environment ?? "mainnet";
-  const universe = await getUniverse({
+  const asset = await resolveHyperliquidAssetIndex({
+    symbol: options.input.symbol,
     baseUrl: API_BASES[env],
     environment: env,
     fetcher: fetch,
   });
-  const asset = resolveAssetIndex(options.input.symbol, universe);
   const action = {
     type: "updateLeverage",
     asset,
@@ -471,12 +470,12 @@ export async function updateHyperliquidIsolatedMargin(options: {
   assertSymbol(options.input.symbol);
   assertPositiveNumber(options.input.ntli, "ntli");
   const env = options.environment ?? "mainnet";
-  const universe = await getUniverse({
+  const asset = await resolveHyperliquidAssetIndex({
+    symbol: options.input.symbol,
     baseUrl: API_BASES[env],
     environment: env,
     fetcher: fetch,
   });
-  const asset = resolveAssetIndex(options.input.symbol, universe);
   const action = {
     type: "updateIsolatedMargin",
     asset,
@@ -630,14 +629,14 @@ async function withAssetIndexes<TInput>(
   mapper: (assetIndex: number, entry: TInput) => Record<string, unknown>
 ) {
   const env = options.environment ?? "mainnet";
-  const universe = await getUniverse({
-    baseUrl: API_BASES[env],
-    environment: env,
-    fetcher: fetch,
-  });
   return Promise.all(
     entries.map(async (entry: any) => {
-      const assetIndex = resolveAssetIndex(entry.symbol, universe);
+      const assetIndex = await resolveHyperliquidAssetIndex({
+        symbol: entry.symbol,
+        baseUrl: API_BASES[env],
+        environment: env,
+        fetcher: fetch,
+      });
       return mapper(assetIndex, entry);
     })
   );
@@ -651,12 +650,12 @@ async function buildOrder(
   assertPositiveDecimal(intent.price, "price");
   assertPositiveDecimal(intent.size, "size");
   const env = options.environment ?? "mainnet";
-  const universe = await getUniverse({
+  const assetIndex = await resolveHyperliquidAssetIndex({
+    symbol: intent.symbol,
     baseUrl: API_BASES[env],
     environment: env,
     fetcher: fetch,
   });
-  const assetIndex = resolveAssetIndex(intent.symbol, universe);
 
   const limitOrTrigger = intent.trigger
     ? mapTrigger(intent.trigger)

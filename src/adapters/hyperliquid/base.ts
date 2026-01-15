@@ -58,6 +58,10 @@ const metaCache = new Map<
   string,
   { fetchedAt: number; universe: MetaResponse["universe"] }
 >();
+const perpDexsCache = new Map<
+  string,
+  { fetchedAt: number; dexs: PerpDexsResponse }
+>();
 
 export type HyperliquidEnvironment = "mainnet" | "testnet";
 export type HyperliquidTimeInForce =
@@ -99,6 +103,8 @@ type MetaResponse = {
     name: string;
   }>;
 };
+
+type PerpDexsResponse = Array<{ name: string } | null>;
 
 export type ExchangeOrderAction = {
   type: "order";
@@ -203,8 +209,10 @@ export async function getUniverse(args: {
   baseUrl: string;
   environment: HyperliquidEnvironment;
   fetcher: typeof fetch;
+  dex?: string;
 }): Promise<MetaResponse["universe"]> {
-  const cacheKey = `${args.environment}:${args.baseUrl}`;
+  const dexKey = args.dex ? args.dex.trim().toLowerCase() : "";
+  const cacheKey = `${args.environment}:${args.baseUrl}:${dexKey}`;
   const cached = metaCache.get(cacheKey);
   if (cached && Date.now() - cached.fetchedAt < CACHE_TTL_MS) {
     return cached.universe;
@@ -213,7 +221,9 @@ export async function getUniverse(args: {
   const response = await args.fetcher(`${args.baseUrl}/info`, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ type: "meta" }),
+    body: JSON.stringify(
+      dexKey ? { type: "meta", dex: dexKey } : { type: "meta" }
+    ),
   });
 
   const json = (await response.json().catch(() => null)) as MetaResponse | null;
@@ -241,6 +251,99 @@ export function resolveAssetIndex(
     throw new Error(`Unknown Hyperliquid asset symbol: ${symbol}`);
   }
   return index;
+}
+
+async function getPerpDexs(args: {
+  baseUrl: string;
+  environment: HyperliquidEnvironment;
+  fetcher: typeof fetch;
+}): Promise<PerpDexsResponse> {
+  const cacheKey = `${args.environment}:${args.baseUrl}`;
+  const cached = perpDexsCache.get(cacheKey);
+  if (cached && Date.now() - cached.fetchedAt < CACHE_TTL_MS) {
+    return cached.dexs;
+  }
+
+  const response = await args.fetcher(`${args.baseUrl}/info`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ type: "perpDexs" }),
+  });
+  const json = (await response.json().catch(() => null)) as
+    | PerpDexsResponse
+    | null;
+  if (!response.ok || !Array.isArray(json)) {
+    throw new HyperliquidApiError(
+      "Unable to load Hyperliquid perp dex metadata.",
+      json ?? { status: response.status }
+    );
+  }
+
+  perpDexsCache.set(cacheKey, { fetchedAt: Date.now(), dexs: json });
+  return json;
+}
+
+async function resolveDexIndex(args: {
+  baseUrl: string;
+  environment: HyperliquidEnvironment;
+  fetcher: typeof fetch;
+  dex: string;
+}): Promise<number> {
+  const dexs = await getPerpDexs(args);
+  const target = args.dex.trim().toLowerCase();
+  const index = dexs.findIndex(
+    (entry) => entry?.name?.toLowerCase() === target
+  );
+  if (index === -1) {
+    throw new Error(`Unknown Hyperliquid perp dex: ${args.dex}`);
+  }
+  return index;
+}
+
+export async function resolveHyperliquidAssetIndex(args: {
+  symbol: string;
+  baseUrl: string;
+  environment: HyperliquidEnvironment;
+  fetcher: typeof fetch;
+}): Promise<number> {
+  const trimmed = args.symbol.trim();
+  if (!trimmed) {
+    throw new Error("Hyperliquid symbol must be a non-empty string.");
+  }
+
+  const separator = trimmed.indexOf(":");
+  if (separator > 0) {
+    const dex = trimmed.slice(0, separator).trim();
+    if (!dex) {
+      throw new Error("Hyperliquid dex name is required.");
+    }
+    const dexIndex = await resolveDexIndex({
+      baseUrl: args.baseUrl,
+      environment: args.environment,
+      fetcher: args.fetcher,
+      dex,
+    });
+    const universe = await getUniverse({
+      baseUrl: args.baseUrl,
+      environment: args.environment,
+      fetcher: args.fetcher,
+      dex,
+    });
+    const assetIndex = universe.findIndex(
+      (entry) => entry.name.toUpperCase() === trimmed.toUpperCase()
+    );
+    if (assetIndex === -1) {
+      throw new Error(`Unknown Hyperliquid asset symbol: ${trimmed}`);
+    }
+    return 100000 + dexIndex * 10000 + assetIndex;
+  }
+
+  const universe = await getUniverse({
+    baseUrl: args.baseUrl,
+    environment: args.environment,
+    fetcher: args.fetcher,
+  });
+  return resolveAssetIndex(trimmed, universe);
 }
 
 export function toApiDecimal(value: string | number | bigint): string {

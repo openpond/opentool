@@ -12,11 +12,10 @@ import {
   createL1ActionHash,
   getBridgeAddress,
   getSignatureChainId,
-  getUniverse,
   getUsdcAddress,
   normalizeAddress,
   normalizeHex,
-  resolveAssetIndex,
+  resolveHyperliquidAssetIndex,
   signApproveBuilderFee,
   signL1Action,
   splitSignature,
@@ -182,46 +181,46 @@ export async function placeHyperliquidOrder(
 
   const inferredEnvironment = environment ?? "mainnet";
   const resolvedBaseUrl = API_BASES[inferredEnvironment];
+  const preparedOrders = await Promise.all(
+    orders.map(async (intent) => {
+      const assetIndex = await resolveHyperliquidAssetIndex({
+        symbol: intent.symbol,
+        baseUrl: resolvedBaseUrl,
+        environment: inferredEnvironment,
+        fetcher: fetch,
+      });
 
-  const universe = await getUniverse({
-    baseUrl: resolvedBaseUrl,
-    environment: inferredEnvironment,
-    fetcher: fetch,
-  });
-
-  const preparedOrders = orders.map((intent) => {
-    const assetIndex = resolveAssetIndex(intent.symbol, universe);
-
-    const limitOrTrigger = intent.trigger
-      ? {
-          trigger: {
-            isMarket: Boolean(intent.trigger.isMarket),
-            triggerPx: toApiDecimal(intent.trigger.triggerPx),
-            tpsl: intent.trigger.tpsl,
-          },
-        }
-      : {
-          limit: {
-            tif: intent.tif ?? "Ioc",
-          },
-        };
-
-    const order: ExchangeOrderAction["orders"][number] = {
-      a: assetIndex,
-      b: intent.side === "buy",
-      p: toApiDecimal(intent.price),
-      s: toApiDecimal(intent.size),
-      r: intent.reduceOnly ?? false,
-      t: limitOrTrigger,
-      ...(intent.clientId
+      const limitOrTrigger = intent.trigger
         ? {
-            c: normalizeHex(intent.clientId),
+            trigger: {
+              isMarket: Boolean(intent.trigger.isMarket),
+              triggerPx: toApiDecimal(intent.trigger.triggerPx),
+              tpsl: intent.trigger.tpsl,
+            },
           }
-        : {}),
-    };
+        : {
+            limit: {
+              tif: intent.tif ?? "Ioc",
+            },
+          };
 
-    return order;
-  });
+      const order: ExchangeOrderAction["orders"][number] = {
+        a: assetIndex,
+        b: intent.side === "buy",
+        p: toApiDecimal(intent.price),
+        s: toApiDecimal(intent.size),
+        r: intent.reduceOnly ?? false,
+        t: limitOrTrigger,
+        ...(intent.clientId
+          ? {
+              c: normalizeHex(intent.clientId),
+            }
+          : {}),
+      };
+
+      return order;
+    })
+  );
 
   const action: ExchangeOrderAction = {
     type: "order",
