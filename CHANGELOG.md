@@ -1,5 +1,11 @@
 # opentool
 
+## 0.8.15
+
+### Patch Changes
+
+- 3ebf4e1: added pair to assets
+
 ## 0.8.14
 
 ### Patch Changes
