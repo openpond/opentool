@@ -18,6 +18,7 @@ export type ToolAsset = {
   venue: string;
   chain: string | number;
   assetSymbols: string[];
+  pair?: string;
   walletAddress?: string;
 };
 

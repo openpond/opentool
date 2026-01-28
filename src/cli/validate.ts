@@ -234,6 +234,15 @@ export async function loadAndValidateTools(
               `${file}: profile.assets[${index}].walletAddress must be a non-empty string when provided.`
             );
           }
+          const pair = record.pair;
+          if (
+            pair !== undefined &&
+            (typeof pair !== "string" || pair.trim().length === 0)
+          ) {
+            throw new Error(
+              `${file}: profile.assets[${index}].pair must be a non-empty string when provided.`
+            );
+          }
         });
       }
       if (hasGET && schedule && typeof schedule.cron === "string" && schedule.cron.trim().length > 0) {
