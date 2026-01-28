@@ -186,6 +186,56 @@ export async function loadAndValidateTools(
           `${file}: profile.category must be one of ${Array.from(allowedProfileCategories).join(", ")}`
         );
       }
+      const profileAssetsRaw = (toolModule as any)?.profile?.assets;
+      if (profileAssetsRaw !== undefined) {
+        if (!Array.isArray(profileAssetsRaw)) {
+          throw new Error(`${file}: profile.assets must be an array.`);
+        }
+        profileAssetsRaw.forEach((entry, index) => {
+          if (!entry || typeof entry !== "object") {
+            throw new Error(
+              `${file}: profile.assets[${index}] must be an object.`
+            );
+          }
+          const record = entry as Record<string, unknown>;
+          const venue = typeof record.venue === "string" ? record.venue.trim() : "";
+          if (!venue) {
+            throw new Error(
+              `${file}: profile.assets[${index}].venue must be a non-empty string.`
+            );
+          }
+          const chain = record.chain;
+          if (typeof chain !== "string" && typeof chain !== "number") {
+            throw new Error(
+              `${file}: profile.assets[${index}].chain must be a string or number.`
+            );
+          }
+          const symbols = record.assetSymbols;
+          if (!Array.isArray(symbols) || symbols.length === 0) {
+            throw new Error(
+              `${file}: profile.assets[${index}].assetSymbols must be a non-empty array.`
+            );
+          }
+          const invalidSymbol = symbols.find(
+            (symbol) =>
+              typeof symbol !== "string" || symbol.trim().length === 0
+          );
+          if (invalidSymbol !== undefined) {
+            throw new Error(
+              `${file}: profile.assets[${index}].assetSymbols must be non-empty strings.`
+            );
+          }
+          const walletAddress = record.walletAddress;
+          if (
+            walletAddress !== undefined &&
+            (typeof walletAddress !== "string" || walletAddress.trim().length === 0)
+          ) {
+            throw new Error(
+              `${file}: profile.assets[${index}].walletAddress must be a non-empty string when provided.`
+            );
+          }
+        });
+      }
       if (hasGET && schedule && typeof schedule.cron === "string" && schedule.cron.trim().length > 0) {
         normalizedSchedule = normalizeScheduleExpression(schedule.cron, file);
         if (typeof schedule.enabled === "boolean") {
