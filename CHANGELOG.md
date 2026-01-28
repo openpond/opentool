@@ -1,5 +1,11 @@
 # opentool
 
+## 0.8.14
+
+### Patch Changes
+
+- 7fdbb86: updated profile to include tool assets
+
 ## 0.8.13
 
 ### Patch Changes
