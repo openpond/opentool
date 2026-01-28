@@ -14,6 +14,13 @@ export type CronSpec = {
 
 export type ToolCategory = "strategy" | "tracker" | "orchestrator";
 
+export type ToolAsset = {
+  venue: string;
+  chain: string | number;
+  assetSymbols: string[];
+  walletAddress?: string;
+};
+
 export type ConnectedApp = {
   appId: string;
   deploymentId: string;
@@ -29,6 +36,7 @@ export type ToolProfile = {
   schedule?: CronSpec;
   notifyEmail?: boolean;
   chains?: Array<string | number>;
+  assets?: ToolAsset[];
   connectedApps?: ConnectedApp[];
   policies?: Array<Record<string, unknown>>;
 };

@@ -1554,7 +1554,7 @@ const AAVE_POOL_ABI = [
 export const profile = {
   description: "Stake 1 USDC every 2 minutes",
   category: "strategy",
-  schedule: { cron: "*/2 * * * *", enabled: true },
+  schedule: { cron: "*/2 * * * *", enabled: false },
 };
 
 export async function GET(_req: Request) {
