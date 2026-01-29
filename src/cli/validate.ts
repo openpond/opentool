@@ -287,6 +287,15 @@ export async function loadAndValidateTools(
             `${file}: profile.templateConfig.defaults must be an object when provided.`
           );
         }
+        const envVar = record.envVar;
+        if (
+          envVar !== undefined &&
+          (typeof envVar !== "string" || envVar.trim().length === 0)
+        ) {
+          throw new Error(
+            `${file}: profile.templateConfig.envVar must be a non-empty string when provided.`
+          );
+        }
       }
       if (hasGET && schedule && typeof schedule.cron === "string" && schedule.cron.trim().length > 0) {
         normalizedSchedule = normalizeScheduleExpression(schedule.cron, file);
