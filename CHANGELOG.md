@@ -1,5 +1,11 @@
 # opentool
 
+## 0.8.18
+
+### Patch Changes
+
+- ad4628b: updated config to be in profile
+
 ## 0.8.16
 
 ### Patch Changes
