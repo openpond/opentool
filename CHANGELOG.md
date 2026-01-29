@@ -1,5 +1,11 @@
 # opentool
 
+## 0.8.20
+
+### Patch Changes
+
+- 8f3838f: added env to template config
+
 ## 0.8.18
 
 ### Patch Changes
