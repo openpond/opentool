@@ -45,6 +45,7 @@ export type ToolProfile = {
     version: number | string;
     schema?: Record<string, unknown>;
     defaults?: Record<string, unknown>;
+    envVar?: string;
   };
 };
 
