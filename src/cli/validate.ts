@@ -254,6 +254,40 @@ export async function loadAndValidateTools(
           }
         });
       }
+      const templateConfigRaw = (toolModule as any)?.profile?.templateConfig;
+      if (templateConfigRaw !== undefined) {
+        if (!templateConfigRaw || typeof templateConfigRaw !== "object") {
+          throw new Error(`${file}: profile.templateConfig must be an object.`);
+        }
+        const record = templateConfigRaw as Record<string, unknown>;
+        const version = record.version;
+        if (
+          typeof version !== "string" &&
+          typeof version !== "number"
+        ) {
+          throw new Error(
+            `${file}: profile.templateConfig.version must be a string or number.`
+          );
+        }
+        const schema = record.schema;
+        if (
+          schema !== undefined &&
+          (!schema || typeof schema !== "object" || Array.isArray(schema))
+        ) {
+          throw new Error(
+            `${file}: profile.templateConfig.schema must be an object when provided.`
+          );
+        }
+        const defaults = record.defaults;
+        if (
+          defaults !== undefined &&
+          (!defaults || typeof defaults !== "object" || Array.isArray(defaults))
+        ) {
+          throw new Error(
+            `${file}: profile.templateConfig.defaults must be an object when provided.`
+          );
+        }
+      }
       if (hasGET && schedule && typeof schedule.cron === "string" && schedule.cron.trim().length > 0) {
         normalizedSchedule = normalizeScheduleExpression(schedule.cron, file);
         if (typeof schedule.enabled === "boolean") {
