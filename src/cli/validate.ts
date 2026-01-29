@@ -243,6 +243,15 @@ export async function loadAndValidateTools(
               `${file}: profile.assets[${index}].pair must be a non-empty string when provided.`
             );
           }
+          const leverage = record.leverage;
+          if (
+            leverage !== undefined &&
+            (typeof leverage !== "number" || !Number.isFinite(leverage) || leverage <= 0)
+          ) {
+            throw new Error(
+              `${file}: profile.assets[${index}].leverage must be a positive number when provided.`
+            );
+          }
         });
       }
       if (hasGET && schedule && typeof schedule.cron === "string" && schedule.cron.trim().length > 0) {

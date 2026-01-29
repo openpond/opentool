@@ -19,6 +19,7 @@ export type ToolAsset = {
   chain: string | number;
   assetSymbols: string[];
   pair?: string;
+  leverage?: number;
   walletAddress?: string;
 };
 
