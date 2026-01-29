@@ -41,6 +41,11 @@ export type ToolProfile = {
   assets?: ToolAsset[];
   connectedApps?: ConnectedApp[];
   policies?: Array<Record<string, unknown>>;
+  templateConfig?: {
+    version: number | string;
+    schema?: Record<string, unknown>;
+    defaults?: Record<string, unknown>;
+  };
 };
 
 export type GetHandler = (req: Request) => Promise<Response> | Response;
