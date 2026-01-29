@@ -1,5 +1,11 @@
 # opentool
 
+## 0.8.16
+
+### Patch Changes
+
+- 1851934: added leverage
+
 ## 0.8.15
 
 ### Patch Changes
