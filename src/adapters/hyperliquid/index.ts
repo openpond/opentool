@@ -30,10 +30,13 @@ import type {
 } from "./base";
 export type {
   HyperliquidEnvironment as HyperliquidEnvironment,
+  HyperliquidTimeInForce as HyperliquidTimeInForce,
   HyperliquidGrouping as HyperliquidGrouping,
   HyperliquidTriggerType as HyperliquidTriggerType,
   HyperliquidTriggerOptions as HyperliquidTriggerOptions,
   HyperliquidOrderIntent as HyperliquidOrderIntent,
+  HyperliquidAbstraction as HyperliquidAbstraction,
+  HyperliquidAccountMode as HyperliquidAccountMode,
   HyperliquidBuilderFee as HyperliquidBuilderFee,
   NonceSource,
   HyperliquidExchangeResponse,
@@ -44,6 +47,9 @@ export {
   HyperliquidTermsError,
   HyperliquidBuilderApprovalError,
   createMonotonicNonceFactory,
+  DEFAULT_HYPERLIQUID_MARKET_SLIPPAGE_BPS,
+  computeHyperliquidMarketIocLimitPrice,
+  resolveHyperliquidAbstractionFromMode,
 } from "./base";
 export {
   fetchHyperliquidMeta,
