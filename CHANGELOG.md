@@ -1,5 +1,11 @@
 # opentool
 
+## 0.8.21
+
+### Patch Changes
+
+- 8a2783a: hyperliquid accounts
+
 ## 0.8.20
 
 ### Patch Changes
