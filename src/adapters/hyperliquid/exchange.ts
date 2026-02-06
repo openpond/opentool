@@ -3,21 +3,28 @@ import {
   API_BASES,
   HL_CHAIN_LABEL,
   HyperliquidApiError,
+  type HyperliquidAbstraction,
+  type HyperliquidAccountMode,
   HyperliquidEnvironment,
   HyperliquidGrouping,
   HyperliquidOrderIntent,
   HyperliquidTriggerOptions,
   type ExchangeOrderAction,
   type ExchangeSignature,
+  type HyperliquidUserDexAbstractionAction,
   type HyperliquidUserPortfolioMarginAction,
+  type HyperliquidUserSetAbstractionAction,
   type NonceSource,
   type HyperliquidExchangeResponse,
   assertPositiveNumber,
   getSignatureChainId,
   normalizeAddress,
+  resolveHyperliquidAbstractionFromMode,
   resolveHyperliquidAssetIndex,
   signL1Action,
+  signUserDexAbstraction,
   signUserPortfolioMargin,
+  signUserSetAbstraction,
   signSpotSend,
   toApiDecimal,
 } from "./base";
@@ -230,6 +237,42 @@ export class HyperliquidExchangeClient {
     });
   }
 
+  setDexAbstraction(params: { enabled: boolean; user?: `0x${string}` }) {
+    const base = {
+      wallet: this.wallet,
+      enabled: params.enabled,
+      environment: this.environment,
+      vaultAddress: this.vaultAddress,
+      expiresAfter: this.expiresAfter,
+      nonceSource: this.nonceSource,
+    } satisfies Omit<Parameters<typeof setHyperliquidDexAbstraction>[0], "user">;
+
+    return setHyperliquidDexAbstraction(
+      params.user ? { ...base, user: params.user } : base
+    );
+  }
+
+  setAccountAbstractionMode(params: {
+    mode: HyperliquidAccountMode;
+    user?: `0x${string}`;
+  }) {
+    const base = {
+      wallet: this.wallet,
+      mode: params.mode,
+      environment: this.environment,
+      vaultAddress: this.vaultAddress,
+      expiresAfter: this.expiresAfter,
+      nonceSource: this.nonceSource,
+    } satisfies Omit<
+      Parameters<typeof setHyperliquidAccountAbstractionMode>[0],
+      "user"
+    >;
+
+    return setHyperliquidAccountAbstractionMode(
+      params.user ? { ...base, user: params.user } : base
+    );
+  }
+
   setPortfolioMargin(params: { enabled: boolean; user?: `0x${string}` }) {
     const base = {
       wallet: this.wallet,
@@ -281,6 +324,131 @@ export async function setHyperliquidPortfolioMargin(options: {
   };
 
   const signature: ExchangeSignature = await signUserPortfolioMargin({
+    wallet: options.wallet,
+    action,
+  });
+
+  const body: {
+    action: typeof action;
+    nonce: number;
+    signature: ExchangeSignature;
+    vaultAddress?: `0x${string}`;
+    expiresAfter?: number;
+  } = {
+    action,
+    nonce,
+    signature,
+  };
+
+  if (options.vaultAddress) {
+    body.vaultAddress = normalizeAddress(options.vaultAddress);
+  }
+  if (typeof options.expiresAfter === "number") {
+    body.expiresAfter = options.expiresAfter;
+  }
+
+  return postExchange(env, body);
+}
+
+export async function setHyperliquidDexAbstraction(options: {
+  wallet: WalletFullContext;
+  enabled: boolean;
+  user?: `0x${string}`;
+} & CommonActionOptions): Promise<HyperliquidExchangeResponse<unknown>> {
+  const env = options.environment ?? "mainnet";
+  if (!options.wallet?.account || !options.wallet.walletClient) {
+    throw new Error(
+      "Wallet with signing capability is required for dex abstraction."
+    );
+  }
+
+  const nonce =
+    options.nonce ??
+    options.walletNonceProvider?.() ??
+    options.wallet.nonceSource?.() ??
+    options.nonceSource?.() ??
+    Date.now();
+
+  const signatureChainId = getSignatureChainId(env);
+  const hyperliquidChain = HL_CHAIN_LABEL[env];
+  const user = normalizeAddress(
+    options.user ?? (options.wallet.address as `0x${string}`)
+  );
+
+  const action: HyperliquidUserDexAbstractionAction = {
+    type: "userDexAbstraction",
+    enabled: Boolean(options.enabled),
+    hyperliquidChain,
+    signatureChainId,
+    user,
+    nonce,
+  };
+
+  const signature: ExchangeSignature = await signUserDexAbstraction({
+    wallet: options.wallet,
+    action,
+  });
+
+  const body: {
+    action: typeof action;
+    nonce: number;
+    signature: ExchangeSignature;
+    vaultAddress?: `0x${string}`;
+    expiresAfter?: number;
+  } = {
+    action,
+    nonce,
+    signature,
+  };
+
+  if (options.vaultAddress) {
+    body.vaultAddress = normalizeAddress(options.vaultAddress);
+  }
+  if (typeof options.expiresAfter === "number") {
+    body.expiresAfter = options.expiresAfter;
+  }
+
+  return postExchange(env, body);
+}
+
+export async function setHyperliquidAccountAbstractionMode(options: {
+  wallet: WalletFullContext;
+  mode: HyperliquidAccountMode;
+  user?: `0x${string}`;
+} & CommonActionOptions): Promise<HyperliquidExchangeResponse<unknown>> {
+  const env = options.environment ?? "mainnet";
+  if (!options.wallet?.account || !options.wallet.walletClient) {
+    throw new Error(
+      "Wallet with signing capability is required for account abstraction mode."
+    );
+  }
+
+  const nonce =
+    options.nonce ??
+    options.walletNonceProvider?.() ??
+    options.wallet.nonceSource?.() ??
+    options.nonceSource?.() ??
+    Date.now();
+
+  const signatureChainId = getSignatureChainId(env);
+  const hyperliquidChain = HL_CHAIN_LABEL[env];
+  const user = normalizeAddress(
+    options.user ?? (options.wallet.address as `0x${string}`)
+  );
+
+  const abstraction: HyperliquidAbstraction =
+    resolveHyperliquidAbstractionFromMode(options.mode);
+
+  const action: HyperliquidUserSetAbstractionAction = {
+    type: "userSetAbstraction",
+    abstraction,
+    hyperliquidChain,
+    signatureChainId,
+    user,
+    nonce,
+  };
+
+  const signature: ExchangeSignature = await signUserSetAbstraction({
     wallet: options.wallet,
     action,
   });

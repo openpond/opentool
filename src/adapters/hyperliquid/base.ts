@@ -73,6 +73,65 @@ export type HyperliquidTimeInForce =
 export type HyperliquidGrouping = "na" | "normalTpsl" | "positionTpsl";
 export type HyperliquidTriggerType = "tp" | "sl";
 
+// Hyperliquid account abstraction modes (API naming).
+export type HyperliquidAbstraction =
+  | "unifiedAccount"
+  | "portfolioMargin"
+  | "disabled";
+
+// Product-facing naming.
+export type HyperliquidAccountMode = "standard" | "unified" | "portfolio";
+
+export function resolveHyperliquidAbstractionFromMode(
+  mode: HyperliquidAccountMode
+): HyperliquidAbstraction {
+  switch (mode) {
+    case "standard":
+      return "disabled";
+    case "unified":
+      return "unifiedAccount";
+    case "portfolio":
+      return "portfolioMargin";
+    default: {
+      const _exhaustive: never = mode;
+      return _exhaustive;
+    }
+  }
+}
+
+export const DEFAULT_HYPERLIQUID_MARKET_SLIPPAGE_BPS = 30;
+
+function formatRoundedDecimal(value: number, decimals: number): string {
+  const precision = Math.max(0, Math.min(12, Math.floor(decimals)));
+  const factor = 10 ** precision;
+  const rounded = Math.round(value * factor) / factor;
+  if (!Number.isFinite(rounded) || rounded <= 0) {
+    throw new Error("Price must be positive.");
+  }
+  const fixed = rounded.toFixed(precision);
+  return fixed.replace(/\.?0+$/, "");
+}
+
+export function computeHyperliquidMarketIocLimitPrice(params: {
+  markPrice: number;
+  side: "buy" | "sell";
+  slippageBps?: number;
+  decimals?: number;
+}): string {
+  const bps = params.slippageBps ?? DEFAULT_HYPERLIQUID_MARKET_SLIPPAGE_BPS;
+  const decimals = params.decimals ?? 6;
+  if (!Number.isFinite(params.markPrice) || params.markPrice <= 0) {
+    throw new Error("markPrice must be a positive number.");
+  }
+  if (!Number.isFinite(bps) || bps < 0) {
+    throw new Error("slippageBps must be a non-negative number.");
+  }
+  const slippage = bps / 10_000;
+  const multiplier = params.side === "buy" ? 1 + slippage : 1 - slippage;
+  const price = params.markPrice * multiplier;
+  return formatRoundedDecimal(price, decimals);
+}
+
 export interface HyperliquidTriggerOptions {
   triggerPx: string | number | bigint;
   isMarket?: boolean;
@@ -141,6 +200,24 @@ export type ExchangeSignature = {
 export type HyperliquidUserPortfolioMarginAction = {
   type: "userPortfolioMargin";
   enabled: boolean;
+  hyperliquidChain: string;
+  signatureChainId: string;
+  user: `0x${string}`;
+  nonce: number;
+};
+
+export type HyperliquidUserDexAbstractionAction = {
+  type: "userDexAbstraction";
+  enabled: boolean;
+  hyperliquidChain: string;
+  signatureChainId: string;
+  user: `0x${string}`;
+  nonce: number;
+};
+
+export type HyperliquidUserSetAbstractionAction = {
+  type: "userSetAbstraction";
+  abstraction: HyperliquidAbstraction;
   hyperliquidChain: string;
   signatureChainId: string;
   user: `0x${string}`;
@@ -554,6 +631,84 @@ export async function signUserPortfolioMargin(args: {
     domain,
     types,
     primaryType: "HyperliquidTransaction:UserPortfolioMargin",
+    message,
+  });
+
+  return splitSignature(signatureHex);
+}
+
+export async function signUserDexAbstraction(args: {
+  wallet: WalletFullContext;
+  action: HyperliquidUserDexAbstractionAction;
+}): Promise<ExchangeSignature> {
+  const { wallet, action } = args;
+  const domain = {
+    name: "HyperliquidSignTransaction",
+    version: "1",
+    chainId: Number.parseInt(action.signatureChainId, 16),
+    verifyingContract: ZERO_ADDRESS,
+  } as const;
+
+  const message = {
+    hyperliquidChain: action.hyperliquidChain,
+    user: action.user,
+    enabled: action.enabled,
+    nonce: BigInt(action.nonce),
+  };
+
+  const types = {
+    "HyperliquidTransaction:UserDexAbstraction": [
+      { name: "hyperliquidChain", type: "string" },
+      { name: "user", type: "address" },
+      { name: "enabled", type: "bool" },
+      { name: "nonce", type: "uint64" },
+    ],
+  } as const;
+
+  const signatureHex = await wallet.walletClient.signTypedData({
+    account: wallet.account,
+    domain,
+    types,
+    primaryType: "HyperliquidTransaction:UserDexAbstraction",
+    message,
+  });
+
+  return splitSignature(signatureHex);
+}
+
+export async function signUserSetAbstraction(args: {
+  wallet: WalletFullContext;
+  action: HyperliquidUserSetAbstractionAction;
+}): Promise<ExchangeSignature> {
+  const { wallet, action } = args;
+  const domain = {
+    name: "HyperliquidSignTransaction",
+    version: "1",
+    chainId: Number.parseInt(action.signatureChainId, 16),
+    verifyingContract: ZERO_ADDRESS,
+  } as const;
+
+  const message = {
+    hyperliquidChain: action.hyperliquidChain,
+    user: action.user,
+    abstraction: action.abstraction,
+    nonce: BigInt(action.nonce),
+  };
+
+  const types = {
+    "HyperliquidTransaction:UserSetAbstraction": [
+      { name: "hyperliquidChain", type: "string" },
+      { name: "user", type: "address" },
+      { name: "abstraction", type: "string" },
+      { name: "nonce", type: "uint64" },
+    ],
+  } as const;
+
+  const signatureHex = await wallet.walletClient.signTypedData({
+    account: wallet.account,
+    domain,
+    types,
+    primaryType: "HyperliquidTransaction:UserSetAbstraction",
     message,
   });
 
