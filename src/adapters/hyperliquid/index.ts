@@ -38,6 +38,8 @@ export type {
   HyperliquidAbstraction as HyperliquidAbstraction,
   HyperliquidAccountMode as HyperliquidAccountMode,
   HyperliquidBuilderFee as HyperliquidBuilderFee,
+  MarketIdentity as MarketIdentity,
+  HyperliquidMarketIdentityInput as HyperliquidMarketIdentityInput,
   NonceSource,
   HyperliquidExchangeResponse,
 } from "./base";
@@ -50,6 +52,7 @@ export {
   DEFAULT_HYPERLIQUID_MARKET_SLIPPAGE_BPS,
   computeHyperliquidMarketIocLimitPrice,
   resolveHyperliquidAbstractionFromMode,
+  buildHyperliquidMarketIdentity,
 } from "./base";
 export {
   fetchHyperliquidMeta,

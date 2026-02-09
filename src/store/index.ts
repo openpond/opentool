@@ -33,6 +33,7 @@ export type StoreEventInput = ChainScope & {
   action?: StoreAction;
   notional?: string; // decimal string recommended to avoid float precision issues
   metadata?: Record<string, unknown>;
+  market?: Record<string, unknown>;
 };
 
 export interface StoreOptions {
@@ -113,6 +114,16 @@ export class StoreError extends Error {
   }
 }
 
+const requiresMarketIdentity = (input: StoreEventInput): boolean => {
+  const action = (input.action ?? "").toLowerCase();
+  if (action === "order" || action === "swap" || action === "trade") return true;
+  return false;
+};
+
+const hasMarketIdentity = (value: unknown): value is Record<string, unknown> => {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+};
+
 function resolveConfig(options?: StoreOptions) {
   const baseUrl = options?.baseUrl ?? process.env.BASE_URL ?? "https://api.openpond.ai";
   const apiKey = options?.apiKey ?? process.env.OPENPOND_API_KEY;
@@ -182,6 +193,9 @@ export async function store(
   input: StoreEventInput,
   options?: StoreOptions
 ): Promise<StoreResponse> {
+  if (requiresMarketIdentity(input) && !hasMarketIdentity(input.market)) {
+    throw new StoreError("market is required for trade events");
+  }
   const { baseUrl, apiKey, fetchFn } = resolveConfig(options);
 
   const url = `${baseUrl}/apps/positions/tx`;
