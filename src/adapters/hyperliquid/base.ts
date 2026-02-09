@@ -148,9 +148,7 @@ export function buildHyperliquidMarketIdentity(
   const pair = parseHyperliquidPair(rawSymbol) ?? parseHyperliquidPair(input.symbol);
   const isSpot =
     input.isSpot ??
-    Boolean(pair) ||
-    rawSymbol.startsWith("@") ||
-    input.symbol.includes("/");
+    (Boolean(pair) || rawSymbol.startsWith("@") || input.symbol.includes("/"));
 
   const base =
     (input.base ? input.base.trim().toUpperCase() : null) ??
