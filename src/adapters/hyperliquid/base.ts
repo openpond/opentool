@@ -64,6 +64,128 @@ const perpDexsCache = new Map<
 >();
 
 export type HyperliquidEnvironment = "mainnet" | "testnet";
+
+export type MarketIdentity = {
+  market_type: "perp" | "spot" | "dex";
+  venue: "hyperliquid";
+  environment: HyperliquidEnvironment;
+  base: string;
+  quote?: string | null;
+  dex?: string | null;
+  chain_id?: number | null;
+  pool_address?: string | null;
+  token0_address?: string | null;
+  token1_address?: string | null;
+  fee_tier?: number | null;
+  raw_symbol?: string | null;
+  canonical_symbol: string;
+};
+
+export type HyperliquidMarketIdentityInput = {
+  environment: HyperliquidEnvironment;
+  symbol: string;
+  rawSymbol?: string | null;
+  isSpot?: boolean;
+  base?: string | null;
+  quote?: string | null;
+};
+
+const UNKNOWN_SYMBOL = "UNKNOWN";
+
+const extractDexPrefix = (value?: string | null): string | null => {
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  if (!trimmed.includes(":")) return null;
+  if (trimmed.startsWith("@")) return null;
+  const [prefix] = trimmed.split(":");
+  const dex = prefix?.trim().toLowerCase() ?? "";
+  return dex || null;
+};
+
+const normalizeHyperliquidBase = (value?: string | null): string | null => {
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const withoutDex = trimmed.includes(":")
+    ? trimmed.split(":").slice(1).join(":")
+    : trimmed;
+  const base = withoutDex.split("-")[0] ?? withoutDex;
+  const normalized = (base.split("/")[0] ?? base).trim().toUpperCase();
+  if (!normalized || normalized === UNKNOWN_SYMBOL) return null;
+  return normalized;
+};
+
+const parseHyperliquidPair = (
+  value?: string | null
+): { base: string; quote: string } | null => {
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const withoutDex = trimmed.includes(":")
+    ? trimmed.split(":").slice(1).join(":")
+    : trimmed;
+  const separator = withoutDex.includes("/")
+    ? "/"
+    : withoutDex.includes("-")
+      ? "-"
+      : null;
+  if (!separator) return null;
+  const [baseRaw, ...rest] = withoutDex.split(separator);
+  const quoteRaw = rest.join(separator);
+  if (!baseRaw || !quoteRaw) return null;
+  const base = baseRaw.trim().toUpperCase();
+  const quote = quoteRaw.trim().toUpperCase();
+  if (!base || !quote) return null;
+  return { base, quote };
+};
+
+export function buildHyperliquidMarketIdentity(
+  input: HyperliquidMarketIdentityInput
+): MarketIdentity | null {
+  const rawSymbol = input.rawSymbol ?? input.symbol;
+  const dex = extractDexPrefix(rawSymbol);
+  const pair = parseHyperliquidPair(rawSymbol) ?? parseHyperliquidPair(input.symbol);
+  const isSpot =
+    input.isSpot ??
+    Boolean(pair) ||
+    rawSymbol.startsWith("@") ||
+    input.symbol.includes("/");
+
+  const base =
+    (input.base ? input.base.trim().toUpperCase() : null) ??
+    pair?.base ??
+    normalizeHyperliquidBase(input.symbol) ??
+    normalizeHyperliquidBase(rawSymbol);
+
+  if (!base) return null;
+
+  if (isSpot) {
+    const quote =
+      (input.quote ? input.quote.trim().toUpperCase() : null) ?? pair?.quote ?? null;
+    if (!quote) return null;
+    return {
+      market_type: "spot",
+      venue: "hyperliquid",
+      environment: input.environment,
+      base,
+      quote,
+      dex,
+      raw_symbol: rawSymbol ?? null,
+      canonical_symbol: `spot:hyperliquid:${base}-${quote}`,
+    };
+  }
+
+  return {
+    market_type: "perp",
+    venue: "hyperliquid",
+    environment: input.environment,
+    base,
+    dex,
+    raw_symbol: rawSymbol ?? null,
+    canonical_symbol: `perp:hyperliquid:${base}`,
+  };
+}
 export type HyperliquidTimeInForce =
   | "Gtc"
   | "Ioc"
