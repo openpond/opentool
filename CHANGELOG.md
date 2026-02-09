@@ -1,5 +1,11 @@
 # opentool
 
+## 0.8.22
+
+### Patch Changes
+
+- 3dae7f4: updated market app store event
+
 ## 0.8.21
 
 ### Patch Changes
