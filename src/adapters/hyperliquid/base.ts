@@ -58,6 +58,10 @@ const metaCache = new Map<
   string,
   { fetchedAt: number; universe: MetaResponse["universe"] }
 >();
+const spotMetaCache = new Map<
+  string,
+  { fetchedAt: number; universe: SpotUniverseItem[]; tokens: SpotToken[] }
+>();
 const perpDexsCache = new Map<
   string,
   { fetchedAt: number; dexs: PerpDexsResponse }
@@ -114,6 +118,15 @@ const normalizeHyperliquidBase = (value?: string | null): string | null => {
   const normalized = (base.split("/")[0] ?? base).trim().toUpperCase();
   if (!normalized || normalized === UNKNOWN_SYMBOL) return null;
   return normalized;
+};
+
+const normalizeSpotTokenName = (value?: string | null): string => {
+  const raw = (value ?? "").trim().toUpperCase();
+  if (!raw) return "";
+  if (raw.endsWith("0") && raw.length > 1) {
+    return raw.slice(0, -1);
+  }
+  return raw;
 };
 
 const parseHyperliquidPair = (
@@ -283,6 +296,27 @@ type MetaResponse = {
   }>;
 };
 
+type SpotUniverseItem = {
+  tokens?: number[];
+  name?: string;
+  index?: number;
+  baseToken?: number;
+  quoteToken?: number;
+  isCanonical?: boolean;
+};
+
+type SpotToken = {
+  name?: string;
+  index?: number;
+  szDecimals?: number;
+  isCanonical?: boolean;
+};
+
+type SpotMetaResponse = {
+  universe?: SpotUniverseItem[];
+  tokens?: SpotToken[];
+};
+
 type PerpDexsResponse = Array<{ name: string } | null>;
 
 export type ExchangeOrderAction = {
@@ -435,6 +469,39 @@ export async function getUniverse(args: {
   return json.universe;
 }
 
+async function getSpotMeta(args: {
+  baseUrl: string;
+  environment: HyperliquidEnvironment;
+  fetcher: typeof fetch;
+}): Promise<{ universe: SpotUniverseItem[]; tokens: SpotToken[] }> {
+  const cacheKey = `${args.environment}:${args.baseUrl}`;
+  const cached = spotMetaCache.get(cacheKey);
+  if (cached && Date.now() - cached.fetchedAt < CACHE_TTL_MS) {
+    return { universe: cached.universe, tokens: cached.tokens };
+  }
+
+  const response = await args.fetcher(`${args.baseUrl}/info`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ type: "spotMeta" }),
+  });
+
+  const json = (await response.json().catch(() => null)) as
+    | SpotMetaResponse
+    | null;
+  if (!response.ok || !json?.universe) {
+    throw new HyperliquidApiError(
+      "Unable to load Hyperliquid spot metadata.",
+      json ?? { status: response.status }
+    );
+  }
+
+  const universe = json.universe ?? [];
+  const tokens = json.tokens ?? [];
+  spotMetaCache.set(cacheKey, { fetchedAt: Date.now(), universe, tokens });
+  return { universe, tokens };
+}
+
 export function resolveAssetIndex(
   symbol: string,
   universe: MetaResponse["universe"]
@@ -497,6 +564,57 @@ async function resolveDexIndex(args: {
   return index;
 }
 
+function buildSpotTokenIndexMap(tokens: SpotToken[]): Map<string, number> {
+  const map = new Map<string, number>();
+  for (const token of tokens) {
+    const name = normalizeSpotTokenName(token?.name);
+    const index =
+      typeof token?.index === "number" && Number.isFinite(token.index)
+        ? token.index
+        : null;
+    if (!name || index == null) continue;
+    if (!map.has(name) || token?.isCanonical) {
+      map.set(name, index);
+    }
+  }
+  return map;
+}
+
+function resolveSpotTokenIndex(
+  tokenMap: Map<string, number>,
+  value: string
+): number | null {
+  const normalized = normalizeSpotTokenName(value);
+  if (!normalized) return null;
+  const direct = tokenMap.get(normalized);
+  if (direct != null) return direct;
+  if (!normalized.startsWith("U")) {
+    const prefixed = tokenMap.get(`U${normalized}`);
+    if (prefixed != null) return prefixed;
+  }
+  return null;
+}
+
+function resolveSpotMarketIndex(args: {
+  universe: SpotUniverseItem[];
+  baseToken: number;
+  quoteToken: number;
+}): number | null {
+  for (let i = 0; i < args.universe.length; i += 1) {
+    const entry = args.universe[i];
+    const tokens = Array.isArray(entry?.tokens) ? entry.tokens : null;
+    const baseToken = tokens?.[0] ?? entry?.baseToken ?? null;
+    const quoteToken = tokens?.[1] ?? entry?.quoteToken ?? null;
+    if (baseToken === args.baseToken && quoteToken === args.quoteToken) {
+      if (typeof entry?.index === "number" && Number.isFinite(entry.index)) {
+        return entry.index;
+      }
+      return i;
+    }
+  }
+  return null;
+}
+
 export async function resolveHyperliquidAssetIndex(args: {
   symbol: string;
   baseUrl: string;
@@ -506,6 +624,15 @@ export async function resolveHyperliquidAssetIndex(args: {
   const trimmed = args.symbol.trim();
   if (!trimmed) {
     throw new Error("Hyperliquid symbol must be a non-empty string.");
+  }
+
+  if (trimmed.startsWith("@")) {
+    const rawIndex = trimmed.slice(1).trim();
+    const index = Number(rawIndex);
+    if (!Number.isFinite(index)) {
+      throw new Error(`Hyperliquid spot market index is invalid: ${trimmed}`);
+    }
+    return 10000 + index;
   }
 
   const separator = trimmed.indexOf(":");
@@ -533,6 +660,30 @@ export async function resolveHyperliquidAssetIndex(args: {
       throw new Error(`Unknown Hyperliquid asset symbol: ${trimmed}`);
     }
     return 100000 + dexIndex * 10000 + assetIndex;
+  }
+
+  const pair = parseHyperliquidPair(trimmed);
+  if (pair) {
+    const { universe, tokens } = await getSpotMeta({
+      baseUrl: args.baseUrl,
+      environment: args.environment,
+      fetcher: args.fetcher,
+    });
+    const tokenMap = buildSpotTokenIndexMap(tokens);
+    const baseToken = resolveSpotTokenIndex(tokenMap, pair.base);
+    const quoteToken = resolveSpotTokenIndex(tokenMap, pair.quote);
+    if (baseToken == null || quoteToken == null) {
+      throw new Error(`Unknown Hyperliquid spot symbol: ${trimmed}`);
+    }
+    const marketIndex = resolveSpotMarketIndex({
+      universe,
+      baseToken,
+      quoteToken,
+    });
+    if (marketIndex == null) {
+      throw new Error(`Unknown Hyperliquid spot symbol: ${trimmed}`);
+    }
+    return 10000 + marketIndex;
   }
 
   const universe = await getUniverse({
