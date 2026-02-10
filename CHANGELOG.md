@@ -1,5 +1,11 @@
 # opentool
 
+## 0.8.23
+
+### Patch Changes
+
+- 098c987: fixed spot for hyperliquid
+
 ## 0.8.22
 
 ### Patch Changes
