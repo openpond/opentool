@@ -1,5 +1,11 @@
 # opentool
 
+## 0.8.24
+
+### Patch Changes
+
+- 3c6bd22: updated appstoreevent
+
 ## 0.8.23
 
 ### Patch Changes
