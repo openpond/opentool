@@ -9,16 +9,55 @@ type StoreStatus =
   | "settled"
   | "info";
 
+const STORE_EVENT_LEVELS = [
+  "decision",
+  "execution",
+  "lifecycle",
+] as const;
+
+const STORE_EVENT_LEVEL_SET = new Set<string>(STORE_EVENT_LEVELS);
+
+const CANONICAL_STORE_ACTIONS = [
+  "stake",
+  "unstake",
+  "swap",
+  "bridge",
+  "order",
+  "trade",
+  "lend",
+  "borrow",
+  "repay",
+  "withdraw",
+  "provide_liquidity",
+  "remove_liquidity",
+  "claim",
+  "custom",
+] as const;
+
+const MARKET_REQUIRED_ACTIONS = [
+  "swap",
+  "bridge",
+  "order",
+  "trade",
+  "lend",
+  "borrow",
+  "repay",
+  "stake",
+  "unstake",
+  "withdraw",
+  "provide_liquidity",
+  "remove_liquidity",
+  "claim",
+] as const;
+
+const MARKET_REQUIRED_ACTIONS_SET = new Set<string>(MARKET_REQUIRED_ACTIONS);
+const EXECUTION_ACTIONS_SET = new Set<string>(MARKET_REQUIRED_ACTIONS);
+
 export type StoreAction =
-  | "stake"
-  | "swap"
-  | "bridge"
-  | "order"
-  | "lend"
-  | "repay"
-  | "withdraw"
-  | "custom"
+  | (typeof CANONICAL_STORE_ACTIONS)[number]
   | string;
+
+export type StoreEventLevel = (typeof STORE_EVENT_LEVELS)[number];
 
 type ChainScope =
   | { chainId: number; network?: never }
@@ -31,6 +70,7 @@ export type StoreEventInput = ChainScope & {
   status: StoreStatus;
   walletAddress?: `0x${string}`;
   action?: StoreAction;
+  eventLevel?: StoreEventLevel;
   notional?: string; // decimal string recommended to avoid float precision issues
   metadata?: Record<string, unknown>;
   market?: Record<string, unknown>;
@@ -114,14 +154,73 @@ export class StoreError extends Error {
   }
 }
 
+const normalizeAction = (
+  action: string | null | undefined
+): string | null => {
+  const normalized = action?.trim().toLowerCase();
+  return normalized ? normalized : null;
+};
+
+const coerceEventLevel = (value: unknown): StoreEventLevel | null => {
+  if (typeof value !== "string") return null;
+  const normalized = value.trim().toLowerCase();
+  if (!normalized || !STORE_EVENT_LEVEL_SET.has(normalized)) return null;
+  return normalized as StoreEventLevel;
+};
+
 const requiresMarketIdentity = (input: StoreEventInput): boolean => {
-  const action = (input.action ?? "").toLowerCase();
-  if (action === "order" || action === "swap" || action === "trade") return true;
-  return false;
+  const action = normalizeAction(input.action);
+  if (!action) return false;
+  return MARKET_REQUIRED_ACTIONS_SET.has(action);
 };
 
 const hasMarketIdentity = (value: unknown): value is Record<string, unknown> => {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const record = value as Record<string, unknown>;
+  const requiredKeys = ["market_type", "venue", "environment", "canonical_symbol"] as const;
+  return requiredKeys.every((key) => {
+    const field = record[key];
+    return typeof field === "string" && field.trim().length > 0;
+  });
+};
+
+const resolveEventLevel = (input: StoreEventInput): StoreEventLevel | null => {
+  const direct = coerceEventLevel(input.eventLevel);
+  if (direct) return direct;
+
+  const metadataLevel = coerceEventLevel(input.metadata?.eventLevel);
+  if (metadataLevel) return metadataLevel;
+
+  const action = normalizeAction(input.action);
+  if (
+    action &&
+    EXECUTION_ACTIONS_SET.has(action) &&
+    (input.metadata?.lifecycle === true ||
+      typeof input.metadata?.executionRef === "string" ||
+      typeof input.metadata?.parentExecutionRef === "string")
+  ) {
+    return "lifecycle";
+  }
+  if ((action && EXECUTION_ACTIONS_SET.has(action)) || hasMarketIdentity(input.market)) {
+    return "execution";
+  }
+  if (action) return "decision";
+
+  return null;
+};
+
+const normalizeStoreInput = (input: StoreEventInput): StoreEventInput => {
+  const metadata = { ...(input.metadata ?? {}) };
+  const eventLevel = resolveEventLevel({ ...input, metadata });
+  if (eventLevel) {
+    metadata.eventLevel = eventLevel;
+  }
+  const hasMetadata = Object.keys(metadata).length > 0;
+  return {
+    ...input,
+    ...(eventLevel ? { eventLevel } : {}),
+    ...(hasMetadata ? { metadata } : {}),
+  };
 };
 
 function resolveConfig(options?: StoreOptions) {
@@ -193,8 +292,32 @@ export async function store(
   input: StoreEventInput,
   options?: StoreOptions
 ): Promise<StoreResponse> {
-  if (requiresMarketIdentity(input) && !hasMarketIdentity(input.market)) {
-    throw new StoreError("market is required for trade events");
+  const normalizedInput = normalizeStoreInput(input);
+  const eventLevel = normalizedInput.eventLevel;
+  const normalizedAction = normalizeAction(normalizedInput.action);
+
+  if (eventLevel === "execution" || eventLevel === "lifecycle") {
+    if (!normalizedAction || !EXECUTION_ACTIONS_SET.has(normalizedAction)) {
+      throw new StoreError(
+        `eventLevel "${eventLevel}" requires an execution action`
+      );
+    }
+  }
+  if (eventLevel === "execution" && !hasMarketIdentity(normalizedInput.market)) {
+    throw new StoreError(
+      `market is required for execution events. market must include market_type, venue, environment, canonical_symbol`
+    );
+  }
+  const shouldApplyLegacyMarketRule =
+    eventLevel == null || eventLevel === "execution";
+  if (
+    shouldApplyLegacyMarketRule &&
+    requiresMarketIdentity(normalizedInput) &&
+    !hasMarketIdentity(normalizedInput.market)
+  ) {
+    throw new StoreError(
+      `market is required for action "${normalizedInput.action}". market must include market_type, venue, environment, canonical_symbol`
+    );
   }
   const { baseUrl, apiKey, fetchFn } = resolveConfig(options);
 
@@ -208,7 +331,7 @@ export async function store(
         "content-type": "application/json",
         "openpond-api-key": apiKey,
       },
-      body: JSON.stringify(input),
+      body: JSON.stringify(normalizedInput),
     });
   } catch (error) {
     throw new StoreError("Failed to reach store endpoint", undefined, error);
