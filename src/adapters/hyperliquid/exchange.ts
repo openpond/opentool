@@ -17,6 +17,7 @@ import {
   type NonceSource,
   type HyperliquidExchangeResponse,
   assertPositiveNumber,
+  normalizeCloid,
   getSignatureChainId,
   normalizeAddress,
   resolveHyperliquidAbstractionFromMode,
@@ -501,8 +502,8 @@ export async function cancelHyperliquidOrdersByCloid(options: {
       options,
       options.cancels,
       (idx, entry) => ({
-        a: idx,
-        c: normalizeAddress(entry.cloid),
+        asset: idx,
+        cloid: normalizeCloid(entry.cloid),
       })
     ),
   };
@@ -518,12 +519,15 @@ export async function cancelAllHyperliquidOrders(options: {
 
 export async function scheduleHyperliquidCancel(options: {
   wallet: WalletFullContext;
-  time: number | null;
+  time?: number | null;
 } & CommonActionOptions) {
-  if (options.time !== null) {
+  if (options.time != null) {
     assertPositiveNumber(options.time, "time");
   }
-  const action = { type: "scheduleCancel", time: options.time };
+  const action =
+    options.time == null
+      ? { type: "scheduleCancel" }
+      : { type: "scheduleCancel", time: options.time };
   return submitExchangeAction(options, action);
 }
 
@@ -842,7 +846,7 @@ async function buildOrder(
     t: limitOrTrigger,
     ...(intent.clientId
       ? {
-          c: normalizeAddress(intent.clientId),
+          c: normalizeCloid(intent.clientId),
         }
       : {}),
   };
@@ -900,6 +904,53 @@ function assertPositiveDecimal(
     return;
   }
   assertString(value, label);
+  if (!/^(?:\d+\.?\d*|\.\d+)$/.test(value.trim())) {
+    throw new Error(`${label} must be a positive decimal string.`);
+  }
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric) || numeric <= 0) {
+    throw new Error(`${label} must be positive.`);
+  }
+}
+
+function collectExchangeErrorMessages(payload: unknown): string[] {
+  if (!payload || typeof payload !== "object") return [];
+  const root = payload as {
+    response?: {
+      data?: {
+        statuses?: unknown[];
+        status?: unknown;
+      };
+    };
+  };
+
+  const messages: string[] = [];
+  const statuses = root.response?.data?.statuses;
+  if (Array.isArray(statuses)) {
+    statuses.forEach((status, index) => {
+      if (
+        status &&
+        typeof status === "object" &&
+        "error" in status &&
+        typeof (status as { error?: unknown }).error === "string"
+      ) {
+        const errorText = (status as { error: string }).error;
+        messages.push(`status[${index}]: ${errorText}`);
+      }
+    });
+  }
+
+  const singleStatus = root.response?.data?.status;
+  if (
+    singleStatus &&
+    typeof singleStatus === "object" &&
+    "error" in singleStatus &&
+    typeof (singleStatus as { error?: unknown }).error === "string"
+  ) {
+    messages.push((singleStatus as { error: string }).error);
+  }
+
+  return messages;
 }
 
 async function postExchange(
@@ -943,6 +994,16 @@ async function postExchange(
       status: response.status,
       statusText: response.statusText,
       body: json,
+    });
+  }
+
+  const nestedErrors = collectExchangeErrorMessages(json);
+  if (nestedErrors.length > 0) {
+    throw new HyperliquidApiError("Hyperliquid exchange returned action errors.", {
+      status: response.status,
+      statusText: response.statusText,
+      body: json,
+      errors: nestedErrors,
     });
   }
 
