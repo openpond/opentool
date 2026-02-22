@@ -1,5 +1,11 @@
 # opentool
 
+## 0.8.27
+
+### Patch Changes
+
+- 94583b1: more hype normlaization
+
 ## 0.8.25
 
 ### Patch Changes
