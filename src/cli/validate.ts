@@ -34,6 +34,35 @@ const SUPPORTED_EXTENSIONS = [
   ".cjs",
 ];
 
+const MIN_TEMPLATE_CONFIG_VERSION = 2;
+
+function normalizeTemplateConfigVersion(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  if (/^\d+(?:\.\d+)?$/.test(trimmed)) {
+    const numeric = Number.parseFloat(trimmed);
+    return Number.isFinite(numeric) ? numeric : null;
+  }
+
+  const majorMatch = /^v?(\d+)(?:\..*)?$/i.exec(trimmed);
+  if (!majorMatch) {
+    return null;
+  }
+
+  const major = Number.parseInt(majorMatch[1], 10);
+  return Number.isFinite(major) ? major : null;
+}
+
 export async function validateCommand(options: ValidateOptions): Promise<void> {
   console.log("🔍 Validating OpenTool metadata...");
   try {
@@ -261,12 +290,16 @@ export async function loadAndValidateTools(
         }
         const record = templateConfigRaw as Record<string, unknown>;
         const version = record.version;
-        if (
-          typeof version !== "string" &&
-          typeof version !== "number"
-        ) {
+        const normalizedTemplateConfigVersion =
+          normalizeTemplateConfigVersion(version);
+        if (normalizedTemplateConfigVersion === null) {
           throw new Error(
-            `${file}: profile.templateConfig.version must be a string or number.`
+            `${file}: profile.templateConfig.version must be a numeric string or number.`
+          );
+        }
+        if (normalizedTemplateConfigVersion < MIN_TEMPLATE_CONFIG_VERSION) {
+          throw new Error(
+            `${file}: profile.templateConfig.version must be >= ${MIN_TEMPLATE_CONFIG_VERSION}.`
           );
         }
         const schema = record.schema;

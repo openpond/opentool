@@ -3,6 +3,8 @@ import { test } from "node:test";
 
 import {
   computeHyperliquidMarketIocLimitPrice,
+  normalizeAddress,
+  normalizeCloid,
   resolveHyperliquidAbstractionFromMode,
 } from "../src/adapters/hyperliquid/base";
 
@@ -51,3 +53,12 @@ test("computeHyperliquidMarketIocLimitPrice rejects invalid inputs", () => {
   );
 });
 
+test("hex normalization preserves required address/cloid lengths", () => {
+  assert.equal(
+    normalizeAddress("0x0000000000000000000000000000000000000001"),
+    "0x0000000000000000000000000000000000000001"
+  );
+  assert.equal(normalizeCloid("0x00000000000000000000000000000001"), "0x00000000000000000000000000000001");
+  assert.throws(() => normalizeAddress("0x1"));
+  assert.throws(() => normalizeCloid("0x1"));
+});

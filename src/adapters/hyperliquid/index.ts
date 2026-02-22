@@ -12,9 +12,9 @@ import {
   createL1ActionHash,
   getBridgeAddress,
   getSignatureChainId,
+  normalizeCloid,
   getUsdcAddress,
   normalizeAddress,
-  normalizeHex,
   resolveHyperliquidAssetIndex,
   signApproveBuilderFee,
   signL1Action,
@@ -93,7 +93,9 @@ export type HyperliquidOrderStatus =
         cloid?: `0x${string}`;
       };
     }
-  | { error: string };
+  | { error: string }
+  | "waitingForFill"
+  | "waitingForTrigger";
 
 export interface HyperliquidOrderResponse {
   status: "ok";
@@ -160,6 +162,58 @@ type ExchangeRequestBody = {
   expiresAfter?: number;
 };
 
+function assertPositiveDecimalInput(
+  value: string | number | bigint,
+  label: string
+): void {
+  if (typeof value === "number") {
+    if (!Number.isFinite(value) || value <= 0) {
+      throw new Error(`${label} must be a positive number.`);
+    }
+    return;
+  }
+  if (typeof value === "bigint") {
+    if (value <= 0n) {
+      throw new Error(`${label} must be positive.`);
+    }
+    return;
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed.length) {
+    throw new Error(`${label} must be a non-empty string.`);
+  }
+  if (!/^(?:\d+\.?\d*|\.\d+)$/.test(trimmed)) {
+    throw new Error(`${label} must be a positive decimal string.`);
+  }
+  const numeric = Number(trimmed);
+  if (!Number.isFinite(numeric) || numeric <= 0) {
+    throw new Error(`${label} must be positive.`);
+  }
+}
+
+function normalizePositiveDecimalString(
+  raw: string,
+  label: string
+): string {
+  const trimmed = raw.trim();
+  if (!trimmed.length) {
+    throw new Error(`${label} must be a non-empty decimal string.`);
+  }
+  if (!/^(?:\d+\.?\d*|\.\d+)$/.test(trimmed)) {
+    throw new Error(`${label} must be a positive decimal string.`);
+  }
+  const normalized = trimmed
+    .replace(/^0+(?=\d)/, "")
+    .replace(/(\.\d*?)0+$/, "$1")
+    .replace(/\.$/, "");
+  const numeric = Number(normalized);
+  if (!Number.isFinite(numeric) || numeric <= 0) {
+    throw new Error(`${label} must be positive.`);
+  }
+  return normalized;
+}
+
 /**
  * Sign and submit one or more orders to the Hyperliquid exchange endpoint.
  */
@@ -192,6 +246,11 @@ export async function placeHyperliquidOrder(
   const resolvedBaseUrl = API_BASES[inferredEnvironment];
   const preparedOrders = await Promise.all(
     orders.map(async (intent) => {
+      assertPositiveDecimalInput(intent.price, "price");
+      assertPositiveDecimalInput(intent.size, "size");
+      if (intent.trigger) {
+        assertPositiveDecimalInput(intent.trigger.triggerPx, "triggerPx");
+      }
       const assetIndex = await resolveHyperliquidAssetIndex({
         symbol: intent.symbol,
         baseUrl: resolvedBaseUrl,
@@ -222,7 +281,7 @@ export async function placeHyperliquidOrder(
         t: limitOrTrigger,
         ...(intent.clientId
           ? {
-              c: normalizeHex(intent.clientId),
+              c: normalizeCloid(intent.clientId),
             }
           : {}),
       };
@@ -315,7 +374,13 @@ export async function placeHyperliquidOrder(
 
   const statuses = json.response?.data?.statuses ?? [];
   const errorStatuses = statuses.filter(
-    (entry): entry is { error: string } => "error" in entry
+    (entry): entry is { error: string } =>
+      Boolean(
+        entry &&
+          typeof entry === "object" &&
+          "error" in entry &&
+          typeof (entry as { error?: unknown }).error === "string"
+      )
   );
   if (errorStatuses.length) {
     const message = errorStatuses.map((entry) => entry.error).join(", ");
@@ -391,10 +456,11 @@ export async function withdrawFromHyperliquid(options: {
 }): Promise<HyperliquidWithdrawResult> {
   const { environment, amount, destination, wallet } = options;
 
-  const parsedAmount = Number(amount);
-  if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
-    throw new Error("Withdraw amount must be a positive number.");
-  }
+  const normalizedAmount = normalizePositiveDecimalString(
+    amount,
+    "Withdraw amount"
+  );
+  const parsedAmount = Number.parseFloat(normalizedAmount);
 
   if (!wallet.account || !wallet.walletClient || !wallet.publicClient) {
     throw new Error(
@@ -419,7 +485,7 @@ export async function withdrawFromHyperliquid(options: {
   const message = {
     hyperliquidChain,
     destination: normalizedDestination,
-    amount: parsedAmount.toString(),
+    amount: normalizedAmount,
     time,
   };
 
@@ -448,7 +514,7 @@ export async function withdrawFromHyperliquid(options: {
       signatureChainId,
       hyperliquidChain,
       destination: normalizedDestination,
-      amount: parsedAmount.toString(),
+      amount: normalizedAmount,
       time: nonce,
     },
     nonce,
@@ -679,6 +745,11 @@ export async function recordHyperliquidBuilderApproval(
 
 export * from "./exchange";
 export * from "./info";
+export * from "./env";
+export * from "./symbols";
+export * from "./order-utils";
+export * from "./state-readers";
+export * from "./market-data";
 
 export const __hyperliquidInternals = {
   toApiDecimal,

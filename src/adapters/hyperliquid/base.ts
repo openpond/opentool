@@ -725,13 +725,32 @@ export function toApiDecimal(value: string | number | bigint): string {
   return asString;
 }
 
+const NORMALIZED_HEX_PATTERN = /^0x[0-9a-f]+$/;
+const ADDRESS_HEX_LENGTH = 42;
+const CLOID_HEX_LENGTH = 34;
+
 export function normalizeHex(value: `0x${string}`): `0x${string}` {
-  const lower = value.toLowerCase();
-  return (lower.replace(/^0x0+/, "0x") || "0x0") as `0x${string}`;
+  const lower = value.trim().toLowerCase() as `0x${string}`;
+  if (!NORMALIZED_HEX_PATTERN.test(lower)) {
+    throw new Error(`Invalid hex value: ${value}`);
+  }
+  return lower;
 }
 
 export function normalizeAddress(value: `0x${string}`): `0x${string}` {
-  return normalizeHex(value);
+  const normalized = normalizeHex(value);
+  if (normalized.length !== ADDRESS_HEX_LENGTH) {
+    throw new Error(`Invalid address length: ${normalized}`);
+  }
+  return normalized;
+}
+
+export function normalizeCloid(value: `0x${string}`): `0x${string}` {
+  const normalized = normalizeHex(value);
+  if (normalized.length !== CLOID_HEX_LENGTH) {
+    throw new Error(`Invalid cloid length: ${normalized}`);
+  }
+  return normalized;
 }
 
 export async function signL1Action(args: {
