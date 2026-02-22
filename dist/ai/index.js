@@ -34,7 +34,7 @@ var AIAbortError = class extends AIError {
 // src/ai/config.ts
 var DEFAULT_BASE_URL = "https://gateway.openpond.dev";
 var DEFAULT_TIMEOUT_MS = 6e4;
-var DEFAULT_MODEL = "openai/gpt-5-mini";
+var DEFAULT_MODEL = "fireworks:accounts/fireworks/models/glm-4p7";
 function assertFetchAvailable(fetchImplementation) {
   if (!fetchImplementation) {
     throw new Error(
@@ -77,14 +77,22 @@ function mergeHeaders(base, overrides) {
 // src/ai/models.ts
 var MODEL_REGISTRY = [
   {
+    name: "fireworks:accounts/fireworks/models/glm-4p7",
+    label: "GLM-4P7 (Fireworks)",
+    provider: "fireworks",
+    supportsStreaming: true,
+    supportsTools: true,
+    aliases: ["glm-4p7", "glm"],
+    default: true
+  },
+  {
     name: "openai/gpt-5-mini",
     label: "OpenAI GPT-5 Mini",
     provider: "openai",
     supportsStreaming: true,
     supportsTools: true,
     reasoning: true,
-    aliases: ["gpt-5-mini", "gpt5-mini", "gpt-5.0-mini"],
-    default: true
+    aliases: ["gpt-5-mini", "gpt5-mini", "gpt-5.0-mini"]
   },
   {
     name: "anthropic/claude-4-sonnet-20250514",

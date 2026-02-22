@@ -1,3 +1,5 @@
+import type { HyperliquidEnvironment } from "./base";
+
 const UNKNOWN_SYMBOL = "UNKNOWN";
 
 export function extractHyperliquidDex(symbol: string): string | null {
@@ -58,6 +60,71 @@ export function resolveHyperliquidPair(value?: string | null): string | null {
     return `${base.toUpperCase()}/${quote.toUpperCase()}`;
   }
   return null;
+}
+
+export type HyperliquidProfileChain = "hyperliquid" | "hyperliquid-testnet";
+
+export type HyperliquidProfileAssetInput = {
+  assetSymbols: string[];
+  pair?: string | null;
+  leverage?: number | null;
+  walletAddress?: string | null;
+};
+
+export type HyperliquidProfileAsset = {
+  venue: "hyperliquid";
+  chain: HyperliquidProfileChain;
+  assetSymbols: string[];
+  pair?: string;
+  leverage?: number;
+  walletAddress?: string;
+};
+
+export function resolveHyperliquidProfileChain(
+  environment: HyperliquidEnvironment
+): HyperliquidProfileChain {
+  return environment === "testnet" ? "hyperliquid-testnet" : "hyperliquid";
+}
+
+export function buildHyperliquidProfileAssets(params: {
+  environment: HyperliquidEnvironment;
+  assets: HyperliquidProfileAssetInput[];
+}): HyperliquidProfileAsset[] {
+  const chain = resolveHyperliquidProfileChain(params.environment);
+
+  return params.assets
+    .map((asset) => {
+      const symbols = asset.assetSymbols
+        .map((symbol) => normalizeHyperliquidBaseSymbol(symbol))
+        .filter((symbol): symbol is string => Boolean(symbol));
+      if (symbols.length === 0) return null;
+
+      const explicitPair =
+        typeof asset.pair === "string" ? resolveHyperliquidPair(asset.pair) : null;
+      const derivedPair =
+        symbols.length === 1
+          ? resolveHyperliquidPair(asset.assetSymbols[0] ?? symbols[0])
+          : null;
+      const pair = explicitPair ?? derivedPair ?? undefined;
+      const leverage =
+        typeof asset.leverage === "number" && Number.isFinite(asset.leverage) && asset.leverage > 0
+          ? asset.leverage
+          : undefined;
+      const walletAddress =
+        typeof asset.walletAddress === "string" && asset.walletAddress.trim().length > 0
+          ? asset.walletAddress.trim()
+          : undefined;
+
+      return {
+        venue: "hyperliquid" as const,
+        chain,
+        assetSymbols: symbols,
+        ...(pair ? { pair } : {}),
+        ...(leverage ? { leverage } : {}),
+        ...(walletAddress ? { walletAddress } : {}),
+      };
+    })
+    .filter((asset): asset is HyperliquidProfileAsset => asset !== null);
 }
 
 export function parseSpotPairSymbol(

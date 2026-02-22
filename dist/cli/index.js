@@ -1,12 +1,14 @@
 #!/usr/bin/env node
+import * as path6 from 'path';
+import path6__default from 'path';
+import { fileURLToPath, pathToFileURL } from 'url';
 import { program } from 'commander';
 import * as fs4 from 'fs';
-import * as path5 from 'path';
+import { promises } from 'fs';
 import { tmpdir } from 'os';
 import { build } from 'esbuild';
 import { z } from 'zod';
 import { createRequire } from 'module';
-import { fileURLToPath, pathToFileURL } from 'url';
 import { zodToJsonSchema } from '@alcyone-labs/zod-to-json-schema';
 import 'viem';
 import 'viem/accounts';
@@ -17,8 +19,10 @@ import { ListToolsRequestSchema, CallToolRequestSchema } from '@modelcontextprot
 import * as http2 from 'http';
 import dotenv from 'dotenv';
 
+var getFilename = () => fileURLToPath(import.meta.url);
+var __filename = /* @__PURE__ */ getFilename();
 function resolveTsconfig(projectRoot) {
-  const candidate = path5.join(projectRoot, "tsconfig.json");
+  const candidate = path6.join(projectRoot, "tsconfig.json");
   if (fs4.existsSync(candidate)) {
     return candidate;
   }
@@ -29,7 +33,7 @@ async function transpileWithEsbuild(options) {
     throw new Error("No entry points provided for esbuild transpilation");
   }
   const projectRoot = options.projectRoot;
-  const tempBase = options.outDir ?? fs4.mkdtempSync(path5.join(tmpdir(), "opentool-"));
+  const tempBase = options.outDir ?? fs4.mkdtempSync(path6.join(tmpdir(), "opentool-"));
   if (!fs4.existsSync(tempBase)) {
     fs4.mkdirSync(tempBase, { recursive: true });
   }
@@ -73,7 +77,7 @@ async function transpileWithEsbuild(options) {
   }
   await build(buildOptions);
   if (options.format === "esm") {
-    const packageJsonPath = path5.join(tempBase, "package.json");
+    const packageJsonPath = path6.join(tempBase, "package.json");
     if (!fs4.existsSync(packageJsonPath)) {
       fs4.writeFileSync(packageJsonPath, JSON.stringify({ type: "module" }), "utf8");
     }
@@ -137,6 +141,7 @@ var DiscoveryMetadataSchema = z.object({
   compatibility: z.record(z.string(), z.any()).optional(),
   documentation: z.union([z.string(), z.array(z.string())]).optional()
 }).catchall(z.any());
+var ToolCategorySchema = z.enum(["strategy", "tracker", "orchestrator"]);
 var ToolMetadataOverridesSchema = z.object({
   name: z.string().optional(),
   description: z.string().optional(),
@@ -152,7 +157,9 @@ var ToolSchema = z.object({
   annotations: McpAnnotationsSchema.optional(),
   payment: PaymentConfigSchema.optional(),
   discovery: DiscoveryMetadataSchema.optional(),
-  chains: z.array(z.union([z.string(), z.number()])).optional()
+  chains: z.array(z.union([z.string(), z.number()])).optional(),
+  notifyEmail: z.boolean().optional(),
+  category: ToolCategorySchema.optional()
 }).strict();
 var MetadataSchema = z.object({
   metadataSpecVersion: z.string().optional(),
@@ -203,10 +210,12 @@ var BuildMetadataSchema = z.object({
   animation_url: z.string().optional(),
   chains: z.array(z.union([z.string(), z.number()])).optional()
 }).strict();
-createRequire(import.meta.url);
+createRequire(
+  typeof __filename !== "undefined" ? __filename : import.meta.url
+);
 function resolveCompiledPath(outDir, originalFile, extension = ".js") {
-  const baseName = path5.basename(originalFile).replace(/\.[^.]+$/, "");
-  return path5.join(outDir, `${baseName}${extension}`);
+  const baseName = path6.basename(originalFile).replace(/\.[^.]+$/, "");
+  return path6.join(outDir, `${baseName}${extension}`);
 }
 async function importFresh(modulePath) {
   const fileUrl = pathToFileURL(modulePath).href;
@@ -218,13 +227,14 @@ async function importFresh(modulePath) {
 // src/cli/shared/metadata.ts
 var METADATA_ENTRY = "metadata.ts";
 async function loadMetadata(projectRoot) {
-  const absPath = path5.join(projectRoot, METADATA_ENTRY);
+  const absPath = path6.join(projectRoot, METADATA_ENTRY);
   if (!fs4.existsSync(absPath)) {
-    throw new Error(
-      `metadata.ts not found in ${projectRoot}. Create metadata.ts to describe your agent.`
-    );
+    return {
+      metadata: MetadataSchema.parse({}),
+      sourcePath: "smart defaults (metadata.ts missing)"
+    };
   }
-  const tempDir = path5.join(projectRoot, ".opentool-temp");
+  const tempDir = path6.join(projectRoot, ".opentool-temp");
   if (fs4.existsSync(tempDir)) {
     fs4.rmSync(tempDir, { recursive: true, force: true });
   }
@@ -265,7 +275,7 @@ function extractMetadataExport(moduleExports) {
   return moduleExports;
 }
 function readPackageJson(projectRoot) {
-  const packagePath = path5.join(projectRoot, "package.json");
+  const packagePath = path6.join(projectRoot, "package.json");
   if (!fs4.existsSync(packagePath)) {
     return {};
   }
@@ -281,7 +291,7 @@ async function buildMetadataArtifact(options) {
   const packageInfo = readPackageJson(projectRoot);
   const { metadata: authored, sourcePath } = await loadMetadata(projectRoot);
   const defaultsApplied = [];
-  const folderName = path5.basename(projectRoot);
+  const folderName = path6.basename(projectRoot);
   const name = resolveField(
     "name",
     authored.name,
@@ -338,6 +348,10 @@ async function buildMetadataArtifact(options) {
     }
     const toolDiscovery = overrides.discovery ?? void 0;
     const toolChains = overrides.chains ?? authored.chains ?? void 0;
+    const toolCategory = tool.profileCategory ?? "tracker";
+    if (!tool.profileCategory) {
+      defaultsApplied.push(`tool ${toolName} category \u2192 tracker (default)`);
+    }
     const toolDefinition = {
       name: toolName,
       description: toolDescription,
@@ -354,6 +368,14 @@ async function buildMetadataArtifact(options) {
     }
     if (toolChains) {
       toolDefinition.chains = toolChains;
+    }
+    toolDefinition.category = toolCategory;
+    const notifyEmail = tool.notifyEmail ?? tool.schedule?.notifyEmail;
+    if (notifyEmail !== void 0) {
+      toolDefinition.notifyEmail = notifyEmail;
+    }
+    if (tool.profileCategory) {
+      toolDefinition.category = tool.profileCategory;
     }
     return toolDefinition;
   });
@@ -979,14 +1001,37 @@ var SUPPORTED_EXTENSIONS = [
   ".mjs",
   ".cjs"
 ];
+var MIN_TEMPLATE_CONFIG_VERSION = 2;
+function normalizeTemplateConfigVersion(value) {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value !== "string") {
+    return null;
+  }
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+  if (/^\d+(?:\.\d+)?$/.test(trimmed)) {
+    const numeric = Number.parseFloat(trimmed);
+    return Number.isFinite(numeric) ? numeric : null;
+  }
+  const majorMatch = /^v?(\d+)(?:\..*)?$/i.exec(trimmed);
+  if (!majorMatch) {
+    return null;
+  }
+  const major = Number.parseInt(majorMatch[1], 10);
+  return Number.isFinite(major) ? major : null;
+}
 async function validateCommand(options) {
   console.log("\u{1F50D} Validating OpenTool metadata...");
   try {
-    const toolsDir = path5.resolve(options.input);
+    const toolsDir = path6.resolve(options.input);
     if (!fs4.existsSync(toolsDir)) {
       throw new Error(`Tools directory not found: ${toolsDir}`);
     }
-    const projectRoot = path5.dirname(toolsDir);
+    const projectRoot = path6.dirname(toolsDir);
     const tools = await loadAndValidateTools(toolsDir, { projectRoot });
     if (tools.length === 0) {
       throw new Error("No valid tools found - metadata validation aborted");
@@ -1005,11 +1050,11 @@ async function validateCommand(options) {
 async function validateFullCommand(options) {
   console.log("\u{1F50D} Running full OpenTool validation...\n");
   try {
-    const toolsDir = path5.resolve(options.input);
+    const toolsDir = path6.resolve(options.input);
     if (!fs4.existsSync(toolsDir)) {
       throw new Error(`Tools directory not found: ${toolsDir}`);
     }
-    const projectRoot = path5.dirname(toolsDir);
+    const projectRoot = path6.dirname(toolsDir);
     const tools = await loadAndValidateTools(toolsDir, { projectRoot });
     if (tools.length === 0) {
       throw new Error("No tools discovered in the target directory");
@@ -1037,12 +1082,12 @@ async function validateFullCommand(options) {
   }
 }
 async function loadAndValidateTools(toolsDir, options = {}) {
-  const files = fs4.readdirSync(toolsDir).filter((file) => SUPPORTED_EXTENSIONS.includes(path5.extname(file)));
+  const files = fs4.readdirSync(toolsDir).filter((file) => SUPPORTED_EXTENSIONS.includes(path6.extname(file)));
   if (files.length === 0) {
     return [];
   }
-  const projectRoot = options.projectRoot ?? path5.dirname(toolsDir);
-  const tempDir = path5.join(toolsDir, ".opentool-temp");
+  const projectRoot = options.projectRoot ?? path6.dirname(toolsDir);
+  const tempDir = path6.join(toolsDir, ".opentool-temp");
   if (fs4.existsSync(tempDir)) {
     fs4.rmSync(tempDir, { recursive: true, force: true });
   }
@@ -1052,7 +1097,7 @@ async function loadAndValidateTools(toolsDir, options = {}) {
       throw new Error(`Tool filename must be kebab-case: ${f}`);
     }
   }
-  const entryPoints = files.map((file) => path5.join(toolsDir, file));
+  const entryPoints = files.map((file) => path6.join(toolsDir, file));
   const { outDir, cleanup } = await transpileWithEsbuild({
     entryPoints,
     projectRoot,
@@ -1091,10 +1136,116 @@ async function loadAndValidateTools(toolsDir, options = {}) {
       }
       let normalizedSchedule = null;
       const schedule = toolModule?.profile?.schedule;
+      const profileNotifyEmail = typeof toolModule?.profile?.notifyEmail === "boolean" ? toolModule.profile.notifyEmail : void 0;
+      const profileCategoryRaw = typeof toolModule?.profile?.category === "string" ? toolModule.profile.category : void 0;
+      const allowedProfileCategories = /* @__PURE__ */ new Set(["strategy", "tracker", "orchestrator"]);
+      if (profileCategoryRaw && !allowedProfileCategories.has(profileCategoryRaw)) {
+        throw new Error(
+          `${file}: profile.category must be one of ${Array.from(allowedProfileCategories).join(", ")}`
+        );
+      }
+      const profileAssetsRaw = toolModule?.profile?.assets;
+      if (profileAssetsRaw !== void 0) {
+        if (!Array.isArray(profileAssetsRaw)) {
+          throw new Error(`${file}: profile.assets must be an array.`);
+        }
+        profileAssetsRaw.forEach((entry, index) => {
+          if (!entry || typeof entry !== "object") {
+            throw new Error(
+              `${file}: profile.assets[${index}] must be an object.`
+            );
+          }
+          const record = entry;
+          const venue = typeof record.venue === "string" ? record.venue.trim() : "";
+          if (!venue) {
+            throw new Error(
+              `${file}: profile.assets[${index}].venue must be a non-empty string.`
+            );
+          }
+          const chain = record.chain;
+          if (typeof chain !== "string" && typeof chain !== "number") {
+            throw new Error(
+              `${file}: profile.assets[${index}].chain must be a string or number.`
+            );
+          }
+          const symbols = record.assetSymbols;
+          if (!Array.isArray(symbols) || symbols.length === 0) {
+            throw new Error(
+              `${file}: profile.assets[${index}].assetSymbols must be a non-empty array.`
+            );
+          }
+          const invalidSymbol = symbols.find(
+            (symbol) => typeof symbol !== "string" || symbol.trim().length === 0
+          );
+          if (invalidSymbol !== void 0) {
+            throw new Error(
+              `${file}: profile.assets[${index}].assetSymbols must be non-empty strings.`
+            );
+          }
+          const walletAddress = record.walletAddress;
+          if (walletAddress !== void 0 && (typeof walletAddress !== "string" || walletAddress.trim().length === 0)) {
+            throw new Error(
+              `${file}: profile.assets[${index}].walletAddress must be a non-empty string when provided.`
+            );
+          }
+          const pair = record.pair;
+          if (pair !== void 0 && (typeof pair !== "string" || pair.trim().length === 0)) {
+            throw new Error(
+              `${file}: profile.assets[${index}].pair must be a non-empty string when provided.`
+            );
+          }
+          const leverage = record.leverage;
+          if (leverage !== void 0 && (typeof leverage !== "number" || !Number.isFinite(leverage) || leverage <= 0)) {
+            throw new Error(
+              `${file}: profile.assets[${index}].leverage must be a positive number when provided.`
+            );
+          }
+        });
+      }
+      const templateConfigRaw = toolModule?.profile?.templateConfig;
+      if (templateConfigRaw !== void 0) {
+        if (!templateConfigRaw || typeof templateConfigRaw !== "object") {
+          throw new Error(`${file}: profile.templateConfig must be an object.`);
+        }
+        const record = templateConfigRaw;
+        const version = record.version;
+        const normalizedTemplateConfigVersion = normalizeTemplateConfigVersion(version);
+        if (normalizedTemplateConfigVersion === null) {
+          throw new Error(
+            `${file}: profile.templateConfig.version must be a numeric string or number.`
+          );
+        }
+        if (normalizedTemplateConfigVersion < MIN_TEMPLATE_CONFIG_VERSION) {
+          throw new Error(
+            `${file}: profile.templateConfig.version must be >= ${MIN_TEMPLATE_CONFIG_VERSION}.`
+          );
+        }
+        const schema2 = record.schema;
+        if (schema2 !== void 0 && (!schema2 || typeof schema2 !== "object" || Array.isArray(schema2))) {
+          throw new Error(
+            `${file}: profile.templateConfig.schema must be an object when provided.`
+          );
+        }
+        const defaults = record.defaults;
+        if (defaults !== void 0 && (!defaults || typeof defaults !== "object" || Array.isArray(defaults))) {
+          throw new Error(
+            `${file}: profile.templateConfig.defaults must be an object when provided.`
+          );
+        }
+        const envVar = record.envVar;
+        if (envVar !== void 0 && (typeof envVar !== "string" || envVar.trim().length === 0)) {
+          throw new Error(
+            `${file}: profile.templateConfig.envVar must be a non-empty string when provided.`
+          );
+        }
+      }
       if (hasGET && schedule && typeof schedule.cron === "string" && schedule.cron.trim().length > 0) {
         normalizedSchedule = normalizeScheduleExpression(schedule.cron, file);
         if (typeof schedule.enabled === "boolean") {
           normalizedSchedule.authoredEnabled = schedule.enabled;
+        }
+        if (typeof schedule.notifyEmail === "boolean") {
+          normalizedSchedule.notifyEmail = schedule.notifyEmail;
         }
       }
       if (hasPOST) {
@@ -1153,11 +1304,14 @@ async function loadAndValidateTools(toolsDir, options = {}) {
         httpHandlers,
         mcpConfig: normalizeMcpConfig(toolModule.mcp, file),
         filename: toBaseName(file),
-        sourcePath: path5.join(toolsDir, file),
+        sourcePath: path6.join(toolsDir, file),
         handler: async (params) => adapter(params),
         payment: paymentExport ?? null,
         schedule: normalizedSchedule,
-        profileDescription: typeof toolModule?.profile?.description === "string" ? toolModule.profile?.description ?? null : null
+        profile: toolModule?.profile && typeof toolModule.profile === "object" ? toolModule.profile : null,
+        ...profileNotifyEmail !== void 0 ? { notifyEmail: profileNotifyEmail } : {},
+        profileDescription: typeof toolModule?.profile?.description === "string" ? toolModule.profile?.description ?? null : null,
+        ...profileCategoryRaw ? { profileCategory: profileCategoryRaw } : {}
       };
       tools.push(tool);
     }
@@ -1356,12 +1510,12 @@ async function buildCommand(options) {
   }
 }
 async function buildProject(options) {
-  const toolsDir = path5.resolve(options.input);
+  const toolsDir = path6.resolve(options.input);
   if (!fs4.existsSync(toolsDir)) {
     throw new Error(`Tools directory not found: ${toolsDir}`);
   }
-  const projectRoot = path5.dirname(toolsDir);
-  const outputDir = path5.resolve(options.output);
+  const projectRoot = path6.dirname(toolsDir);
+  const outputDir = path6.resolve(options.output);
   fs4.mkdirSync(outputDir, { recursive: true });
   const serverName = options.name ?? "opentool-server";
   const serverVersion = options.version ?? "1.0.0";
@@ -1373,7 +1527,7 @@ async function buildProject(options) {
     projectRoot,
     tools
   });
-  const metadataPath = path5.join(outputDir, "metadata.json");
+  const metadataPath = path6.join(outputDir, "metadata.json");
   fs4.writeFileSync(metadataPath, JSON.stringify(metadata, null, 2));
   const compiledTools = await emitTools(tools, {
     projectRoot,
@@ -1383,7 +1537,7 @@ async function buildProject(options) {
     projectRoot,
     outputDir
   });
-  const cronManifestPath = await writeCronManifest({
+  const toolsManifestPath = await writeToolsManifest({
     tools,
     compiledTools,
     outputDir
@@ -1400,7 +1554,7 @@ async function buildProject(options) {
       serverVersion,
       compiledTools});
   } else {
-    const serverPath = path5.join(outputDir, "mcp-server.js");
+    const serverPath = path6.join(outputDir, "mcp-server.js");
     if (fs4.existsSync(serverPath)) {
       fs4.rmSync(serverPath);
     }
@@ -1411,12 +1565,12 @@ async function buildProject(options) {
     tools,
     compiledTools,
     workflowBundles,
-    cronManifestPath,
+    toolsManifestPath,
     sharedModules
   };
 }
 async function emitTools(tools, config) {
-  const toolsOutDir = path5.join(config.outputDir, "tools");
+  const toolsOutDir = path6.join(config.outputDir, "tools");
   if (fs4.existsSync(toolsOutDir)) {
     fs4.rmSync(toolsOutDir, { recursive: true, force: true });
   }
@@ -1438,9 +1592,9 @@ async function emitTools(tools, config) {
     if (!tool.sourcePath) {
       throw new Error(`Missing sourcePath for tool ${tool.filename}`);
     }
-    const base = path5.basename(tool.sourcePath).replace(/\.[^.]+$/, "");
-    const modulePath = path5.join("tools", `${base}.js`);
-    if (!fs4.existsSync(path5.join(config.outputDir, modulePath))) {
+    const base = path6.basename(tool.sourcePath).replace(/\.[^.]+$/, "");
+    const modulePath = path6.join("tools", `${base}.js`);
+    if (!fs4.existsSync(path6.join(config.outputDir, modulePath))) {
       throw new Error(`Expected compiled output missing: ${modulePath}`);
     }
     const defaultMcpMethod = tool.mcpConfig?.defaultMethod;
@@ -1457,7 +1611,7 @@ async function emitTools(tools, config) {
   return compiled;
 }
 async function emitSharedModules(config) {
-  const srcDir = path5.join(config.projectRoot, "src");
+  const srcDir = path6.join(config.projectRoot, "src");
   if (!fs4.existsSync(srcDir)) {
     return null;
   }
@@ -1465,7 +1619,7 @@ async function emitSharedModules(config) {
   if (sharedFiles.length === 0) {
     return null;
   }
-  const sharedOutDir = path5.join(config.outputDir, "src");
+  const sharedOutDir = path6.join(config.outputDir, "src");
   await transpileWithEsbuild({
     entryPoints: sharedFiles,
     projectRoot: config.projectRoot,
@@ -1483,7 +1637,7 @@ function collectSourceFiles(dir) {
   const ignoreDirs = /* @__PURE__ */ new Set(["node_modules", ".git", "dist", ".opentool-temp"]);
   const entries = fs4.readdirSync(dir, { withFileTypes: true });
   for (const entry of entries) {
-    const fullPath = path5.join(dir, entry.name);
+    const fullPath = path6.join(dir, entry.name);
     if (entry.isDirectory()) {
       if (ignoreDirs.has(entry.name)) {
         continue;
@@ -1491,7 +1645,7 @@ function collectSourceFiles(dir) {
       results.push(...collectSourceFiles(fullPath));
       continue;
     }
-    const ext = path5.extname(entry.name);
+    const ext = path6.extname(entry.name);
     if (supported.has(ext) && !entry.name.endsWith(".d.ts")) {
       results.push(fullPath);
     }
@@ -1593,63 +1747,54 @@ module.exports = { server };
 }
 async function writeMcpServer(options) {
   const serverCode = renderMcpServer(options);
-  const serverPath = path5.join(options.outputDir, "mcp-server.js");
+  const serverPath = path6.join(options.outputDir, "mcp-server.js");
   fs4.writeFileSync(serverPath, serverCode);
   fs4.chmodSync(serverPath, 493);
 }
-function writeCronManifest(options) {
-  const scheduledTools = options.tools.filter((tool) => tool.schedule?.expression);
-  const manifestDir = path5.join(options.outputDir, ".well-known", "opentool");
-  const manifestPath = path5.join(manifestDir, "cron.json");
-  if (scheduledTools.length === 0) {
-    if (fs4.existsSync(manifestPath)) {
-      fs4.rmSync(manifestPath);
-    }
-    return null;
+function writeToolsManifest(options) {
+  const manifestPath = path6.join(options.outputDir, "tools.json");
+  const legacyManifestPath = path6.join(
+    options.outputDir,
+    ".well-known",
+    "opentool",
+    "cron.json"
+  );
+  if (fs4.existsSync(legacyManifestPath)) {
+    fs4.rmSync(legacyManifestPath, { force: true });
   }
-  const entries = scheduledTools.map((tool) => {
-    const schedule = tool.schedule;
-    if (!schedule) {
-      throw new Error(`Internal error: missing schedule for tool ${tool.filename}`);
-    }
+  const entries = options.tools.map((tool) => {
     const compiled = options.compiledTools.find(
       (artifact) => artifact.filename === tool.filename
     );
     if (!compiled) {
       throw new Error(`Internal error: missing compiled artifact for ${tool.filename}`);
     }
-    const toolName = tool.metadata?.name ?? tool.filename;
-    const description = tool.metadata?.description ?? tool.profileDescription ?? void 0;
-    const payloadPath = compiled.modulePath.replace(/\\/g, "/");
+    const handler = tool.httpHandlers[0];
+    const method = handler ? handler.method.toUpperCase() : "GET";
+    const toolPath = compiled.modulePath.replace(/\\/g, "/");
     const entry = {
-      toolName,
-      scheduleType: schedule.type,
-      scheduleExpression: schedule.expression,
-      enabledDefault: false,
-      ...schedule.authoredEnabled !== void 0 ? { authoredEnabled: schedule.authoredEnabled } : {},
-      payload: {
-        toolPath: payloadPath,
-        httpMethod: "GET"
-      }
+      name: tool.metadata?.name ?? tool.filename,
+      method,
+      toolPath
     };
-    if (description !== void 0) {
-      entry.description = description;
+    if (tool.inputSchema) {
+      entry.inputSchema = tool.inputSchema;
+    }
+    if (tool.profile) {
+      entry.profile = tool.profile;
+    }
+    if (tool.schedule) {
+      entry.schedule = tool.schedule;
     }
     return entry;
   });
-  const manifest = {
-    version: 1,
-    generatedAt: (/* @__PURE__ */ new Date()).toISOString(),
-    entries
-  };
-  fs4.mkdirSync(manifestDir, { recursive: true });
-  fs4.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
+  fs4.writeFileSync(manifestPath, JSON.stringify(entries, null, 2));
   return manifestPath;
 }
 function logBuildSummary(artifacts, options) {
   const end = timestamp();
   console.log(`[${end}] Build completed successfully!`);
-  console.log(`Output directory: ${path5.resolve(options.output)}`);
+  console.log(`Output directory: ${path6.resolve(options.output)}`);
   console.log("Generated files:");
   const hasMcp = artifacts.compiledTools.some((tool) => tool.mcpEnabled);
   if (hasMcp) {
@@ -1667,8 +1812,8 @@ function logBuildSummary(artifacts, options) {
     console.log(`     - ${tool.name} [${methods}]${walletBadge}`);
   });
   console.log("  \u2022 metadata.json (registry artifact)");
-  if (artifacts.cronManifestPath) {
-    console.log("  \u2022 .well-known/opentool/cron.json (cron manifest)");
+  if (artifacts.toolsManifestPath) {
+    console.log("  \u2022 tools.json (runtime tool manifest)");
   }
   if (artifacts.workflowBundles) {
     console.log("  \u2022 .well-known/workflow/v1/ (workflow bundles)");
@@ -1691,7 +1836,7 @@ function logBuildSummary(artifacts, options) {
   }
 }
 async function buildWorkflowsIfPresent(options) {
-  const workflowsDir = options.workflowsDir ?? path5.join(options.projectRoot, "workflows");
+  const workflowsDir = options.workflowsDir ?? path6.join(options.projectRoot, "workflows");
   if (!fs4.existsSync(workflowsDir)) {
     return null;
   }
@@ -1738,11 +1883,11 @@ Reason: ${error.message}` : "";
         "Creating OpenTool workflow steps bundle at",
         this.config.stepsBundlePath
       );
-      const stepsBundlePath2 = path5.resolve(
+      const stepsBundlePath2 = path6.resolve(
         this.config.workingDir,
         this.config.stepsBundlePath
       );
-      await fs4.promises.mkdir(path5.dirname(stepsBundlePath2), { recursive: true });
+      await fs4.promises.mkdir(path6.dirname(stepsBundlePath2), { recursive: true });
       await this.createStepsBundle({
         outfile: stepsBundlePath2,
         ...options2
@@ -1753,11 +1898,11 @@ Reason: ${error.message}` : "";
         "Creating OpenTool workflow bundle at",
         this.config.workflowsBundlePath
       );
-      const workflowBundlePath = path5.resolve(
+      const workflowBundlePath = path6.resolve(
         this.config.workingDir,
         this.config.workflowsBundlePath
       );
-      await fs4.promises.mkdir(path5.dirname(workflowBundlePath), {
+      await fs4.promises.mkdir(path6.dirname(workflowBundlePath), {
         recursive: true
       });
       await this.createWorkflowsBundle({
@@ -1771,11 +1916,11 @@ Reason: ${error.message}` : "";
         "Creating OpenTool workflow webhook bundle at",
         this.config.webhookBundlePath
       );
-      const webhookBundlePath2 = path5.resolve(
+      const webhookBundlePath2 = path6.resolve(
         this.config.workingDir,
         this.config.webhookBundlePath
       );
-      await fs4.promises.mkdir(path5.dirname(webhookBundlePath2), {
+      await fs4.promises.mkdir(path6.dirname(webhookBundlePath2), {
         recursive: true
       });
       await this.createWebhookBundle({ outfile: webhookBundlePath2 });
@@ -1784,11 +1929,11 @@ Reason: ${error.message}` : "";
       if (!this.config?.clientBundlePath) {
         return;
       }
-      const clientBundlePath2 = path5.resolve(
+      const clientBundlePath2 = path6.resolve(
         this.config.workingDir,
         this.config.clientBundlePath
       );
-      await fs4.promises.mkdir(path5.dirname(clientBundlePath2), {
+      await fs4.promises.mkdir(path6.dirname(clientBundlePath2), {
         recursive: true
       });
       await this.createWorkflowsBundle({
@@ -1797,17 +1942,17 @@ Reason: ${error.message}` : "";
       });
     }
   }
-  const relativeSourceDir = path5.relative(options.projectRoot, workflowsDir) || ".";
-  const outputBase = path5.join(
+  const relativeSourceDir = path6.relative(options.projectRoot, workflowsDir) || ".";
+  const outputBase = path6.join(
     options.outputDir,
     ".well-known",
     "workflow",
     "v1"
   );
-  const stepsBundlePath = path5.join(outputBase, "step.js");
-  const workflowsBundlePath = path5.join(outputBase, "flow.js");
-  const webhookBundlePath = path5.join(outputBase, "webhook.js");
-  const manifestPath = path5.join(outputBase, "manifest.json");
+  const stepsBundlePath = path6.join(outputBase, "step.js");
+  const workflowsBundlePath = path6.join(outputBase, "flow.js");
+  const webhookBundlePath = path6.join(outputBase, "webhook.js");
+  const manifestPath = path6.join(outputBase, "manifest.json");
   const builder = new OpenToolWorkflowBuilder({
     workingDir: options.projectRoot,
     dirs: [relativeSourceDir],
@@ -1843,13 +1988,13 @@ function hasWorkflowSourceFiles(directory) {
   const entries = fs4.readdirSync(directory, { withFileTypes: true });
   for (const entry of entries) {
     if (entry.isDirectory()) {
-      if (hasWorkflowSourceFiles(path5.join(directory, entry.name))) {
+      if (hasWorkflowSourceFiles(path6.join(directory, entry.name))) {
         return true;
       }
       continue;
     }
     if (entry.isFile()) {
-      const extension = path5.extname(entry.name).toLowerCase();
+      const extension = path6.extname(entry.name).toLowerCase();
       if (WORKFLOW_SOURCE_EXTENSIONS.has(extension)) {
         return true;
       }
@@ -1873,9 +2018,9 @@ function timestamp() {
 function escapeForJs(value) {
   return value.replace(/'/g, "\\'");
 }
-var __dirname2 = path5.dirname(fileURLToPath(import.meta.url));
+var __dirname2 = path6.dirname(fileURLToPath(import.meta.url));
 var packageJson = JSON.parse(
-  fs4.readFileSync(path5.resolve(__dirname2, "../../package.json"), "utf-8")
+  fs4.readFileSync(path6.resolve(__dirname2, "../../package.json"), "utf-8")
 );
 var cyan = "\x1B[36m";
 var bold = "\x1B[1m";
@@ -1888,11 +2033,11 @@ async function devCommand(options) {
   const log = enableStdio ? (_message) => {
   } : (message) => console.log(message);
   try {
-    const toolsDir = path5.resolve(options.input);
+    const toolsDir = path6.resolve(options.input);
     if (!fs4.existsSync(toolsDir)) {
       throw new Error(`Tools directory not found: ${toolsDir}`);
     }
-    const projectRoot = path5.dirname(toolsDir);
+    const projectRoot = path6.dirname(toolsDir);
     loadEnvFiles(projectRoot);
     let toolDefinitions = await loadToolDefinitions(toolsDir, projectRoot);
     if (toolDefinitions.length === 0) {
@@ -1902,7 +2047,7 @@ async function devCommand(options) {
     const stdioController = enableStdio ? await startMcpServer(() => toolDefinitions) : null;
     if (watch2) {
       const reloadableExtensions = /\.(ts|js|mjs|cjs|tsx|jsx)$/i;
-      const tempDir = path5.join(toolsDir, ".opentool-temp");
+      const tempDir = path6.join(toolsDir, ".opentool-temp");
       const watchTargets = /* @__PURE__ */ new Set([toolsDir]);
       if (projectRoot !== toolsDir) {
         watchTargets.add(projectRoot);
@@ -1933,11 +2078,11 @@ Detected change in ${changedPath ?? "tools directory"}, reloading...${reset}`
           if (filename && !reloadableExtensions.test(filename)) {
             return;
           }
-          const fullPath = filename ? path5.join(target, filename) : void 0;
+          const fullPath = filename ? path6.join(target, filename) : void 0;
           if (fullPath && fullPath.startsWith(tempDir)) {
             return;
           }
-          const displayPath = fullPath ? path5.relative(projectRoot, fullPath) || path5.basename(fullPath) : path5.relative(projectRoot, target) || path5.basename(target);
+          const displayPath = fullPath ? path6.relative(projectRoot, fullPath) || path6.basename(fullPath) : path6.relative(projectRoot, target) || path6.basename(target);
           await scheduleReload(displayPath);
         });
       }
@@ -2170,7 +2315,7 @@ function routeName(tool) {
 function loadEnvFiles(projectRoot) {
   const envFiles = [".env.local", ".env"];
   for (const file of envFiles) {
-    const candidate = path5.join(projectRoot, file);
+    const candidate = path6.join(projectRoot, file);
     if (fs4.existsSync(candidate)) {
       dotenv.config({ path: candidate, override: false });
     }
@@ -2241,17 +2386,17 @@ async function generateMetadataCommand(options) {
   }
 }
 async function generateMetadata(options) {
-  const toolsDir = path5.resolve(options.input);
+  const toolsDir = path6.resolve(options.input);
   if (!fs4.existsSync(toolsDir)) {
     throw new Error(`Tools directory not found: ${toolsDir}`);
   }
-  const projectRoot = path5.dirname(toolsDir);
+  const projectRoot = path6.dirname(toolsDir);
   const tools = await loadAndValidateTools(toolsDir, { projectRoot });
   const { metadata, defaultsApplied } = await buildMetadataArtifact({
     projectRoot,
     tools
   });
-  const outputPath = options.output ? path5.resolve(options.output) : path5.join(projectRoot, "metadata.json");
+  const outputPath = options.output ? path6.resolve(options.output) : path6.join(projectRoot, "metadata.json");
   fs4.writeFileSync(outputPath, JSON.stringify(metadata, null, 2));
   return {
     metadata,
@@ -2262,6 +2407,74 @@ async function generateMetadata(options) {
 }
 function timestamp2() {
   return (/* @__PURE__ */ new Date()).toISOString().replace("T", " ").slice(0, 19);
+}
+function resolveTemplateDir() {
+  const here = path6__default.dirname(fileURLToPath(import.meta.url));
+  return path6__default.resolve(here, "../../templates/base");
+}
+async function directoryIsEmpty(targetDir) {
+  try {
+    const entries = await promises.readdir(targetDir);
+    return entries.length === 0;
+  } catch (error) {
+    if (error.code === "ENOENT") {
+      return true;
+    }
+    throw error;
+  }
+}
+async function copyDir(src, dest) {
+  await promises.mkdir(dest, { recursive: true });
+  const entries = await promises.readdir(src, { withFileTypes: true });
+  for (const entry of entries) {
+    const srcPath = path6__default.join(src, entry.name);
+    const destPath = path6__default.join(dest, entry.name);
+    if (entry.isDirectory()) {
+      await copyDir(srcPath, destPath);
+    } else if (entry.isFile()) {
+      await promises.copyFile(srcPath, destPath);
+    }
+  }
+}
+function toPackageName(value) {
+  return value.trim().toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^-+|-+$/g, "") || "opentool-project";
+}
+function toDisplayName(value) {
+  return value.trim().replace(/[-_]+/g, " ").replace(/\b\w/g, (ch) => ch.toUpperCase()) || "OpenTool Project";
+}
+async function updatePackageJson(targetDir, name, description) {
+  const filePath = path6__default.join(targetDir, "package.json");
+  const raw = await promises.readFile(filePath, "utf-8");
+  const pkg = JSON.parse(raw);
+  pkg.name = toPackageName(name);
+  if (description) {
+    pkg.description = description;
+  }
+  await promises.writeFile(filePath, `${JSON.stringify(pkg, null, 2)}
+`, "utf-8");
+}
+async function updateMetadata(targetDir, name, description) {
+  const filePath = path6__default.join(targetDir, "metadata.ts");
+  const raw = await promises.readFile(filePath, "utf-8");
+  const displayName = toDisplayName(name);
+  const resolvedDescription = description || "OpenTool project";
+  const updated = raw.replace(/name:\s*\".*?\"/, `name: "${toPackageName(name)}"`).replace(/displayName:\s*\".*?\"/, `displayName: "${displayName}"`).replace(/description:\s*\".*?\"/, `description: "${resolvedDescription}"`);
+  await promises.writeFile(filePath, updated, "utf-8");
+}
+async function initCommand(options) {
+  const targetDir = path6__default.resolve(process.cwd(), options.dir || ".");
+  const templateDir = resolveTemplateDir();
+  const empty = await directoryIsEmpty(targetDir);
+  if (!empty && !options.force) {
+    throw new Error(
+      `Directory not empty: ${targetDir}. Use --force to overwrite.`
+    );
+  }
+  await copyDir(templateDir, targetDir);
+  const projectName = options.name || path6__default.basename(targetDir);
+  const description = options.description;
+  await updatePackageJson(targetDir, projectName, description);
+  await updateMetadata(targetDir, projectName, description);
 }
 
 // src/cli/index.ts
@@ -2282,6 +2495,15 @@ program.command("metadata").description("Generate OpenTool metadata JSON without
   "Output file path for metadata.json",
   "metadata.json"
 ).option("--name <name>", "Server name", "opentool-server").option("--version <version>", "Server version", "1.0.0").action(generateMetadataCommand);
+program.command("init").description("Create a new OpenTool project in the target directory").option("-d, --dir <dir>", "Target directory", ".").option("-n, --name <name>", "Project name").option("--description <description>", "Project description").option("--force", "Overwrite existing files", false).action(async (cmdOptions) => {
+  await initCommand({
+    dir: cmdOptions.dir,
+    name: cmdOptions.name,
+    description: cmdOptions.description,
+    force: cmdOptions.force
+  });
+  console.log(`Initialized OpenTool project in ${cmdOptions.dir || "."}`);
+});
 program.parse();
 
 export { buildCommand, buildProject, devCommand, generateMetadata, generateMetadataCommand, loadAndValidateTools, validateCommand, validateFullCommand };
