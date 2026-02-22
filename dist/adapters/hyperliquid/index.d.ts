@@ -4,9 +4,43 @@ import 'viem';
 import 'viem/accounts';
 
 type HyperliquidEnvironment = "mainnet" | "testnet";
+type MarketIdentity = {
+    market_type: "perp" | "spot" | "dex";
+    venue: "hyperliquid";
+    environment: HyperliquidEnvironment;
+    base: string;
+    quote?: string | null;
+    dex?: string | null;
+    chain_id?: number | null;
+    pool_address?: string | null;
+    token0_address?: string | null;
+    token1_address?: string | null;
+    fee_tier?: number | null;
+    raw_symbol?: string | null;
+    canonical_symbol: string;
+};
+type HyperliquidMarketIdentityInput = {
+    environment: HyperliquidEnvironment;
+    symbol: string;
+    rawSymbol?: string | null;
+    isSpot?: boolean;
+    base?: string | null;
+    quote?: string | null;
+};
+declare function buildHyperliquidMarketIdentity(input: HyperliquidMarketIdentityInput): MarketIdentity | null;
 type HyperliquidTimeInForce = "Gtc" | "Ioc" | "Alo" | "FrontendMarket" | "LiquidationMarket";
 type HyperliquidGrouping = "na" | "normalTpsl" | "positionTpsl";
 type HyperliquidTriggerType = "tp" | "sl";
+type HyperliquidAbstraction = "unifiedAccount" | "portfolioMargin" | "disabled";
+type HyperliquidAccountMode = "standard" | "unified" | "portfolio";
+declare function resolveHyperliquidAbstractionFromMode(mode: HyperliquidAccountMode): HyperliquidAbstraction;
+declare const DEFAULT_HYPERLIQUID_MARKET_SLIPPAGE_BPS = 30;
+declare function computeHyperliquidMarketIocLimitPrice(params: {
+    markPrice: number;
+    side: "buy" | "sell";
+    slippageBps?: number;
+    decimals?: number;
+}): string;
 interface HyperliquidTriggerOptions {
     triggerPx: string | number | bigint;
     isMarket?: boolean;
@@ -93,6 +127,72 @@ declare function createL1ActionHash(args: {
     expiresAfter?: number | undefined;
 }): `0x${string}`;
 
+declare class HyperliquidInfoClient {
+    private readonly environment;
+    constructor(environment?: HyperliquidEnvironment);
+    meta(): Promise<any>;
+    metaAndAssetCtxs(): Promise<any>;
+    spotMeta(): Promise<any>;
+    spotMetaAndAssetCtxs(): Promise<any>;
+    assetCtxs(): Promise<any>;
+    spotAssetCtxs(): Promise<any>;
+    openOrders(user: `0x${string}`): Promise<any>;
+    frontendOpenOrders(user: `0x${string}`): Promise<any>;
+    orderStatus(user: `0x${string}`, oid: number | string): Promise<any>;
+    historicalOrders(user: `0x${string}`): Promise<any>;
+    userFills(user: `0x${string}`): Promise<any>;
+    userFillsByTime(user: `0x${string}`, startTime: number, endTime: number): Promise<any>;
+    userRateLimit(user: `0x${string}`): Promise<any>;
+    preTransferCheck(user: `0x${string}`, source: `0x${string}`): Promise<any>;
+    spotClearinghouseState(user: `0x${string}`): Promise<any>;
+}
+declare function fetchHyperliquidMeta(environment?: HyperliquidEnvironment): Promise<any>;
+declare function fetchHyperliquidMetaAndAssetCtxs(environment?: HyperliquidEnvironment): Promise<any>;
+declare function fetchHyperliquidSpotMeta(environment?: HyperliquidEnvironment): Promise<any>;
+declare function fetchHyperliquidSpotMetaAndAssetCtxs(environment?: HyperliquidEnvironment): Promise<any>;
+declare function fetchHyperliquidAssetCtxs(environment?: HyperliquidEnvironment): Promise<any>;
+declare function fetchHyperliquidSpotAssetCtxs(environment?: HyperliquidEnvironment): Promise<any>;
+declare function fetchHyperliquidOpenOrders(params: {
+    environment?: HyperliquidEnvironment;
+    user: `0x${string}`;
+}): Promise<any>;
+declare function fetchHyperliquidFrontendOpenOrders(params: {
+    environment?: HyperliquidEnvironment;
+    user: `0x${string}`;
+}): Promise<any>;
+declare function fetchHyperliquidOrderStatus(params: {
+    environment?: HyperliquidEnvironment;
+    user: `0x${string}`;
+    oid: number | string;
+}): Promise<any>;
+declare function fetchHyperliquidHistoricalOrders(params: {
+    environment?: HyperliquidEnvironment;
+    user: `0x${string}`;
+}): Promise<any>;
+declare function fetchHyperliquidUserFills(params: {
+    environment?: HyperliquidEnvironment;
+    user: `0x${string}`;
+}): Promise<any>;
+declare function fetchHyperliquidUserFillsByTime(params: {
+    environment?: HyperliquidEnvironment;
+    user: `0x${string}`;
+    startTime: number;
+    endTime: number;
+}): Promise<any>;
+declare function fetchHyperliquidUserRateLimit(params: {
+    environment?: HyperliquidEnvironment;
+    user: `0x${string}`;
+}): Promise<any>;
+declare function fetchHyperliquidPreTransferCheck(params: {
+    environment?: HyperliquidEnvironment;
+    user: `0x${string}`;
+    source: `0x${string}`;
+}): Promise<any>;
+declare function fetchHyperliquidSpotClearinghouseState(params: {
+    environment?: HyperliquidEnvironment;
+    user: `0x${string}`;
+}): Promise<any>;
+
 type CommonActionOptions = {
     environment?: HyperliquidEnvironment;
     vaultAddress?: `0x${string}` | undefined;
@@ -168,6 +268,14 @@ declare class HyperliquidExchangeClient {
         token: string;
         amount: string | number | bigint;
     }): Promise<HyperliquidExchangeResponse<unknown>>;
+    setDexAbstraction(params: {
+        enabled: boolean;
+        user?: `0x${string}`;
+    }): Promise<HyperliquidExchangeResponse<unknown>>;
+    setAccountAbstractionMode(params: {
+        mode: HyperliquidAccountMode;
+        user?: `0x${string}`;
+    }): Promise<HyperliquidExchangeResponse<unknown>>;
     setPortfolioMargin(params: {
         enabled: boolean;
         user?: `0x${string}`;
@@ -176,6 +284,16 @@ declare class HyperliquidExchangeClient {
 declare function setHyperliquidPortfolioMargin(options: {
     wallet: WalletFullContext;
     enabled: boolean;
+    user?: `0x${string}`;
+} & CommonActionOptions): Promise<HyperliquidExchangeResponse<unknown>>;
+declare function setHyperliquidDexAbstraction(options: {
+    wallet: WalletFullContext;
+    enabled: boolean;
+    user?: `0x${string}`;
+} & CommonActionOptions): Promise<HyperliquidExchangeResponse<unknown>>;
+declare function setHyperliquidAccountAbstractionMode(options: {
+    wallet: WalletFullContext;
+    mode: HyperliquidAccountMode;
     user?: `0x${string}`;
 } & CommonActionOptions): Promise<HyperliquidExchangeResponse<unknown>>;
 declare function cancelHyperliquidOrders(options: {
@@ -191,7 +309,7 @@ declare function cancelAllHyperliquidOrders(options: {
 } & CommonActionOptions): Promise<HyperliquidExchangeResponse<unknown>>;
 declare function scheduleHyperliquidCancel(options: {
     wallet: WalletFullContext;
-    time: number | null;
+    time?: number | null;
 } & CommonActionOptions): Promise<HyperliquidExchangeResponse<unknown>>;
 declare function modifyHyperliquidOrder(options: {
     wallet: WalletFullContext;
@@ -242,71 +360,183 @@ declare function sendHyperliquidSpot(options: {
     nonceSource?: NonceSource;
 }): Promise<HyperliquidExchangeResponse<unknown>>;
 
-declare class HyperliquidInfoClient {
-    private readonly environment;
-    constructor(environment?: HyperliquidEnvironment);
-    meta(): Promise<any>;
-    metaAndAssetCtxs(): Promise<any>;
-    spotMeta(): Promise<any>;
-    spotMetaAndAssetCtxs(): Promise<any>;
-    assetCtxs(): Promise<any>;
-    spotAssetCtxs(): Promise<any>;
-    openOrders(user: `0x${string}`): Promise<any>;
-    frontendOpenOrders(user: `0x${string}`): Promise<any>;
-    orderStatus(user: `0x${string}`, oid: number | string): Promise<any>;
-    historicalOrders(user: `0x${string}`): Promise<any>;
-    userFills(user: `0x${string}`): Promise<any>;
-    userFillsByTime(user: `0x${string}`, startTime: number, endTime: number): Promise<any>;
-    userRateLimit(user: `0x${string}`): Promise<any>;
-    preTransferCheck(user: `0x${string}`, source: `0x${string}`): Promise<any>;
-    spotClearinghouseState(user: `0x${string}`): Promise<any>;
-}
-declare function fetchHyperliquidMeta(environment?: HyperliquidEnvironment): Promise<any>;
-declare function fetchHyperliquidMetaAndAssetCtxs(environment?: HyperliquidEnvironment): Promise<any>;
-declare function fetchHyperliquidSpotMeta(environment?: HyperliquidEnvironment): Promise<any>;
-declare function fetchHyperliquidSpotMetaAndAssetCtxs(environment?: HyperliquidEnvironment): Promise<any>;
-declare function fetchHyperliquidAssetCtxs(environment?: HyperliquidEnvironment): Promise<any>;
-declare function fetchHyperliquidSpotAssetCtxs(environment?: HyperliquidEnvironment): Promise<any>;
-declare function fetchHyperliquidOpenOrders(params: {
-    environment?: HyperliquidEnvironment;
-    user: `0x${string}`;
-}): Promise<any>;
-declare function fetchHyperliquidFrontendOpenOrders(params: {
-    environment?: HyperliquidEnvironment;
-    user: `0x${string}`;
-}): Promise<any>;
-declare function fetchHyperliquidOrderStatus(params: {
-    environment?: HyperliquidEnvironment;
-    user: `0x${string}`;
-    oid: number | string;
-}): Promise<any>;
-declare function fetchHyperliquidHistoricalOrders(params: {
-    environment?: HyperliquidEnvironment;
-    user: `0x${string}`;
-}): Promise<any>;
-declare function fetchHyperliquidUserFills(params: {
-    environment?: HyperliquidEnvironment;
-    user: `0x${string}`;
-}): Promise<any>;
-declare function fetchHyperliquidUserFillsByTime(params: {
-    environment?: HyperliquidEnvironment;
-    user: `0x${string}`;
-    startTime: number;
-    endTime: number;
-}): Promise<any>;
-declare function fetchHyperliquidUserRateLimit(params: {
-    environment?: HyperliquidEnvironment;
-    user: `0x${string}`;
-}): Promise<any>;
-declare function fetchHyperliquidPreTransferCheck(params: {
-    environment?: HyperliquidEnvironment;
-    user: `0x${string}`;
-    source: `0x${string}`;
-}): Promise<any>;
-declare function fetchHyperliquidSpotClearinghouseState(params: {
-    environment?: HyperliquidEnvironment;
-    user: `0x${string}`;
-}): Promise<any>;
+type HyperliquidChain = "arbitrum" | "arbitrum-sepolia";
+type HyperliquidStoreNetwork = "hyperliquid" | "hyperliquid-testnet";
+declare function resolveHyperliquidChain(environment: HyperliquidEnvironment): HyperliquidChain;
+declare function resolveHyperliquidRpcEnvVar(environment: HyperliquidEnvironment): "ARBITRUM_RPC_URL" | "ARBITRUM_SEPOLIA_RPC_URL";
+declare function resolveHyperliquidChainConfig(environment: HyperliquidEnvironment, env?: Record<string, string | undefined>): {
+    chain: HyperliquidChain;
+    rpcUrl?: string;
+};
+declare function resolveHyperliquidStoreNetwork(environment: HyperliquidEnvironment): HyperliquidStoreNetwork;
+
+declare function extractHyperliquidDex(symbol: string): string | null;
+declare function normalizeSpotTokenName(value?: string | null): string;
+declare function normalizeHyperliquidBaseSymbol(value?: string | null): string | null;
+declare function normalizeHyperliquidMetaSymbol(symbol: string): string;
+declare function resolveHyperliquidPair(value?: string | null): string | null;
+type HyperliquidProfileChain = "hyperliquid" | "hyperliquid-testnet";
+type HyperliquidProfileAssetInput = {
+    assetSymbols: string[];
+    pair?: string | null;
+    leverage?: number | null;
+    walletAddress?: string | null;
+};
+type HyperliquidProfileAsset = {
+    venue: "hyperliquid";
+    chain: HyperliquidProfileChain;
+    assetSymbols: string[];
+    pair?: string;
+    leverage?: number;
+    walletAddress?: string;
+};
+declare function resolveHyperliquidProfileChain(environment: HyperliquidEnvironment): HyperliquidProfileChain;
+declare function buildHyperliquidProfileAssets(params: {
+    environment: HyperliquidEnvironment;
+    assets: HyperliquidProfileAssetInput[];
+}): HyperliquidProfileAsset[];
+declare function parseSpotPairSymbol(symbol: string): {
+    base: string;
+    quote: string;
+} | null;
+declare function isHyperliquidSpotSymbol(symbol: string): boolean;
+declare function resolveSpotMidCandidates(baseSymbol: string): string[];
+declare function resolveSpotTokenCandidates(value: string): string[];
+declare function resolveHyperliquidOrderSymbol(value?: string | null): string | null;
+declare function resolveHyperliquidSymbol(asset: string, override?: string): string;
+
+type HyperliquidTickSize = {
+    tickSizeInt: bigint;
+    tickDecimals: number;
+};
+type HyperliquidMarketType = "perp" | "spot";
+type HyperliquidOrderResponseLike = {
+    response?: {
+        data?: {
+            statuses?: Array<Record<string, unknown>>;
+        };
+    };
+};
+declare function formatHyperliquidPrice(price: string | number, szDecimals: number, marketType?: HyperliquidMarketType): string;
+declare function formatHyperliquidSize(size: string | number, szDecimals: number): string;
+declare function formatHyperliquidOrderSize(value: number, szDecimals: number): string;
+declare function roundHyperliquidPriceToTick(price: number, tick: HyperliquidTickSize, side: "buy" | "sell"): string;
+declare function formatHyperliquidMarketablePrice(params: {
+    mid: number;
+    side: "buy" | "sell";
+    slippageBps: number;
+    tick?: HyperliquidTickSize | null;
+}): string;
+declare function extractHyperliquidOrderIds(responses: HyperliquidOrderResponseLike[]): {
+    cloids: string[];
+    oids: string[];
+};
+declare function resolveHyperliquidOrderRef(params: {
+    response?: HyperliquidOrderResponseLike | null;
+    fallbackCloid?: string | null;
+    fallbackOid?: string | null;
+    prefix?: string;
+    index?: number;
+}): string;
+declare function resolveHyperliquidErrorDetail(error: unknown): unknown | null;
+
+declare function readHyperliquidNumber(value: unknown): number | null;
+declare function readHyperliquidAccountValue(payload: unknown): number | null;
+declare function readHyperliquidPerpPositionSize(payload: unknown, symbol: string, options?: {
+    prefixMatch?: boolean;
+}): number;
+declare function readHyperliquidPerpPosition(payload: unknown, symbol: string, options?: {
+    prefixMatch?: boolean;
+}): {
+    size: number;
+    positionValue: number;
+    unrealizedPnl: number | null;
+};
+declare function readHyperliquidSpotBalanceSize(payload: unknown, symbol: string): number;
+declare function readHyperliquidSpotBalance(payload: unknown, base: string): {
+    total: number;
+    entryNtl: number | null;
+};
+declare function readHyperliquidSpotAccountValue(params: {
+    balances: unknown;
+    pricesUsd: Map<string, number>;
+}): number | null;
+
+type SpotUniverseItem = {
+    name?: string;
+    index?: number;
+    tokens?: number[];
+};
+type SpotToken = {
+    name?: string;
+    index?: number;
+    szDecimals?: number;
+};
+type SpotAssetContext = {
+    markPx?: string | number;
+    midPx?: string | number;
+    oraclePx?: string | number;
+};
+type SpotMetaResponse = {
+    universe?: SpotUniverseItem[];
+    tokens?: SpotToken[];
+};
+type HyperliquidPerpMarketInfo = {
+    symbol: string;
+    price: number;
+    fundingRate: number | null;
+    szDecimals: number;
+};
+type HyperliquidSpotMarketInfo = {
+    symbol: string;
+    base: string;
+    quote: string;
+    assetId: number;
+    marketIndex: number;
+    price: number;
+    szDecimals: number;
+};
+declare function maxDecimals(values: string[]): number;
+declare function toScaledInt(value: string, decimals: number): bigint;
+declare function formatScaledInt(value: bigint, decimals: number): string;
+declare function fetchHyperliquidAllMids(environment: HyperliquidEnvironment): Promise<Record<string, string | number>>;
+declare function fetchHyperliquidTickSize(params: {
+    environment: HyperliquidEnvironment;
+    symbol: string;
+}): Promise<HyperliquidTickSize>;
+declare function fetchHyperliquidSpotTickSize(params: {
+    environment: HyperliquidEnvironment;
+    marketIndex: number;
+}): Promise<HyperliquidTickSize>;
+declare function fetchHyperliquidPerpMarketInfo(params: {
+    environment: HyperliquidEnvironment;
+    symbol: string;
+}): Promise<HyperliquidPerpMarketInfo>;
+declare function fetchHyperliquidSpotMarketInfo(params: {
+    environment: HyperliquidEnvironment;
+    base: string;
+    quote: string;
+    mids?: Record<string, string | number> | null;
+}): Promise<HyperliquidSpotMarketInfo>;
+declare function fetchHyperliquidSizeDecimals(params: {
+    environment: HyperliquidEnvironment;
+    symbol: string;
+}): Promise<number>;
+declare function buildHyperliquidSpotUsdPriceMap(params: {
+    meta: SpotMetaResponse;
+    ctxs: SpotAssetContext[];
+    mids?: Record<string, string | number> | null;
+}): Map<string, number>;
+declare function fetchHyperliquidSpotUsdPriceMap(environment: HyperliquidEnvironment): Promise<Map<string, number>>;
+declare function fetchHyperliquidSpotAccountValue(params: {
+    environment: HyperliquidEnvironment;
+    balances: unknown;
+}): Promise<number | null>;
+declare const __hyperliquidMarketDataInternals: {
+    maxDecimals: typeof maxDecimals;
+    toScaledInt: typeof toScaledInt;
+    formatScaledInt: typeof formatScaledInt;
+};
 
 interface HyperliquidOrderOptions {
     wallet: WalletFullContext;
@@ -331,7 +561,7 @@ type HyperliquidOrderStatus = {
     };
 } | {
     error: string;
-};
+} | "waitingForFill" | "waitingForTrigger";
 interface HyperliquidOrderResponse {
     status: "ok";
     response: {
@@ -420,4 +650,4 @@ declare const __hyperliquidInternals: {
     splitSignature: typeof splitSignature;
 };
 
-export { HyperliquidApiError, type HyperliquidApproveBuilderFeeOptions, type HyperliquidApproveBuilderFeeResponse, HyperliquidBuilderApprovalError, type HyperliquidBuilderApprovalRecordInput, type HyperliquidBuilderFee, type HyperliquidClearinghouseState, type HyperliquidDepositResult, type HyperliquidEnvironment, HyperliquidExchangeClient, type HyperliquidExchangeResponse, type HyperliquidGrouping, HyperliquidGuardError, HyperliquidInfoClient, type HyperliquidOrderIntent, type HyperliquidOrderOptions, type HyperliquidOrderResponse, type HyperliquidOrderStatus, HyperliquidTermsError, type HyperliquidTermsRecordInput, type HyperliquidTriggerOptions, type HyperliquidTriggerType, type HyperliquidWithdrawResult, type NonceSource, __hyperliquidInternals, approveHyperliquidBuilderFee, batchModifyHyperliquidOrders, cancelAllHyperliquidOrders, cancelHyperliquidOrders, cancelHyperliquidOrdersByCloid, cancelHyperliquidTwapOrder, createHyperliquidSubAccount, createMonotonicNonceFactory, depositToHyperliquidBridge, fetchHyperliquidAssetCtxs, fetchHyperliquidClearinghouseState, fetchHyperliquidFrontendOpenOrders, fetchHyperliquidHistoricalOrders, fetchHyperliquidMeta, fetchHyperliquidMetaAndAssetCtxs, fetchHyperliquidOpenOrders, fetchHyperliquidOrderStatus, fetchHyperliquidPreTransferCheck, fetchHyperliquidSpotAssetCtxs, fetchHyperliquidSpotClearinghouseState, fetchHyperliquidSpotMeta, fetchHyperliquidSpotMetaAndAssetCtxs, fetchHyperliquidUserFills, fetchHyperliquidUserFillsByTime, fetchHyperliquidUserRateLimit, getHyperliquidMaxBuilderFee, modifyHyperliquidOrder, placeHyperliquidOrder, placeHyperliquidTwapOrder, recordHyperliquidBuilderApproval, recordHyperliquidTermsAcceptance, reserveHyperliquidRequestWeight, scheduleHyperliquidCancel, sendHyperliquidSpot, setHyperliquidPortfolioMargin, transferHyperliquidSubAccount, updateHyperliquidIsolatedMargin, updateHyperliquidLeverage, withdrawFromHyperliquid };
+export { DEFAULT_HYPERLIQUID_MARKET_SLIPPAGE_BPS, type HyperliquidAbstraction, type HyperliquidAccountMode, HyperliquidApiError, type HyperliquidApproveBuilderFeeOptions, type HyperliquidApproveBuilderFeeResponse, HyperliquidBuilderApprovalError, type HyperliquidBuilderApprovalRecordInput, type HyperliquidBuilderFee, type HyperliquidChain, type HyperliquidClearinghouseState, type HyperliquidDepositResult, type HyperliquidEnvironment, HyperliquidExchangeClient, type HyperliquidExchangeResponse, type HyperliquidGrouping, HyperliquidGuardError, HyperliquidInfoClient, type HyperliquidMarketIdentityInput, type HyperliquidMarketType, type HyperliquidOrderIntent, type HyperliquidOrderOptions, type HyperliquidOrderResponse, type HyperliquidOrderStatus, type HyperliquidPerpMarketInfo, type HyperliquidProfileAsset, type HyperliquidProfileAssetInput, type HyperliquidProfileChain, type HyperliquidSpotMarketInfo, type HyperliquidStoreNetwork, HyperliquidTermsError, type HyperliquidTermsRecordInput, type HyperliquidTickSize, type HyperliquidTimeInForce, type HyperliquidTriggerOptions, type HyperliquidTriggerType, type HyperliquidWithdrawResult, type MarketIdentity, type NonceSource, __hyperliquidInternals, __hyperliquidMarketDataInternals, approveHyperliquidBuilderFee, batchModifyHyperliquidOrders, buildHyperliquidMarketIdentity, buildHyperliquidProfileAssets, buildHyperliquidSpotUsdPriceMap, cancelAllHyperliquidOrders, cancelHyperliquidOrders, cancelHyperliquidOrdersByCloid, cancelHyperliquidTwapOrder, computeHyperliquidMarketIocLimitPrice, createHyperliquidSubAccount, createMonotonicNonceFactory, depositToHyperliquidBridge, extractHyperliquidDex, extractHyperliquidOrderIds, fetchHyperliquidAllMids, fetchHyperliquidAssetCtxs, fetchHyperliquidClearinghouseState, fetchHyperliquidFrontendOpenOrders, fetchHyperliquidHistoricalOrders, fetchHyperliquidMeta, fetchHyperliquidMetaAndAssetCtxs, fetchHyperliquidOpenOrders, fetchHyperliquidOrderStatus, fetchHyperliquidPerpMarketInfo, fetchHyperliquidPreTransferCheck, fetchHyperliquidSizeDecimals, fetchHyperliquidSpotAccountValue, fetchHyperliquidSpotAssetCtxs, fetchHyperliquidSpotClearinghouseState, fetchHyperliquidSpotMarketInfo, fetchHyperliquidSpotMeta, fetchHyperliquidSpotMetaAndAssetCtxs, fetchHyperliquidSpotTickSize, fetchHyperliquidSpotUsdPriceMap, fetchHyperliquidTickSize, fetchHyperliquidUserFills, fetchHyperliquidUserFillsByTime, fetchHyperliquidUserRateLimit, formatHyperliquidMarketablePrice, formatHyperliquidOrderSize, formatHyperliquidPrice, formatHyperliquidSize, getHyperliquidMaxBuilderFee, isHyperliquidSpotSymbol, modifyHyperliquidOrder, normalizeHyperliquidBaseSymbol, normalizeHyperliquidMetaSymbol, normalizeSpotTokenName, parseSpotPairSymbol, placeHyperliquidOrder, placeHyperliquidTwapOrder, readHyperliquidAccountValue, readHyperliquidNumber, readHyperliquidPerpPosition, readHyperliquidPerpPositionSize, readHyperliquidSpotAccountValue, readHyperliquidSpotBalance, readHyperliquidSpotBalanceSize, recordHyperliquidBuilderApproval, recordHyperliquidTermsAcceptance, reserveHyperliquidRequestWeight, resolveHyperliquidAbstractionFromMode, resolveHyperliquidChain, resolveHyperliquidChainConfig, resolveHyperliquidErrorDetail, resolveHyperliquidOrderRef, resolveHyperliquidOrderSymbol, resolveHyperliquidPair, resolveHyperliquidProfileChain, resolveHyperliquidRpcEnvVar, resolveHyperliquidStoreNetwork, resolveHyperliquidSymbol, resolveSpotMidCandidates, resolveSpotTokenCandidates, roundHyperliquidPriceToTick, scheduleHyperliquidCancel, sendHyperliquidSpot, setHyperliquidAccountAbstractionMode, setHyperliquidDexAbstraction, setHyperliquidPortfolioMargin, transferHyperliquidSubAccount, updateHyperliquidIsolatedMargin, updateHyperliquidLeverage, withdrawFromHyperliquid };

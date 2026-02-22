@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-import { M as Metadata, I as InternalToolDefinition } from '../validate-uetwG5jo.js';
-export { G as GenerateMetadataOptions, a as GenerateMetadataResult, V as ValidateOptions, b as generateMetadata, g as generateMetadataCommand, l as loadAndValidateTools, v as validateCommand, c as validateFullCommand } from '../validate-uetwG5jo.js';
+import { M as Metadata, I as InternalToolDefinition } from '../validate-C4a9tmrQ.js';
+export { G as GenerateMetadataOptions, a as GenerateMetadataResult, V as ValidateOptions, b as generateMetadata, g as generateMetadataCommand, l as loadAndValidateTools, v as validateCommand, c as validateFullCommand } from '../validate-C4a9tmrQ.js';
 import 'zod';
 import '../x402/index.js';
 import 'viem';
@@ -17,7 +17,7 @@ interface BuildArtifacts {
     tools: InternalToolDefinition[];
     compiledTools: CompiledToolArtifact[];
     workflowBundles: WorkflowBundleArtifact | null;
-    cronManifestPath: string | null;
+    toolsManifestPath: string | null;
     sharedModules?: SharedModulesInfo | null;
 }
 interface CompiledToolArtifact {

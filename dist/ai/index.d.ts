@@ -180,7 +180,7 @@ declare class AIAbortError extends AIError {
     constructor(message?: string);
 }
 
-type ModelProvider = "openai" | "anthropic" | "google" | "deepseek" | "custom";
+type ModelProvider = "openai" | "anthropic" | "google" | "deepseek" | "fireworks" | "custom";
 interface ModelConfig {
     name: string;
     label: string;
@@ -209,7 +209,7 @@ declare function streamText(options: StreamTextOptions, clientConfig?: AIClientC
 
 declare const DEFAULT_BASE_URL = "https://gateway.openpond.dev";
 declare const DEFAULT_TIMEOUT_MS = 60000;
-declare const DEFAULT_MODEL = "openai/gpt-5-mini";
+declare const DEFAULT_MODEL = "fireworks:accounts/fireworks/models/glm-4p7";
 declare function resolveConfig(config?: AIClientConfig): ResolvedAIClientConfig;
 
 declare const WEBSEARCH_TOOL_NAME = "websearch";
