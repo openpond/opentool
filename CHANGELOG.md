@@ -1,5 +1,11 @@
 # opentool
 
+## 0.8.25
+
+### Patch Changes
+
+- ac03fd1: centralized hyperliquid, fixed bugs and updated default configs
+
 ## 0.8.24
 
 ### Patch Changes
