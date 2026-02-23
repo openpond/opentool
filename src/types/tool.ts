@@ -32,6 +32,12 @@ export type ConnectedApp = {
   body?: unknown;
 };
 
+export type TemplatePreviewProfile = {
+  title?: string;
+  subtitle: string;
+  description: string;
+};
+
 export type ToolProfile = {
   description?: string;
   category?: ToolCategory;
@@ -47,6 +53,7 @@ export type ToolProfile = {
     defaults?: Record<string, unknown>;
     envVar?: string;
   };
+  templatePreview?: TemplatePreviewProfile;
 };
 
 export type GetHandler = (req: Request) => Promise<Response> | Response;

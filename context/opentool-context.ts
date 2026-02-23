@@ -90,6 +90,10 @@ For private tools, say for internal trading apps:
 - GET-only (scheduled default profile)
 - POST-only (one-off, parameterized with Zod)
 - \`profile.category\` defaults to \`tracker\` if omitted; set to \`strategy\` or \`orchestrator\` for PnL/automation tools.
+- Strategy tools must define \`profile.templatePreview\` with:
+- \`subtitle\` (required short line)
+- \`description\` (required multi-line summary, 3-8 non-empty lines; target ~5)
+- \`title\` is optional and defaults to the tool name when omitted.
 
 GET-only (scheduled default)
 
@@ -99,6 +103,16 @@ export const profile = {
   description: "Stake 100 USDC daily at 12:00 UTC",
   category: "strategy",
   schedule: { cron: "0 12 * * *", enabled: false },
+  templatePreview: {
+    subtitle: "Automated daily staking strategy",
+    description: [
+      "Runs once per day on your configured schedule.",
+      "Uses fixed, explicit sizing controls from template config.",
+      "Designed for long-running automated execution.",
+      "Keeps logic deterministic and easy to audit.",
+      "Best for hands-off recurring onchain actions.",
+    ].join("\\n"),
+  },
 };
 
 export async function GET(_req: Request) {

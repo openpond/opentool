@@ -35,6 +35,11 @@ const SUPPORTED_EXTENSIONS = [
 ];
 
 const MIN_TEMPLATE_CONFIG_VERSION = 2;
+const TEMPLATE_PREVIEW_TITLE_MAX = 80;
+const TEMPLATE_PREVIEW_SUBTITLE_MAX = 120;
+const TEMPLATE_PREVIEW_DESCRIPTION_MAX = 1200;
+const TEMPLATE_PREVIEW_MIN_LINES = 3;
+const TEMPLATE_PREVIEW_MAX_LINES = 8;
 
 function normalizeTemplateConfigVersion(value: unknown): number | null {
   if (typeof value === "number" && Number.isFinite(value)) {
@@ -61,6 +66,91 @@ function normalizeTemplateConfigVersion(value: unknown): number | null {
 
   const major = Number.parseInt(majorMatch[1], 10);
   return Number.isFinite(major) ? major : null;
+}
+
+function parseNonEmptyString(
+  value: unknown,
+  fieldPath: string,
+  opts: { max?: number; required?: boolean } = {}
+): string | null {
+  const { max, required = false } = opts;
+  if (value == null) {
+    if (required) {
+      throw new Error(`${fieldPath} is required and must be a non-empty string.`);
+    }
+    return null;
+  }
+  if (typeof value !== "string") {
+    throw new Error(`${fieldPath} must be a string.`);
+  }
+  const trimmed = value.trim();
+  if (!trimmed) {
+    throw new Error(`${fieldPath} must be a non-empty string.`);
+  }
+  if (typeof max === "number" && trimmed.length > max) {
+    throw new Error(`${fieldPath} must be <= ${max} characters.`);
+  }
+  return trimmed;
+}
+
+function normalizeTemplatePreview(
+  value: unknown,
+  file: string,
+  toolName: string,
+  requirePreview: boolean
+): Record<string, string> | null {
+  const pathPrefix = `${file}: profile.templatePreview`;
+
+  if (value == null) {
+    if (requirePreview) {
+      throw new Error(
+        `${pathPrefix} is required for strategy tools and must define subtitle + description.`
+      );
+    }
+    return null;
+  }
+
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error(`${pathPrefix} must be an object.`);
+  }
+
+  const record = value as Record<string, unknown>;
+  const title =
+    parseNonEmptyString(record.title, `${pathPrefix}.title`, {
+      max: TEMPLATE_PREVIEW_TITLE_MAX,
+    }) ?? toolName;
+  const subtitle = parseNonEmptyString(record.subtitle, `${pathPrefix}.subtitle`, {
+    required: true,
+    max: TEMPLATE_PREVIEW_SUBTITLE_MAX,
+  }) as string;
+  const description = parseNonEmptyString(
+    record.description,
+    `${pathPrefix}.description`,
+    {
+      required: true,
+      max: TEMPLATE_PREVIEW_DESCRIPTION_MAX,
+    }
+  ) as string;
+
+  const descriptionLineCount = description
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0).length;
+
+  if (
+    descriptionLineCount < TEMPLATE_PREVIEW_MIN_LINES ||
+    descriptionLineCount > TEMPLATE_PREVIEW_MAX_LINES
+  ) {
+    throw new Error(
+      `${pathPrefix}.description must contain ${TEMPLATE_PREVIEW_MIN_LINES}-${TEMPLATE_PREVIEW_MAX_LINES} non-empty lines (target ~5 lines).`
+    );
+  }
+
+  return {
+    title,
+    subtitle,
+    description,
+  };
 }
 
 export async function validateCommand(options: ValidateOptions): Promise<void> {
@@ -200,22 +290,38 @@ export async function loadAndValidateTools(
       }
 
       let normalizedSchedule: NormalizedSchedule | null = null;
-      const schedule = (toolModule as any)?.profile?.schedule;
+      const profileRaw =
+        (toolModule as any)?.profile && typeof (toolModule as any).profile === "object"
+          ? ((toolModule as any).profile as Record<string, unknown>)
+          : null;
+      const schedule = (profileRaw?.schedule ?? null) as Record<string, unknown> | null;
       const profileNotifyEmail =
-        typeof (toolModule as any)?.profile?.notifyEmail === "boolean"
-          ? (toolModule as any).profile.notifyEmail
+        typeof profileRaw?.notifyEmail === "boolean"
+          ? profileRaw.notifyEmail
           : undefined;
-      const profileCategoryRaw =
-        typeof (toolModule as any)?.profile?.category === "string"
-          ? (toolModule as any).profile.category
+      const allowedProfileCategories = [
+        "strategy",
+        "tracker",
+        "orchestrator",
+      ] as const;
+      type AllowedProfileCategory = (typeof allowedProfileCategories)[number];
+      const profileCategoryCandidate =
+        typeof profileRaw?.category === "string"
+          ? profileRaw.category
           : undefined;
-      const allowedProfileCategories = new Set(["strategy", "tracker", "orchestrator"]);
-      if (profileCategoryRaw && !allowedProfileCategories.has(profileCategoryRaw)) {
-        throw new Error(
-          `${file}: profile.category must be one of ${Array.from(allowedProfileCategories).join(", ")}`
-        );
+      let profileCategoryRaw: AllowedProfileCategory | undefined;
+      if (profileCategoryCandidate !== undefined) {
+        const isAllowed = (
+          allowedProfileCategories as readonly string[]
+        ).includes(profileCategoryCandidate);
+        if (!isAllowed) {
+          throw new Error(
+            `${file}: profile.category must be one of ${allowedProfileCategories.join(", ")}`
+          );
+        }
+        profileCategoryRaw = profileCategoryCandidate as AllowedProfileCategory;
       }
-      const profileAssetsRaw = (toolModule as any)?.profile?.assets;
+      const profileAssetsRaw = profileRaw?.assets;
       if (profileAssetsRaw !== undefined) {
         if (!Array.isArray(profileAssetsRaw)) {
           throw new Error(`${file}: profile.assets must be an array.`);
@@ -283,7 +389,7 @@ export async function loadAndValidateTools(
           }
         });
       }
-      const templateConfigRaw = (toolModule as any)?.profile?.templateConfig;
+      const templateConfigRaw = profileRaw?.templateConfig;
       if (templateConfigRaw !== undefined) {
         if (!templateConfigRaw || typeof templateConfigRaw !== "object") {
           throw new Error(`${file}: profile.templateConfig must be an object.`);
@@ -330,6 +436,19 @@ export async function loadAndValidateTools(
           );
         }
       }
+      const normalizedTemplatePreview = normalizeTemplatePreview(
+        profileRaw?.templatePreview,
+        file,
+        toolName,
+        profileCategoryRaw === "strategy"
+      );
+      const normalizedProfile =
+        profileRaw && normalizedTemplatePreview
+          ? ({ ...profileRaw, templatePreview: normalizedTemplatePreview } as Record<
+              string,
+              unknown
+            >)
+          : profileRaw;
       if (hasGET && schedule && typeof schedule.cron === "string" && schedule.cron.trim().length > 0) {
         normalizedSchedule = normalizeScheduleExpression(schedule.cron, file);
         if (typeof schedule.enabled === "boolean") {
@@ -411,14 +530,11 @@ export async function loadAndValidateTools(
         handler: async (params: unknown) => adapter(params),
         payment: paymentExport ?? null,
         schedule: normalizedSchedule,
-        profile:
-          (toolModule as any)?.profile && typeof (toolModule as any).profile === "object"
-            ? (toolModule as any).profile
-            : null,
+        profile: normalizedProfile,
         ...(profileNotifyEmail !== undefined ? { notifyEmail: profileNotifyEmail } : {}),
         profileDescription:
-          typeof (toolModule as any)?.profile?.description === "string"
-            ? toolModule.profile?.description ?? null
+          typeof profileRaw?.description === "string"
+            ? (profileRaw.description as string)
             : null,
         ...(profileCategoryRaw ? { profileCategory: profileCategoryRaw } : {}),
       };
