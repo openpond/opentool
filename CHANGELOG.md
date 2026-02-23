@@ -1,5 +1,11 @@
 # opentool
 
+## 0.8.28
+
+### Patch Changes
+
+- 3a8663a: added title preview
+
 ## 0.8.27
 
 ### Patch Changes
