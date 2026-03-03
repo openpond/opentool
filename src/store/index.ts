@@ -58,6 +58,13 @@ export type StoreAction =
   | string;
 
 export type StoreEventLevel = (typeof STORE_EVENT_LEVELS)[number];
+export type StoreMode = "live" | "backtest";
+
+export type StoreSimulationConfig = {
+  fillModel?: string;
+  feeModel?: string;
+  slippageBps?: number;
+};
 
 type ChainScope =
   | { chainId: number; network?: never }
@@ -74,6 +81,9 @@ export type StoreEventInput = ChainScope & {
   notional?: string; // decimal string recommended to avoid float precision issues
   metadata?: Record<string, unknown>;
   market?: Record<string, unknown>;
+  mode?: StoreMode;
+  backtestRunId?: string;
+  simulation?: StoreSimulationConfig;
 };
 
 export interface StoreOptions {
@@ -97,6 +107,8 @@ export type StoreRetrieveParams = {
   limit?: number;
   cursor?: string;
   history?: boolean;
+  mode?: StoreMode;
+  backtestRunId?: string;
 };
 
 export type StoreRetrieveResult = {
@@ -293,8 +305,15 @@ export async function store(
   options?: StoreOptions
 ): Promise<StoreResponse> {
   const normalizedInput = normalizeStoreInput(input);
+  const mode = normalizedInput.mode ?? "live";
   const eventLevel = normalizedInput.eventLevel;
   const normalizedAction = normalizeAction(normalizedInput.action);
+
+  if (mode === "backtest" && !normalizedInput.backtestRunId) {
+    throw new StoreError(
+      `backtestRunId is required when mode is "backtest"`
+    );
+  }
 
   if (eventLevel === "execution" || eventLevel === "lifecycle") {
     if (!normalizedAction || !EXECUTION_ACTIONS_SET.has(normalizedAction)) {
@@ -321,7 +340,8 @@ export async function store(
   }
   const { baseUrl, apiKey, fetchFn } = resolveConfig(options);
 
-  const url = `${baseUrl}/apps/positions/tx`;
+  const path = mode === "backtest" ? "/apps/backtests/tx" : "/apps/positions/tx";
+  const url = `${baseUrl}${path}`;
 
   let response: Response;
   try {
@@ -371,8 +391,10 @@ export async function retrieve(
   options?: StoreOptions
 ): Promise<StoreRetrieveResult> {
   const { baseUrl, apiKey, fetchFn } = resolveConfig(options);
+  const mode = params?.mode ?? "live";
+  const path = mode === "backtest" ? "/apps/backtests/tx" : "/apps/positions/tx";
 
-  const url = new URL(`${baseUrl}/apps/positions/tx`);
+  const url = new URL(`${baseUrl}${path}`);
   if (params?.source) url.searchParams.set("source", params.source);
   if (params?.walletAddress) url.searchParams.set("walletAddress", params.walletAddress);
   if (params?.symbol) url.searchParams.set("symbol", params.symbol);
@@ -382,6 +404,9 @@ export async function retrieve(
   if (typeof params?.limit === "number") url.searchParams.set("limit", params.limit.toString());
   if (params?.cursor) url.searchParams.set("cursor", params.cursor);
   if (params?.history) url.searchParams.set("history", "true");
+  if (params?.backtestRunId) {
+    url.searchParams.set("backtestRunId", params.backtestRunId);
+  }
 
   let response: Response;
   try {
