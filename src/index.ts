@@ -7,6 +7,7 @@ export * from "./adapters/hyperliquid/index";
 export * from "./adapters/polymarket/index";
 export * from "./ai/index";
 export * from "./store/index";
+export * from "./backtest/index";
 export { createMcpAdapter, responseToToolResponse } from "./adapters/mcp";
 
 export {
