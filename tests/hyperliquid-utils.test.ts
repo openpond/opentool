@@ -3,6 +3,7 @@ import { test } from "node:test";
 
 import {
   extractHyperliquidOrderIds,
+  fetchHyperliquidBars,
   formatHyperliquidPrice,
   formatHyperliquidSize,
   formatHyperliquidMarketablePrice,
@@ -92,4 +93,45 @@ test("state readers handle account value and position matching", () => {
 
   assert.equal(readHyperliquidPerpPositionSize(payload, "BTC", { prefixMatch: true }), 0.25);
   assert.equal(readHyperliquidPerpPositionSize(payload, "BTC", { prefixMatch: false }), 0);
+});
+
+test("fetchHyperliquidBars normalizes symbol and filters invalid rows", async () => {
+  const originalFetch = globalThis.fetch;
+  let capturedUrl = "";
+  globalThis.fetch = (async (input: URL | RequestInfo) => {
+    capturedUrl = String(input);
+    return {
+      ok: true,
+      json: async () => ({
+        bars: [
+          { time: 1700000000, close: 100.5 },
+          { time: 1700000100, close: "bad" },
+          { time: "bad", close: 101.5 },
+        ],
+      }),
+    } as unknown as Response;
+  }) as typeof fetch;
+
+  try {
+    const bars = await fetchHyperliquidBars({
+      symbol: "hl:btc",
+      resolution: "60",
+      countBack: 100,
+      fromSeconds: 1000,
+      toSeconds: 2000,
+      gatewayBase: "https://gateway.example/",
+    });
+
+    const url = new URL(capturedUrl);
+    assert.equal(url.origin + url.pathname, "https://gateway.example/v1/hyperliquid/bars");
+    assert.equal(url.searchParams.get("symbol"), "hl:BTC");
+    assert.equal(url.searchParams.get("resolution"), "60");
+    assert.equal(url.searchParams.get("countBack"), "100");
+    assert.equal(url.searchParams.get("from"), "1000");
+    assert.equal(url.searchParams.get("to"), "2000");
+    assert.equal(bars.length, 1);
+    assert.equal(bars[0]?.close, 100.5);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });

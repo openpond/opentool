@@ -18,7 +18,6 @@ interface BuildArtifacts {
   defaultsApplied: string[];
   tools: InternalToolDefinition[];
   compiledTools: CompiledToolArtifact[];
-  workflowBundles: WorkflowBundleArtifact | null;
   toolsManifestPath: string | null;
   sharedModules?: SharedModulesInfo | null;
 }
@@ -31,16 +30,6 @@ interface CompiledToolArtifact {
   mcpEnabled: boolean;
   defaultMcpMethod?: string;
   hasWallet: boolean;
-}
-
-interface WorkflowBundleArtifact {
-  sourceDir: string;
-  outputDir: string;
-  stepsBundlePath: string;
-  workflowsBundlePath: string;
-  webhookBundlePath: string;
-  clientBundlePath?: string;
-  manifestPath?: string;
 }
 
 interface ToolsManifestEntry {
@@ -113,11 +102,6 @@ export async function buildProject(options: BuildOptions): Promise<BuildArtifact
     outputDir,
   });
 
-  const workflowBundles = await buildWorkflowsIfPresent({
-    projectRoot,
-    outputDir,
-  });
-
   const shouldBuildMcpServer = compiledTools.some((artifact) => artifact.mcpEnabled);
 
   if (shouldBuildMcpServer) {
@@ -141,7 +125,6 @@ export async function buildProject(options: BuildOptions): Promise<BuildArtifact
     defaultsApplied,
     tools,
     compiledTools,
-    workflowBundles,
     toolsManifestPath,
     sharedModules,
   };
@@ -454,18 +437,6 @@ function logBuildSummary(artifacts: BuildArtifacts, options: BuildOptions): void
   if (artifacts.toolsManifestPath) {
     console.log("  • tools.json (runtime tool manifest)");
   }
-  if (artifacts.workflowBundles) {
-    console.log("  • .well-known/workflow/v1/ (workflow bundles)");
-    console.log("     - flow.js");
-    console.log("     - step.js");
-    console.log("     - webhook.js");
-    if (artifacts.workflowBundles.clientBundlePath) {
-      console.log("     - client.js");
-    }
-    if (artifacts.workflowBundles.manifestPath) {
-      console.log("     - manifest.json");
-    }
-  }
   if (artifacts.defaultsApplied.length > 0) {
     console.log("\nDefaults applied during metadata synthesis:");
     artifacts.defaultsApplied.forEach((entry) => console.log(`  • ${entry}`));
@@ -475,254 +446,6 @@ function logBuildSummary(artifacts: BuildArtifacts, options: BuildOptions): void
     console.log("\nℹ️ MCP adapter skipped (no tools opted in)");
   }
 }
-
-interface WorkflowBuildOptions {
-  projectRoot: string;
-  outputDir: string;
-  workflowsDir?: string;
-}
-
-async function buildWorkflowsIfPresent(
-  options: WorkflowBuildOptions
-): Promise<WorkflowBundleArtifact | null> {
-  const workflowsDir =
-    options.workflowsDir ?? path.join(options.projectRoot, "workflows");
-
-  if (!fs.existsSync(workflowsDir)) {
-    return null;
-  }
-
-  if (!hasWorkflowSourceFiles(workflowsDir)) {
-    return null;
-  }
-
-  const nodeVersion = process.versions?.node ?? "0.0.0";
-  const nodeMajor = Number(nodeVersion.split(".")[0] ?? 0);
-
-  if (!Number.isFinite(nodeMajor) || nodeMajor < 22) {
-    console.warn(
-      `[${timestamp()}] Workflow bundles skipped (requires Node >= 22, current ${nodeVersion})`
-    );
-    return null;
-  }
-
-  type WorkflowBaseBuilderCtor = new (config: any) => {
-    config: any;
-    getInputFiles(): Promise<string[]>;
-    getTsConfigOptions(): Promise<{
-      baseUrl?: string;
-      paths?: Record<string, string[]>;
-    }>;
-    createStepsBundle(options: any): Promise<void>;
-    createWorkflowsBundle(options: any): Promise<void>;
-    createWebhookBundle(options: any): Promise<void>;
-  };
-
-  let BaseBuilder: WorkflowBaseBuilderCtor;
-  try {
-    ({ BaseBuilder } = (await import(
-      "@workflow/cli/dist/lib/builders/base-builder.js"
-    )) as { BaseBuilder: WorkflowBaseBuilderCtor });
-  } catch (error) {
-    const details =
-      error instanceof Error ? `\nReason: ${error.message}` : "";
-    throw new Error(
-      `[${timestamp()}] Workflow sources detected, but optional dependency ` +
-        "'@workflow/cli' is not installed. Install it with \"npm install " +
-        "@workflow/cli\" (or add it to devDependencies) and rerun the build." +
-        details
-    );
-  }
-
-  class OpenToolWorkflowBuilder extends BaseBuilder {
-    constructor(config: ConstructorParameters<WorkflowBaseBuilderCtor>[0]) {
-      super(config);
-    }
-
-    async build(): Promise<void> {
-      const inputFiles = await this.getInputFiles();
-      const tsConfig = await this.getTsConfigOptions();
-      const shared: {
-        inputFiles: string[];
-        tsBaseUrl?: string;
-        tsPaths?: Record<string, string[]>;
-      } = {
-        inputFiles,
-        ...(tsConfig.baseUrl ? { tsBaseUrl: tsConfig.baseUrl } : {}),
-        ...(tsConfig.paths ? { tsPaths: tsConfig.paths } : {}),
-      };
-
-      await this.buildStepsBundle(shared);
-      await this.buildWorkflowsBundle(shared);
-      await this.buildWebhookRoute();
-      await this.buildClientLibrary();
-    }
-
-    private async buildStepsBundle(
-      options: {
-        inputFiles: string[];
-        tsBaseUrl?: string;
-        tsPaths?: Record<string, string[]>;
-      }
-    ): Promise<void> {
-      console.log(
-        "Creating OpenTool workflow steps bundle at",
-        this.config.stepsBundlePath
-      );
-      const stepsBundlePath = path.resolve(
-        this.config.workingDir,
-        this.config.stepsBundlePath
-      );
-      await fs.promises.mkdir(path.dirname(stepsBundlePath), { recursive: true });
-      await this.createStepsBundle({
-        outfile: stepsBundlePath,
-        ...options,
-      });
-    }
-
-    private async buildWorkflowsBundle(
-      options: {
-        inputFiles: string[];
-        tsBaseUrl?: string;
-        tsPaths?: Record<string, string[]>;
-      }
-    ): Promise<void> {
-      console.log(
-        "Creating OpenTool workflow bundle at",
-        this.config.workflowsBundlePath
-      );
-      const workflowBundlePath = path.resolve(
-        this.config.workingDir,
-        this.config.workflowsBundlePath
-      );
-      await fs.promises.mkdir(path.dirname(workflowBundlePath), {
-        recursive: true,
-      });
-      await this.createWorkflowsBundle({
-        outfile: workflowBundlePath,
-        bundleFinalOutput: false,
-        ...options,
-      });
-    }
-
-    private async buildWebhookRoute(): Promise<void> {
-      console.log(
-        "Creating OpenTool workflow webhook bundle at",
-        this.config.webhookBundlePath
-      );
-      const webhookBundlePath = path.resolve(
-        this.config.workingDir,
-        this.config.webhookBundlePath
-      );
-      await fs.promises.mkdir(path.dirname(webhookBundlePath), {
-        recursive: true,
-      });
-      await this.createWebhookBundle({ outfile: webhookBundlePath });
-    }
-
-    private async buildClientLibrary(): Promise<void> {
-      if (!this.config?.clientBundlePath) {
-        return;
-      }
-
-      // Workflow CLI normally emits a client bundle for UI tooling. OpenTool
-      // currently doesn't surface it, but we keep the hook to remain compatible
-      // with future versions.
-      const clientBundlePath = path.resolve(
-        this.config.workingDir,
-        this.config.clientBundlePath
-      );
-      await fs.promises.mkdir(path.dirname(clientBundlePath), {
-        recursive: true,
-      });
-      await this.createWorkflowsBundle({
-        outfile: clientBundlePath,
-        bundleFinalOutput: true,
-      });
-    }
-  }
-
-  const relativeSourceDir = path.relative(options.projectRoot, workflowsDir) || ".";
-  const outputBase = path.join(
-    options.outputDir,
-    ".well-known",
-    "workflow",
-    "v1"
-  );
-
-  const stepsBundlePath = path.join(outputBase, "step.js");
-  const workflowsBundlePath = path.join(outputBase, "flow.js");
-  const webhookBundlePath = path.join(outputBase, "webhook.js");
-  const clientBundlePath: string | undefined = undefined;
-  const manifestPath = path.join(outputBase, "manifest.json");
-
-  const builder = new OpenToolWorkflowBuilder({
-    workingDir: options.projectRoot,
-    dirs: [relativeSourceDir],
-    buildTarget: "standalone",
-    stepsBundlePath,
-    workflowsBundlePath,
-    webhookBundlePath,
-    ...(clientBundlePath ? { clientBundlePath } : {}),
-    workflowManifestPath: manifestPath,
-    externalPackages: [
-      "workflow",
-      "workflow/internal/builtins",
-      "workflow/internal/private",
-      "workflow/runtime",
-      "workflow/api",
-    ],
-  });
-
-  console.log(
-    `[${timestamp()}] Building workflows from ${workflowsDir} -> ${outputBase}`
-  );
-
-  await builder.build();
-
-  return {
-    sourceDir: workflowsDir,
-    outputDir: outputBase,
-    stepsBundlePath,
-    workflowsBundlePath,
-    webhookBundlePath,
-    ...(clientBundlePath ? { clientBundlePath } : {}),
-    manifestPath,
-  };
-}
-
-function hasWorkflowSourceFiles(directory: string): boolean {
-  const entries = fs.readdirSync(directory, { withFileTypes: true });
-
-  for (const entry of entries) {
-    if (entry.isDirectory()) {
-      if (hasWorkflowSourceFiles(path.join(directory, entry.name))) {
-        return true;
-      }
-      continue;
-    }
-
-    if (entry.isFile()) {
-      const extension = path.extname(entry.name).toLowerCase();
-      if (WORKFLOW_SOURCE_EXTENSIONS.has(extension)) {
-        return true;
-      }
-    }
-  }
-
-  return false;
-}
-
-const WORKFLOW_SOURCE_EXTENSIONS = new Set([
-  ".ts",
-  ".tsx",
-  ".js",
-  ".jsx",
-  ".mjs",
-  ".cjs",
-  ".mts",
-  ".cts",
-]);
 
 function timestamp(): string {
   return new Date().toISOString().replace("T", " ").slice(0, 19);
