@@ -63,6 +63,15 @@ export type HyperliquidBar = {
   [key: string]: unknown;
 };
 
+export type HyperliquidIndicatorBar = {
+  time: number;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+};
+
 export type HyperliquidPerpMarketInfo = {
   symbol: string;
   price: number;
@@ -81,13 +90,17 @@ export type HyperliquidSpotMarketInfo = {
 };
 
 const META_CACHE_TTL_MS = 5 * 60 * 1000;
+const DEFAULT_OPENPOND_GATEWAY_URL = "https://gateway.openpond.dev";
 const allMidsCache = new Map<
   string,
   { fetchedAt: number; mids: Record<string, string | number> }
 >();
 
 function resolveGatewayBase(override?: string | null): string | null {
-  const value = override ?? process.env.OPENPOND_GATEWAY_URL ?? null;
+  const value =
+    override ??
+    process.env.OPENPOND_GATEWAY_URL ??
+    DEFAULT_OPENPOND_GATEWAY_URL;
   if (typeof value !== "string") {
     return null;
   }
@@ -292,6 +305,37 @@ export async function fetchHyperliquidBars(params: {
       Number.isFinite(record.time)
     );
   });
+}
+
+export function normalizeHyperliquidIndicatorBars(
+  bars: HyperliquidBar[],
+): HyperliquidIndicatorBar[] {
+  return bars
+    .filter(
+      (bar): bar is HyperliquidBar & { time: number; close: number } =>
+        bar &&
+        typeof bar === "object" &&
+        typeof bar.time === "number" &&
+        Number.isFinite(bar.time) &&
+        typeof bar.close === "number" &&
+        Number.isFinite(bar.close),
+    )
+    .map((bar) => {
+      const close = bar.close;
+      const open = typeof bar.open === "number" && Number.isFinite(bar.open) ? bar.open : close;
+      const high = typeof bar.high === "number" && Number.isFinite(bar.high) ? bar.high : close;
+      const low = typeof bar.low === "number" && Number.isFinite(bar.low) ? bar.low : close;
+      const volume =
+        typeof bar.volume === "number" && Number.isFinite(bar.volume) ? bar.volume : 0;
+      return {
+        time: bar.time,
+        open,
+        high,
+        low,
+        close,
+        volume,
+      };
+    });
 }
 
 export async function fetchHyperliquidTickSize(params: {
