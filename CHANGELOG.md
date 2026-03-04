@@ -1,5 +1,11 @@
 # opentool
 
+## 0.10.0
+
+### Minor Changes
+
+- c31b1f0: fix deps, lint and exported viem
+
 ## 0.9.0
 
 ### Minor Changes
