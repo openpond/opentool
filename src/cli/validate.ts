@@ -143,7 +143,7 @@ function normalizeTemplatePreview(
 }
 
 export async function validateCommand(options: ValidateOptions): Promise<void> {
-  console.log("🔍 Validating OpenTool metadata...");
+  console.log("🔍 Validating OpenTool project...");
   try {
     const toolsDir = path.resolve(options.input);
     if (!fs.existsSync(toolsDir)) {
@@ -152,7 +152,7 @@ export async function validateCommand(options: ValidateOptions): Promise<void> {
     const projectRoot = path.dirname(toolsDir);
     const tools = await loadAndValidateTools(toolsDir, { projectRoot });
     if (tools.length === 0) {
-      throw new Error("No valid tools found - metadata validation aborted");
+      throw new Error("No valid tools found - validation aborted");
     }
 
     const { metadata, defaultsApplied, sourceMetadataPath } = await buildMetadataArtifact({
@@ -161,9 +161,9 @@ export async function validateCommand(options: ValidateOptions): Promise<void> {
     });
 
     logMetadataSummary(metadata, defaultsApplied, sourceMetadataPath);
-    console.log("\n✅ Metadata validation passed!\n");
+    console.log("\n✅ OpenTool validation passed!\n");
   } catch (error) {
-    console.error("❌ Metadata validation failed:", error);
+    console.error("❌ OpenTool validation failed:", error);
     process.exit(1);
   }
 }
@@ -432,11 +432,6 @@ export async function loadAndValidateTools(
       if (hasPOST) {
         if (!schema) {
           throw new Error(`${file}: POST tools must export a Zod schema as 'schema'`);
-        }
-        if (schedule && typeof schedule.cron === "string") {
-          throw new Error(
-            `${file}: POST tools must not define profile.schedule; use GET + cron for scheduled tasks.`,
-          );
         }
       }
       const httpHandlers = [...httpHandlersRaw];

@@ -39,17 +39,17 @@ program
   .option("--version <version>", "Server version", "1.0.0")
   .action(buildCommand);
 
-// Validate command (metadata only)
+// Validate command
 program
   .command("validate")
-  .description("Validate metadata for registry submission")
+  .description("Validate OpenTool project (tool handlers, profile/schema rules, metadata synthesis)")
   .option("-i, --input <dir>", "Input directory containing tools", "tools")
   .action(validateCommand);
 
-// Full validation command (tools + metadata)
+// Full validation command (verbose)
 program
   .command("validate-full")
-  .description("Full validation of tools and metadata")
+  .description("Full OpenTool validation with detailed tool summary")
   .option("-i, --input <dir>", "Input directory containing tools", "tools")
   .action(validateFullCommand);
 

@@ -1,5 +1,5 @@
 // OpenTool strict authoring types
-// One tool = one method (GET-only default profile with schedule, or POST-only one-off with schema)
+// One tool = one method (either GET or POST). Scheduled execution can target either method.
 
 import type { z } from "zod";
 
@@ -59,7 +59,7 @@ export type ToolProfile = {
 export type GetHandler = (req: Request) => Promise<Response> | Response;
 export type PostHandler = (req: Request) => Promise<Response> | Response;
 
-// GET-only tool (default scheduled profile)
+// GET-only tool
 export type ToolModuleGET = {
   profile: ToolProfile;
   GET: GetHandler;
@@ -67,7 +67,7 @@ export type ToolModuleGET = {
   schema?: never;
 };
 
-// POST-only tool (one-off, parameterized)
+// POST-only tool (parameterized; schema required)
 export type ToolModulePOST<B = unknown> = {
   profile?: ToolProfile;
   POST: PostHandler;
