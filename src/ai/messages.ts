@@ -16,7 +16,7 @@ export interface FlattenMessageContentOptions {
 
 export function flattenMessageContent(
   content: ChatMessage["content"],
-  options: FlattenMessageContentOptions = {}
+  options: FlattenMessageContentOptions = {},
 ): string | undefined {
   if (typeof content === "string") {
     return content;
@@ -49,22 +49,19 @@ export interface EnsureTextContentOptions extends FlattenMessageContentOptions {
 
 export function ensureTextContent(
   message: ChatMessage,
-  options?: EnsureTextContentOptions
+  options?: EnsureTextContentOptions,
 ): string {
   const flattened = flattenMessageContent(message.content, options);
   if (flattened !== undefined) {
     return flattened;
   }
 
-  throw new AIError(
-    options?.errorMessage ??
-      "Assistant response did not contain textual content."
-  );
+  throw new AIError(options?.errorMessage ?? "Assistant response did not contain textual content.");
 }
 
 function extractTextPart(
   part: ChatMessageContentPart,
-  options: FlattenMessageContentOptions
+  options: FlattenMessageContentOptions,
 ): string | undefined {
   if (!part || typeof part !== "object") {
     return undefined;

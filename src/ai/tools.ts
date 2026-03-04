@@ -1,8 +1,4 @@
-import {
-  ToolDefinition,
-  ToolExecutionPolicy,
-  WebSearchOptions,
-} from "./types";
+import { ToolDefinition, ToolExecutionPolicy, WebSearchOptions } from "./types";
 
 export const WEBSEARCH_TOOL_NAME = "websearch";
 
@@ -31,7 +27,7 @@ export const WEBSEARCH_TOOL_DEFINITION: ToolDefinition = {
 
 export function resolveToolset(
   tools: ToolDefinition[] | undefined,
-  policy: ToolExecutionPolicy | undefined
+  policy: ToolExecutionPolicy | undefined,
 ): ToolDefinition[] | undefined {
   if (!policy) {
     return tools;
@@ -41,8 +37,7 @@ export function resolveToolset(
 
   if (policy.webSearch) {
     const alreadyIncluded = resolved.some(
-      (tool) =>
-        tool.type === "function" && tool.function?.name === WEBSEARCH_TOOL_NAME
+      (tool) => tool.type === "function" && tool.function?.name === WEBSEARCH_TOOL_NAME,
     );
     if (!alreadyIncluded) {
       resolved.push(materializeWebSearchTool(policy.webSearch));
@@ -58,10 +53,8 @@ function materializeWebSearchTool(options: WebSearchOptions): ToolDefinition {
   }
 
   const baseParameters =
-    WEBSEARCH_TOOL_DEFINITION.function.parameters ??
-    ({} as Record<string, unknown>);
-  const baseProperties =
-    (baseParameters.properties as Record<string, unknown> | undefined) ?? {};
+    WEBSEARCH_TOOL_DEFINITION.function.parameters ?? ({} as Record<string, unknown>);
+  const baseProperties = (baseParameters.properties as Record<string, unknown> | undefined) ?? {};
 
   const properties: Record<string, unknown> = { ...baseProperties };
 
@@ -72,8 +65,7 @@ function materializeWebSearchTool(options: WebSearchOptions): ToolDefinition {
         ? { ...(existingLimit as Record<string, unknown>) }
         : {
             type: "number",
-            description:
-              "Maximum number of results to return (default: 5)",
+            description: "Maximum number of results to return (default: 5)",
           };
 
     limitSchema.default = options.limit;

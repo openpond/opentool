@@ -36,11 +36,7 @@ export function readHyperliquidAccountValue(payload: unknown): number | null {
   return null;
 }
 
-function matchPerpCoin(params: {
-  coin: string;
-  target: string;
-  prefixMatch: boolean;
-}): boolean {
+function matchPerpCoin(params: { coin: string; target: string; prefixMatch: boolean }): boolean {
   const coin = params.coin.toUpperCase();
   const target = params.target.toUpperCase();
   if (params.prefixMatch) return coin.startsWith(target);
@@ -50,7 +46,7 @@ function matchPerpCoin(params: {
 export function readHyperliquidPerpPositionSize(
   payload: unknown,
   symbol: string,
-  options?: { prefixMatch?: boolean }
+  options?: { prefixMatch?: boolean },
 ): number {
   const data = unwrapData(payload);
   const rows = Array.isArray((data as any)?.assetPositions)
@@ -80,7 +76,7 @@ export function readHyperliquidPerpPositionSize(
 export function readHyperliquidPerpPosition(
   payload: unknown,
   symbol: string,
-  options?: { prefixMatch?: boolean }
+  options?: { prefixMatch?: boolean },
 ): { size: number; positionValue: number; unrealizedPnl: number | null } {
   const data = unwrapData(payload);
   const rows = Array.isArray((data as any)?.assetPositions)
@@ -101,11 +97,10 @@ export function readHyperliquidPerpPosition(
 
     const size = readHyperliquidNumber(position?.szi ?? (row as any).szi) ?? 0;
     const positionValue = Math.abs(
-      readHyperliquidNumber(position?.positionValue ?? (row as any).positionValue) ??
-        0
+      readHyperliquidNumber(position?.positionValue ?? (row as any).positionValue) ?? 0,
     );
     const unrealizedPnl = readHyperliquidNumber(
-      position?.unrealizedPnl ?? (row as any).unrealizedPnl
+      position?.unrealizedPnl ?? (row as any).unrealizedPnl,
     );
     return { size, positionValue, unrealizedPnl };
   }
@@ -113,16 +108,12 @@ export function readHyperliquidPerpPosition(
   return { size: 0, positionValue: 0, unrealizedPnl: null };
 }
 
-export function readHyperliquidSpotBalanceSize(
-  payload: unknown,
-  symbol: string
-): number {
+export function readHyperliquidSpotBalanceSize(payload: unknown, symbol: string): number {
   const data = unwrapData(payload);
   const rows = Array.isArray((data as any)?.balances)
     ? ((data as any).balances as Array<Record<string, unknown>>)
     : [];
-  const base =
-    symbol.split("/")[0]?.split("-")[0]?.toUpperCase() ?? symbol.toUpperCase();
+  const base = symbol.split("/")[0]?.split("-")[0]?.toUpperCase() ?? symbol.toUpperCase();
 
   for (const row of rows) {
     const coin =
@@ -143,7 +134,7 @@ export function readHyperliquidSpotBalanceSize(
 
 export function readHyperliquidSpotBalance(
   payload: unknown,
-  base: string
+  base: string,
 ): { total: number; entryNtl: number | null } {
   const data = unwrapData(payload);
   const balances = Array.isArray((data as any)?.balances)
@@ -184,7 +175,7 @@ export function readHyperliquidSpotAccountValue(params: {
     if (!coin) continue;
 
     const amount = readHyperliquidNumber(
-      (row as any).total ?? (row as any).balance ?? (row as any).szi
+      (row as any).total ?? (row as any).balance ?? (row as any).szi,
     );
     if (amount == null || amount === 0) continue;
 

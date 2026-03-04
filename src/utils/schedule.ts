@@ -13,7 +13,9 @@ export function normalizeScheduleExpression(raw: string, context: string): Norma
   const cronFields = cronBody.trim().split(/\s+/).filter(Boolean);
 
   if (cronFields.length !== 5 && cronFields.length !== 6) {
-    throw new Error(`${context}: cron expression must have 5 or 6 fields (got ${cronFields.length})`);
+    throw new Error(
+      `${context}: cron expression must have 5 or 6 fields (got ${cronFields.length})`,
+    );
   }
 
   validateCronTokens(cronFields, context);

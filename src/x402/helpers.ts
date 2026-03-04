@@ -24,9 +24,7 @@ export interface X402PaymentDefinition {
   metadata?: Record<string, unknown>;
 }
 
-export function createX402PaymentRequired(
-  definition: X402PaymentDefinition
-): Response {
+export function createX402PaymentRequired(definition: X402PaymentDefinition): Response {
   const requirement = toX402Requirement(definition);
 
   // Build full payment requirements response
@@ -109,7 +107,7 @@ export async function verifyX402Payment(
     settle?: boolean;
     fetchImpl?: typeof fetch;
     timeout?: number;
-  } = {}
+  } = {},
 ): Promise<X402VerificationResult> {
   const fetchImpl = options.fetchImpl ?? fetch;
   const timeout = options.timeout ?? 25000; // 25 second default timeout
@@ -117,7 +115,7 @@ export async function verifyX402Payment(
 
   const verifierUrl = new URL(
     facilitator.verifyPath ?? "/verify",
-    ensureTrailingSlash(facilitator.url)
+    ensureTrailingSlash(facilitator.url),
   ).toString();
 
   const requirement = toX402Requirement(definition);
@@ -131,7 +129,7 @@ export async function verifyX402Payment(
     };
     console.log("[x402] Calling facilitator /verify", {
       url: verifierUrl,
-      fullBody: JSON.stringify(verifyBody, null, 2)
+      fullBody: JSON.stringify(verifyBody, null, 2),
     });
     const verifyResponse = await Promise.race([
       fetchImpl(verifierUrl, {
@@ -140,14 +138,17 @@ export async function verifyX402Payment(
         body: JSON.stringify(verifyBody),
       }),
       new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error(`Verification timeout after ${timeout}ms`)), timeout)
+        setTimeout(() => reject(new Error(`Verification timeout after ${timeout}ms`)), timeout),
       ),
     ]);
     console.log("[x402] Facilitator /verify response", { status: verifyResponse.status });
 
     if (!verifyResponse.ok) {
       const errorText = await verifyResponse.text().catch(() => "");
-      console.error("[x402] Facilitator /verify error", { status: verifyResponse.status, body: errorText });
+      console.error("[x402] Facilitator /verify error", {
+        status: verifyResponse.status,
+        body: errorText,
+      });
       return {
         success: false,
         failure: {
@@ -176,7 +177,7 @@ export async function verifyX402Payment(
     if (options.settle) {
       const settleUrl = new URL(
         facilitator.settlePath ?? "/settle",
-        ensureTrailingSlash(facilitator.url)
+        ensureTrailingSlash(facilitator.url),
       ).toString();
 
       try {
@@ -187,7 +188,7 @@ export async function verifyX402Payment(
         };
         console.log("[x402] Calling facilitator /settle", {
           url: settleUrl,
-          bodyPreview: JSON.stringify(settleBody).substring(0, 300)
+          bodyPreview: JSON.stringify(settleBody).substring(0, 300),
         });
         const settleResponse = await Promise.race([
           fetchImpl(settleUrl, {
@@ -196,14 +197,17 @@ export async function verifyX402Payment(
             body: JSON.stringify(settleBody),
           }),
           new Promise<never>((_, reject) =>
-            setTimeout(() => reject(new Error(`Settlement timeout after ${timeout}ms`)), timeout)
+            setTimeout(() => reject(new Error(`Settlement timeout after ${timeout}ms`)), timeout),
           ),
         ]);
         console.log("[x402] Facilitator /settle response", { status: settleResponse.status });
 
         if (!settleResponse.ok) {
           const errorText = await settleResponse.text().catch(() => "");
-          console.error("[x402] Facilitator /settle error", { status: settleResponse.status, body: errorText });
+          console.error("[x402] Facilitator /settle error", {
+            status: settleResponse.status,
+            body: errorText,
+          });
           return {
             success: false,
             failure: {
@@ -225,7 +229,9 @@ export async function verifyX402Payment(
           });
         }
       } catch (error) {
-        console.error("[x402] Settlement exception", { error: error instanceof Error ? error.message : String(error) });
+        console.error("[x402] Settlement exception", {
+          error: error instanceof Error ? error.message : String(error),
+        });
         return {
           success: false,
           failure: {

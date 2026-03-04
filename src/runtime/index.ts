@@ -1,19 +1,19 @@
-import { Server } from '@modelcontextprotocol/sdk/server/index.js';
-import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
-import * as fs from 'fs';
-import * as path from 'path';
-import { fileURLToPath } from 'url';
-import { zodToJsonSchema } from '@alcyone-labs/zod-to-json-schema';
-import { createMcpAdapter, HTTP_METHODS } from '../adapters/mcp';
-import { withX402Payment } from '../x402/index';
+import { Server } from "@modelcontextprotocol/sdk/server/index.js";
+import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
+import * as fs from "fs";
+import * as path from "path";
+import { fileURLToPath } from "url";
+import { zodToJsonSchema } from "@alcyone-labs/zod-to-json-schema";
+import { createMcpAdapter, HTTP_METHODS } from "../adapters/mcp";
+import { withX402Payment } from "../x402/index";
 import {
   type HttpHandlerDefinition,
   type InternalToolDefinition,
   type McpConfig,
   type ToolResponse,
-} from '../types/index';
-import { BuildMetadata, Tool } from '../types/metadata';
+} from "../types/index";
+import { BuildMetadata, Tool } from "../types/metadata";
 
 interface AdapterEntry {
   tool: InternalToolDefinition;
@@ -31,14 +31,14 @@ export function createDevServer(tools: InternalToolDefinition[]): Server {
 
   const server = new Server(
     {
-      name: 'opentool-dev',
-      version: '1.0.0',
+      name: "opentool-dev",
+      version: "1.0.0",
     },
     {
       capabilities: {
         tools: {},
       },
-    }
+    },
   );
 
   server.setRequestHandler(ListToolsRequestSchema, async () => ({
@@ -60,7 +60,7 @@ export function createDevServer(tools: InternalToolDefinition[]): Server {
     } catch (error) {
       const message = (error && (error as Error).message) || String(error);
       return {
-        content: [{ type: 'text', text: `Error: ${message}` }],
+        content: [{ type: "text", text: `Error: ${message}` }],
         isError: true,
       } as any;
     }
@@ -80,14 +80,14 @@ export async function createStdioServer(tools?: InternalToolDefinition[]): Promi
 
   const server = new Server(
     {
-      name: 'opentool-runtime',
-      version: '1.0.0',
+      name: "opentool-runtime",
+      version: "1.0.0",
     },
     {
       capabilities: {
         tools: {},
       },
-    }
+    },
   );
 
   server.setRequestHandler(ListToolsRequestSchema, async () => ({
@@ -109,7 +109,7 @@ export async function createStdioServer(tools?: InternalToolDefinition[]): Promi
     } catch (error) {
       const message = (error && (error as Error).message) || String(error);
       return {
-        content: [{ type: 'text', text: `Error: ${message}` }],
+        content: [{ type: "text", text: `Error: ${message}` }],
         isError: true,
       } as any;
     }
@@ -117,7 +117,7 @@ export async function createStdioServer(tools?: InternalToolDefinition[]): Promi
 
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.error('MCP stdio server started');
+  console.error("MCP stdio server started");
 }
 
 function buildAdapters(tools: InternalToolDefinition[]): AdapterEntry[] {
@@ -129,9 +129,7 @@ function buildAdapters(tools: InternalToolDefinition[]): AdapterEntry[] {
         name: tool.metadata?.name || tool.filename,
         httpHandlers,
         ...(tool.schema ? { schema: tool.schema } : {}),
-        ...(tool.mcpConfig?.defaultMethod
-          ? { defaultMethod: tool.mcpConfig.defaultMethod }
-          : {}),
+        ...(tool.mcpConfig?.defaultMethod ? { defaultMethod: tool.mcpConfig.defaultMethod } : {}),
       };
       const adapter = createMcpAdapter(adapterOptions);
 
@@ -145,9 +143,11 @@ function buildAdapters(tools: InternalToolDefinition[]): AdapterEntry[] {
 /**
  * Load tools from tools directory
  */
-async function loadToolsFromDirectory(metadataMap: Map<string, Tool>): Promise<InternalToolDefinition[]> {
+async function loadToolsFromDirectory(
+  metadataMap: Map<string, Tool>,
+): Promise<InternalToolDefinition[]> {
   const tools: InternalToolDefinition[] = [];
-  const toolsDir = path.join(process.cwd(), 'tools');
+  const toolsDir = path.join(process.cwd(), "tools");
   if (!fs.existsSync(toolsDir)) {
     return tools;
   }
@@ -160,14 +160,13 @@ async function loadToolsFromDirectory(metadataMap: Map<string, Tool>): Promise<I
 
     const toolPath = path.join(toolsDir, file);
     try {
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
       const exportsObject = require(toolPath);
       const candidate = resolveModuleCandidate(exportsObject);
       if (!candidate?.schema) {
         continue;
       }
 
-      const baseName = file.replace(/\.[^.]+$/, '');
+      const baseName = file.replace(/\.[^.]+$/, "");
       const name = candidate.metadata?.name || baseName;
       const meta = metadataMap.get(name);
 
@@ -176,11 +175,11 @@ async function loadToolsFromDirectory(metadataMap: Map<string, Tool>): Promise<I
         try {
           inputSchema = zodToJsonSchema(candidate.schema, {
             name: `${name}Schema`,
-            target: 'jsonSchema7',
-            $refStrategy: 'none',
+            target: "jsonSchema7",
+            $refStrategy: "none",
           });
-        } catch (error) {
-          inputSchema = { type: 'object' };
+        } catch {
+          inputSchema = { type: "object" };
         }
       }
       inputSchema = normalizeInputSchema(inputSchema);
@@ -208,7 +207,7 @@ async function loadToolsFromDirectory(metadataMap: Map<string, Tool>): Promise<I
         name,
         httpHandlers: toHttpHandlerMap(httpHandlers),
         ...(candidate.schema ? { schema: candidate.schema } : {}),
-        ...(typeof candidate.mcp?.defaultMethod === 'string'
+        ...(typeof candidate.mcp?.defaultMethod === "string"
           ? { defaultMethod: candidate.mcp.defaultMethod }
           : {}),
       };
@@ -234,12 +233,12 @@ async function loadToolsFromDirectory(metadataMap: Map<string, Tool>): Promise<I
 }
 
 function loadMetadata(): BuildMetadata | null {
-  const metadataPath = path.join(process.cwd(), 'metadata.json');
+  const metadataPath = path.join(process.cwd(), "metadata.json");
   if (!fs.existsSync(metadataPath)) {
     return null;
   }
   try {
-    const contents = fs.readFileSync(metadataPath, 'utf8');
+    const contents = fs.readFileSync(metadataPath, "utf8");
     return JSON.parse(contents) as BuildMetadata;
   } catch (error) {
     console.warn(`Failed to parse metadata.json: ${error}`);
@@ -292,7 +291,7 @@ function collectHttpHandlers(module: any): HttpHandlerDefinition[] {
   const handlers: HttpHandlerDefinition[] = [];
   HTTP_METHODS.forEach((method) => {
     const handler = module?.[method];
-    if (typeof handler === 'function') {
+    if (typeof handler === "function") {
       handlers.push({
         method,
         handler: async (request: Request) => handler.call(module, request),
@@ -302,24 +301,25 @@ function collectHttpHandlers(module: any): HttpHandlerDefinition[] {
   return handlers;
 }
 
-
-function toHttpHandlerMap(handlers: HttpHandlerDefinition[]): Record<string, HttpHandlerDefinition['handler']> {
-  return handlers.reduce<Record<string, HttpHandlerDefinition['handler']>>((acc, handler) => {
+function toHttpHandlerMap(
+  handlers: HttpHandlerDefinition[],
+): Record<string, HttpHandlerDefinition["handler"]> {
+  return handlers.reduce<Record<string, HttpHandlerDefinition["handler"]>>((acc, handler) => {
     acc[handler.method.toUpperCase()] = handler.handler;
     return acc;
   }, {});
 }
 
 function normalizeInputSchema(schema: any): any {
-  if (!schema || typeof schema !== 'object') {
+  if (!schema || typeof schema !== "object") {
     return schema;
   }
 
   const clone = JSON.parse(JSON.stringify(schema));
 
-  if (typeof clone.$ref === 'string' && clone.$ref.startsWith('#/definitions/')) {
-    const refKey = clone.$ref.replace('#/definitions/', '');
-    if (clone.definitions && typeof clone.definitions[refKey] === 'object') {
+  if (typeof clone.$ref === "string" && clone.$ref.startsWith("#/definitions/")) {
+    const refKey = clone.$ref.replace("#/definitions/", "");
+    if (clone.definitions && typeof clone.definitions[refKey] === "object") {
       return normalizeInputSchema(clone.definitions[refKey]);
     }
   }
@@ -328,7 +328,7 @@ function normalizeInputSchema(schema: any): any {
   delete clone.definitions;
 
   if (!clone.type) {
-    clone.type = 'object';
+    clone.type = "object";
   }
 
   return clone;
@@ -336,11 +336,11 @@ function normalizeInputSchema(schema: any): any {
 
 function normalizeRuntimeMcpConfig(rawConfig: any): McpConfig | null {
   if (isPlainObject(rawConfig) && rawConfig.enabled === true) {
-    let normalizedMode: McpConfig['mode'] | undefined;
-    if (typeof rawConfig.mode === 'string') {
+    let normalizedMode: McpConfig["mode"] | undefined;
+    if (typeof rawConfig.mode === "string") {
       const candidate = rawConfig.mode.toLowerCase();
-      if (candidate === 'stdio' || candidate === 'lambda' || candidate === 'dual') {
-        normalizedMode = candidate as McpConfig['mode'];
+      if (candidate === "stdio" || candidate === "lambda" || candidate === "dual") {
+        normalizedMode = candidate as McpConfig["mode"];
       } else {
         throw new Error('mcp.mode must be one of "stdio", "lambda", or "dual"');
       }
@@ -354,7 +354,7 @@ function normalizeRuntimeMcpConfig(rawConfig: any): McpConfig | null {
       config.mode = normalizedMode;
     }
 
-    if (typeof rawConfig.defaultMethod === 'string') {
+    if (typeof rawConfig.defaultMethod === "string") {
       config.defaultMethod = rawConfig.defaultMethod.toUpperCase();
     }
 
@@ -369,7 +369,7 @@ function normalizeRuntimeMcpConfig(rawConfig: any): McpConfig | null {
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function isMcpEnabled(tool: InternalToolDefinition): boolean {
@@ -377,7 +377,7 @@ function isMcpEnabled(tool: InternalToolDefinition): boolean {
 }
 
 export function resolveRuntimePath(value: string): string {
-  if (value.startsWith('file://')) {
+  if (value.startsWith("file://")) {
     return fileURLToPath(value);
   }
   return path.resolve(value);

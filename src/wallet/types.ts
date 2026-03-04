@@ -74,10 +74,7 @@ export type WalletReadonlyOptions = WalletOptionsBase & {
   turnkey?: undefined;
 };
 
-export type WalletOptions =
-  | WalletReadonlyOptions
-  | WalletPrivateKeyOptions
-  | WalletTurnkeyOptions;
+export type WalletOptions = WalletReadonlyOptions | WalletPrivateKeyOptions | WalletTurnkeyOptions;
 
 export interface WalletSendTransactionParams {
   to?: HexAddress;

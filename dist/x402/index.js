@@ -146,7 +146,10 @@ async function verifyX402Payment(attempt, definition, options = {}) {
     console.log("[x402] Facilitator /verify response", { status: verifyResponse.status });
     if (!verifyResponse.ok) {
       const errorText = await verifyResponse.text().catch(() => "");
-      console.error("[x402] Facilitator /verify error", { status: verifyResponse.status, body: errorText });
+      console.error("[x402] Facilitator /verify error", {
+        status: verifyResponse.status,
+        body: errorText
+      });
       return {
         success: false,
         failure: {
@@ -194,7 +197,10 @@ async function verifyX402Payment(attempt, definition, options = {}) {
         console.log("[x402] Facilitator /settle response", { status: settleResponse.status });
         if (!settleResponse.ok) {
           const errorText = await settleResponse.text().catch(() => "");
-          console.error("[x402] Facilitator /settle error", { status: settleResponse.status, body: errorText });
+          console.error("[x402] Facilitator /settle error", {
+            status: settleResponse.status,
+            body: errorText
+          });
           return {
             success: false,
             failure: {
@@ -212,7 +218,9 @@ async function verifyX402Payment(attempt, definition, options = {}) {
           });
         }
       } catch (error) {
-        console.error("[x402] Settlement exception", { error: error instanceof Error ? error.message : String(error) });
+        console.error("[x402] Settlement exception", {
+          error: error instanceof Error ? error.message : String(error)
+        });
         return {
           success: false,
           failure: {
@@ -589,7 +597,7 @@ async function payX402WithWallet(walletClient, chainId, request) {
 }
 
 // src/x402/index.ts
-var PAYMENT_CONTEXT_SYMBOL = Symbol.for("opentool.x402.context");
+var PAYMENT_CONTEXT_SYMBOL = /* @__PURE__ */ Symbol.for("opentool.x402.context");
 var X402PaymentRequiredError = class extends Error {
   constructor(response, verification) {
     super("X402 Payment required");

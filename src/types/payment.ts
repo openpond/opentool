@@ -118,9 +118,7 @@ export const paymentRequirementsSchema = z.object({
   metadata: z.record(z.string(), z.unknown()).optional(),
   fallbackText: z.string().optional(),
 });
-export type PaymentRequirementsDefinition = z.infer<
-  typeof paymentRequirementsSchema
->;
+export type PaymentRequirementsDefinition = z.infer<typeof paymentRequirementsSchema>;
 
 export const x402PaymentHeaderSchema = z.object({
   x402Version: z.number().int().min(1),
@@ -149,9 +147,7 @@ export const paymentSuccessMetadataSchema = z.object({
   settledAt: z.string().datetime().optional(),
   payload: z.unknown().optional(),
 });
-export type PaymentSuccessMetadata = z.infer<
-  typeof paymentSuccessMetadataSchema
->;
+export type PaymentSuccessMetadata = z.infer<typeof paymentSuccessMetadataSchema>;
 
 export const paymentFailureSchema = z.object({
   reason: z.string().min(1),

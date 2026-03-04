@@ -109,7 +109,7 @@ export async function wallet(options: WalletOptions = {}): Promise<WalletContext
   let providerType: WalletProviderType = "readonly";
   let signerProvider:
     | ReturnType<typeof createPrivateKeyProvider>
-    | (Awaited<ReturnType<typeof createTurnkeyProvider>>)
+    | Awaited<ReturnType<typeof createTurnkeyProvider>>
     | undefined;
 
   if (effectivePrivateKey) {
@@ -137,7 +137,8 @@ export async function wallet(options: WalletOptions = {}): Promise<WalletContext
     providerType = "turnkey";
   }
 
-  const publicClient = signerProvider?.publicClient ??
+  const publicClient =
+    signerProvider?.publicClient ??
     createPublicClient({
       chain: chain.chain,
       transport: http(rpcUrl),

@@ -14,11 +14,7 @@ import {
   ChatMessage,
   StreamingEventHandlers,
 } from "./types";
-import {
-  normalizeModelName,
-  isToolCallingSupported,
-  listModels,
-} from "./models";
+import { normalizeModelName, isToolCallingSupported, listModels } from "./models";
 import { resolveToolset } from "./tools";
 import { flattenMessageContent } from "./messages";
 import { AIFetchError, AIResponseError, AIAbortError, AIError } from "./errors";
@@ -76,7 +72,7 @@ export function createAIClient(config: AIClientConfig = {}): AIClient {
 
 export async function generateText(
   options: GenerateTextOptions,
-  clientConfig: AIClientConfig = {}
+  clientConfig: AIClientConfig = {},
 ): Promise<GenerateTextResult> {
   const resolved = resolveConfig(clientConfig);
   const model = normalizeModelName(options.model ?? resolved.defaultModel);
@@ -93,7 +89,7 @@ export async function generateText(
   const endpoint = buildUrl(resolved.baseUrl, CHAT_COMPLETIONS_PATH);
   const abortBundle = createAbortBundle(
     options.abortSignal,
-    options.timeoutMs ?? resolved.timeoutMs
+    options.timeoutMs ?? resolved.timeoutMs,
   );
 
   let response: Response;
@@ -134,7 +130,7 @@ export async function generateText(
         statusText: response.statusText,
         body: data,
       },
-      "Gateway response did not contain a valid choice"
+      "Gateway response did not contain a valid choice",
     );
   }
 
@@ -158,7 +154,7 @@ export async function generateText(
 
 export async function streamText(
   options: StreamTextOptions,
-  clientConfig: AIClientConfig = {}
+  clientConfig: AIClientConfig = {},
 ): Promise<StreamTextResult> {
   const resolved = resolveConfig(clientConfig);
   const model = normalizeModelName(options.model ?? resolved.defaultModel);
@@ -170,7 +166,7 @@ export async function streamText(
     {
       allowTools: isToolCallingSupported(model),
     },
-    streamExtras
+    streamExtras,
   );
 
   payload.stream = true;
@@ -186,7 +182,7 @@ export async function streamText(
   const endpoint = buildUrl(resolved.baseUrl, CHAT_COMPLETIONS_PATH);
   const abortBundle = createAbortBundle(
     options.abortSignal,
-    options.timeoutMs ?? resolved.timeoutMs
+    options.timeoutMs ?? resolved.timeoutMs,
   );
 
   let response: Response;
@@ -307,7 +303,7 @@ export async function streamText(
     } finally {
       try {
         reader.releaseLock();
-      } catch (error) {
+      } catch {
         // ignore release errors
       }
       abortBundle.cleanup();
@@ -321,10 +317,7 @@ export async function streamText(
     finished,
   };
 
-  function processStreamEventChunk(
-    chunk: string,
-    eventHandlers: StreamingEventHandlers
-  ): boolean {
+  function processStreamEventChunk(chunk: string, eventHandlers: StreamingEventHandlers): boolean {
     const dataString = extractSseData(chunk);
     if (dataString == null) {
       return false;
@@ -353,10 +346,7 @@ export async function streamText(
     return false;
   }
 
-  function handleStreamPayload(
-    payload: unknown,
-    eventHandlers: StreamingEventHandlers
-  ): void {
+  function handleStreamPayload(payload: unknown, eventHandlers: StreamingEventHandlers): void {
     if (!payload || typeof payload !== "object") {
       return;
     }
@@ -426,7 +416,7 @@ export async function streamText(
       Array.isArray((value as { content?: unknown }).content)
     ) {
       return flattenMessageContent(
-        ((value as { content?: ChatMessage["content"] }).content ?? []) as ChatMessage["content"]
+        ((value as { content?: ChatMessage["content"] }).content ?? []) as ChatMessage["content"],
       );
     }
 
@@ -458,7 +448,7 @@ export async function streamText(
 }
 
 function buildStreamMetadataExtras(
-  options: StreamTextOptions
+  options: StreamTextOptions,
 ): Record<string, unknown> | undefined {
   const streamConfig: Record<string, unknown> = {};
 
@@ -485,7 +475,7 @@ function buildRequestPayload(
   options: GenerateTextOptions,
   model: string,
   capabilities: { allowTools: boolean },
-  metadataExtras?: Record<string, unknown>
+  metadataExtras?: Record<string, unknown>,
 ): ChatCompletionRequestPayload {
   const payload: ChatCompletionRequestPayload = {
     model,
@@ -498,11 +488,7 @@ function buildRequestPayload(
   assignIfDefined(payload, "top_p", generation.topP);
   assignIfDefined(payload, "max_tokens", generation.maxTokens);
   assignIfDefined(payload, "stop", generation.stop);
-  assignIfDefined(
-    payload,
-    "frequency_penalty",
-    generation.frequencyPenalty
-  );
+  assignIfDefined(payload, "frequency_penalty", generation.frequencyPenalty);
   assignIfDefined(payload, "presence_penalty", generation.presencePenalty);
   assignIfDefined(payload, "response_format", generation.responseFormat);
 
@@ -516,11 +502,7 @@ function buildRequestPayload(
     payload.tool_choice = "none";
   }
 
-  const metadataPayload = buildMetadataPayload(
-    options.metadata,
-    toolExecution,
-    metadataExtras
-  );
+  const metadataPayload = buildMetadataPayload(options.metadata, toolExecution, metadataExtras);
   if (metadataPayload) {
     payload.metadata = metadataPayload;
   }
@@ -531,7 +513,7 @@ function buildRequestPayload(
 function assignIfDefined<T extends object, K extends keyof T>(
   target: T,
   key: K,
-  value: T[K] | undefined
+  value: T[K] | undefined,
 ): void {
   if (value !== undefined) {
     target[key] = value;
@@ -539,15 +521,13 @@ function assignIfDefined<T extends object, K extends keyof T>(
 }
 
 function buildUrl(baseUrl: string, path: string): string {
-  const sanitizedBase = baseUrl.endsWith("/")
-    ? baseUrl.slice(0, -1)
-    : baseUrl;
+  const sanitizedBase = baseUrl.endsWith("/") ? baseUrl.slice(0, -1) : baseUrl;
   return `${sanitizedBase}${path}`;
 }
 
 function createAbortBundle(
   upstreamSignal: AbortSignal | undefined,
-  timeoutMs: number | undefined
+  timeoutMs: number | undefined,
 ): AbortBundle {
   const controller = new AbortController();
   const cleanupCallbacks: Array<() => void> = [];
@@ -558,9 +538,7 @@ function createAbortBundle(
     } else {
       const onAbort = () => controller.abort(upstreamSignal.reason);
       upstreamSignal.addEventListener("abort", onAbort, { once: true });
-      cleanupCallbacks.push(() =>
-        upstreamSignal.removeEventListener("abort", onAbort)
-      );
+      cleanupCallbacks.push(() => upstreamSignal.removeEventListener("abort", onAbort));
     }
   }
 
@@ -591,7 +569,7 @@ function collectHeaders(headers: Headers): Record<string, string> {
 function buildMetadataPayload(
   base: AIRequestMetadata | undefined,
   toolExecution: GenerateTextOptions["toolExecution"] | undefined,
-  extras?: Record<string, unknown>
+  extras?: Record<string, unknown>,
 ): Record<string, unknown> | undefined {
   const metadata: Record<string, unknown> = base ? { ...base } : {};
 
@@ -602,11 +580,11 @@ function buildMetadataPayload(
       }
 
       if (key === "openpond" && typeof value === "object" && value !== null) {
-        const existing = {
-          ...((metadata.openpond as Record<string, unknown> | undefined) ?? {}),
-        };
+        const existing = metadata.openpond;
         metadata.openpond = {
-          ...existing,
+          ...(typeof existing === "object" && existing !== null
+            ? (existing as Record<string, unknown>)
+            : undefined),
           ...(value as Record<string, unknown>),
         };
       } else {
@@ -616,8 +594,11 @@ function buildMetadataPayload(
   }
 
   if (toolExecution) {
+    const existing = metadata.openpond;
     const openpond = {
-      ...((metadata.openpond as Record<string, unknown> | undefined) ?? {}),
+      ...(typeof existing === "object" && existing !== null
+        ? (existing as Record<string, unknown>)
+        : undefined),
       toolExecution,
     };
     metadata.openpond = openpond;

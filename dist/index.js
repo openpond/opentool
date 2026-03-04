@@ -169,7 +169,10 @@ async function verifyX402Payment(attempt, definition, options = {}) {
     console.log("[x402] Facilitator /verify response", { status: verifyResponse.status });
     if (!verifyResponse.ok) {
       const errorText = await verifyResponse.text().catch(() => "");
-      console.error("[x402] Facilitator /verify error", { status: verifyResponse.status, body: errorText });
+      console.error("[x402] Facilitator /verify error", {
+        status: verifyResponse.status,
+        body: errorText
+      });
       return {
         success: false,
         failure: {
@@ -217,7 +220,10 @@ async function verifyX402Payment(attempt, definition, options = {}) {
         console.log("[x402] Facilitator /settle response", { status: settleResponse.status });
         if (!settleResponse.ok) {
           const errorText = await settleResponse.text().catch(() => "");
-          console.error("[x402] Facilitator /settle error", { status: settleResponse.status, body: errorText });
+          console.error("[x402] Facilitator /settle error", {
+            status: settleResponse.status,
+            body: errorText
+          });
           return {
             success: false,
             failure: {
@@ -235,7 +241,9 @@ async function verifyX402Payment(attempt, definition, options = {}) {
           });
         }
       } catch (error) {
-        console.error("[x402] Settlement exception", { error: error instanceof Error ? error.message : String(error) });
+        console.error("[x402] Settlement exception", {
+          error: error instanceof Error ? error.message : String(error)
+        });
         return {
           success: false,
           failure: {
@@ -612,7 +620,7 @@ async function payX402WithWallet(walletClient, chainId, request) {
 }
 
 // src/x402/index.ts
-var PAYMENT_CONTEXT_SYMBOL = Symbol.for("opentool.x402.context");
+var PAYMENT_CONTEXT_SYMBOL = /* @__PURE__ */ Symbol.for("opentool.x402.context");
 var X402PaymentRequiredError = class extends Error {
   constructor(response, verification) {
     super("X402 Payment required");
@@ -769,23 +777,13 @@ function toDecimalString(value) {
 }
 
 // src/adapters/mcp.ts
-var HTTP_METHODS = [
-  "GET",
-  "HEAD",
-  "POST",
-  "PUT",
-  "DELETE",
-  "PATCH",
-  "OPTIONS"
-];
+var HTTP_METHODS = ["GET", "HEAD", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"];
 function createMcpAdapter(options) {
   const normalizedSchema = ensureSchema(options.schema);
   const defaultMethod = resolveDefaultMethod(options);
   const httpHandler = options.httpHandlers[defaultMethod];
   if (!httpHandler) {
-    throw new Error(
-      `Tool "${options.name}" does not export an HTTP handler for ${defaultMethod}`
-    );
+    throw new Error(`Tool "${options.name}" does not export an HTTP handler for ${defaultMethod}`);
   }
   return async function invoke(rawArguments) {
     const validated = normalizedSchema ? normalizedSchema.parse(rawArguments ?? {}) : rawArguments;
@@ -1017,7 +1015,7 @@ async function loadToolsFromDirectory(metadataMap) {
             target: "jsonSchema7",
             $refStrategy: "none"
           });
-        } catch (error) {
+        } catch {
           inputSchema = { type: "object" };
         }
       }
@@ -1189,15 +1187,7 @@ function resolveRuntimePath(value) {
 }
 
 // src/types/index.ts
-var HTTP_METHODS2 = [
-  "GET",
-  "HEAD",
-  "POST",
-  "PUT",
-  "DELETE",
-  "PATCH",
-  "OPTIONS"
-];
+var HTTP_METHODS2 = ["GET", "HEAD", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"];
 var BASE_ALCHEMY_HOST = "https://base-mainnet.g.alchemy.com/v2/";
 var ETHEREUM_ALCHEMY_HOST = "https://eth-mainnet.g.alchemy.com/v2/";
 var BASE_SEPOLIA_ALCHEMY_HOST = "https://base-sepolia.g.alchemy.com/v2/";
@@ -1233,10 +1223,7 @@ var chains = {
     slug: "ethereum",
     name: "Ethereum",
     chain: mainnet,
-    rpcUrl: buildRpcResolver(
-      ETHEREUM_ALCHEMY_HOST,
-      mainnet.rpcUrls.default.http
-    ),
+    rpcUrl: buildRpcResolver(ETHEREUM_ALCHEMY_HOST, mainnet.rpcUrls.default.http),
     publicRpcUrls: mainnet.rpcUrls.default.http
   },
   baseSepolia: {
@@ -1244,20 +1231,14 @@ var chains = {
     slug: "base-sepolia",
     name: "Base Sepolia",
     chain: baseSepolia,
-    rpcUrl: buildRpcResolver(
-      BASE_SEPOLIA_ALCHEMY_HOST,
-      baseSepolia.rpcUrls.default.http
-    )
+    rpcUrl: buildRpcResolver(BASE_SEPOLIA_ALCHEMY_HOST, baseSepolia.rpcUrls.default.http)
   },
   arbitrum: {
     id: arbitrum.id,
     slug: "arbitrum",
     name: "Arbitrum One",
     chain: arbitrum,
-    rpcUrl: buildRpcResolver(
-      ARBITRUM_ALCHEMY_HOST,
-      arbitrum.rpcUrls.default.http
-    ),
+    rpcUrl: buildRpcResolver(ARBITRUM_ALCHEMY_HOST, arbitrum.rpcUrls.default.http),
     publicRpcUrls: arbitrum.rpcUrls.default.http
   },
   arbitrumSepolia: {
@@ -1265,10 +1246,7 @@ var chains = {
     slug: "arbitrum-sepolia",
     name: "Arbitrum Sepolia",
     chain: arbitrumSepolia,
-    rpcUrl: buildRpcResolver(
-      ARBITRUM_SEPOLIA_ALCHEMY_HOST,
-      arbitrumSepolia.rpcUrls.default.http
-    ),
+    rpcUrl: buildRpcResolver(ARBITRUM_SEPOLIA_ALCHEMY_HOST, arbitrumSepolia.rpcUrls.default.http),
     publicRpcUrls: arbitrumSepolia.rpcUrls.default.http
   }
 };
@@ -1296,33 +1274,15 @@ function token(chainId, symbol, name, address, decimals) {
 var tokens = {
   base: {
     ...createNativeToken(base.id, "ETH", "Ether"),
-    USDC: token(
-      base.id,
-      "USDC",
-      "USD Coin",
-      "0x833589fCD6eDb6E08f4c7C31c9A8Ba32D74b86B2",
-      6
-    )
+    USDC: token(base.id, "USDC", "USD Coin", "0x833589fCD6eDb6E08f4c7C31c9A8Ba32D74b86B2", 6)
   },
   ethereum: {
     ...createNativeToken(mainnet.id, "ETH", "Ether"),
-    USDC: token(
-      mainnet.id,
-      "USDC",
-      "USD Coin",
-      "0xA0b86991c6218b36c1d19d4a2e9Eb0cE3606eB48",
-      6
-    )
+    USDC: token(mainnet.id, "USDC", "USD Coin", "0xA0b86991c6218b36c1d19d4a2e9Eb0cE3606eB48", 6)
   },
   arbitrum: {
     ...createNativeToken(arbitrum.id, "ETH", "Ether"),
-    USDC: token(
-      arbitrum.id,
-      "USDC",
-      "USD Coin",
-      "0xaf88d065e77c8cc2239327c5edb3a432268e5831",
-      6
-    )
+    USDC: token(arbitrum.id, "USDC", "USD Coin", "0xaf88d065e77c8cc2239327c5edb3a432268e5831", 6)
   },
   arbitrumSepolia: {
     ...createNativeToken(arbitrumSepolia.id, "ETH", "Ether"),
@@ -1626,11 +1586,7 @@ var walletToolkit = {
 };
 
 // src/store/index.ts
-var STORE_EVENT_LEVELS = [
-  "decision",
-  "execution",
-  "lifecycle"
-];
+var STORE_EVENT_LEVELS = ["decision", "execution", "lifecycle"];
 var STORE_EVENT_LEVEL_SET = new Set(STORE_EVENT_LEVELS);
 var MARKET_REQUIRED_ACTIONS = [
   "swap",
@@ -1697,7 +1653,7 @@ var resolveEventLevel = (input) => {
   return null;
 };
 var normalizeStoreInput = (input) => {
-  const metadata = { ...input.metadata ?? {} };
+  const metadata = { ...input.metadata };
   const eventLevel = resolveEventLevel({ ...input, metadata });
   if (eventLevel) {
     metadata.eventLevel = eventLevel;
@@ -1716,9 +1672,7 @@ function resolveConfig(options) {
     throw new StoreError("BASE_URL is required to store activity events");
   }
   if (!apiKey) {
-    throw new StoreError(
-      "OPENPOND_API_KEY is required to store activity events"
-    );
+    throw new StoreError("OPENPOND_API_KEY is required to store activity events");
   }
   const normalizedBaseUrl = baseUrl.replace(/\/$/, "");
   const fetchFn = options?.fetchFn ?? globalThis.fetch;
@@ -1734,7 +1688,7 @@ async function requestJson(url, options, init) {
     headers: {
       "content-type": "application/json",
       "openpond-api-key": apiKey,
-      ...init.headers ?? {}
+      ...init.headers
     }
   });
   if (!response.ok) {
@@ -1744,11 +1698,7 @@ async function requestJson(url, options, init) {
     } catch {
       body = await response.text().catch(() => void 0);
     }
-    throw new StoreError(
-      `Request failed with status ${response.status}`,
-      response.status,
-      body
-    );
+    throw new StoreError(`Request failed with status ${response.status}`, response.status, body);
   }
   if (response.status === 204) {
     return null;
@@ -1761,13 +1711,15 @@ async function requestJson(url, options, init) {
 }
 async function store(input, options) {
   const normalizedInput = normalizeStoreInput(input);
+  const mode = normalizedInput.mode ?? "live";
   const eventLevel = normalizedInput.eventLevel;
   const normalizedAction = normalizeAction(normalizedInput.action);
+  if (mode === "backtest" && !normalizedInput.backtestRunId) {
+    throw new StoreError(`backtestRunId is required when mode is "backtest"`);
+  }
   if (eventLevel === "execution" || eventLevel === "lifecycle") {
     if (!normalizedAction || !EXECUTION_ACTIONS_SET.has(normalizedAction)) {
-      throw new StoreError(
-        `eventLevel "${eventLevel}" requires an execution action`
-      );
+      throw new StoreError(`eventLevel "${eventLevel}" requires an execution action`);
     }
   }
   if (eventLevel === "execution" && !hasMarketIdentity(normalizedInput.market)) {
@@ -1782,7 +1734,8 @@ async function store(input, options) {
     );
   }
   const { baseUrl, apiKey, fetchFn } = resolveConfig(options);
-  const url = `${baseUrl}/apps/positions/tx`;
+  const path8 = mode === "backtest" ? "/apps/backtests/tx" : "/apps/positions/tx";
+  const url = `${baseUrl}${path8}`;
   let response;
   try {
     response = await fetchFn(url, {
@@ -1821,7 +1774,9 @@ async function store(input, options) {
 }
 async function retrieve(params, options) {
   const { baseUrl, apiKey, fetchFn } = resolveConfig(options);
-  const url = new URL(`${baseUrl}/apps/positions/tx`);
+  const mode = params?.mode ?? "live";
+  const path8 = mode === "backtest" ? "/apps/backtests/tx" : "/apps/positions/tx";
+  const url = new URL(`${baseUrl}${path8}`);
   if (params?.source) url.searchParams.set("source", params.source);
   if (params?.walletAddress) url.searchParams.set("walletAddress", params.walletAddress);
   if (params?.symbol) url.searchParams.set("symbol", params.symbol);
@@ -1831,6 +1786,9 @@ async function retrieve(params, options) {
   if (typeof params?.limit === "number") url.searchParams.set("limit", params.limit.toString());
   if (params?.cursor) url.searchParams.set("cursor", params.cursor);
   if (params?.history) url.searchParams.set("history", "true");
+  if (params?.backtestRunId) {
+    url.searchParams.set("backtestRunId", params.backtestRunId);
+  }
   let response;
   try {
     response = await fetchFn(url.toString(), {
@@ -2091,9 +2049,7 @@ async function getUniverse(args) {
   const response = await args.fetcher(`${args.baseUrl}/info`, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify(
-      dexKey ? { type: "meta", dex: dexKey } : { type: "meta" }
-    )
+    body: JSON.stringify(dexKey ? { type: "meta", dex: dexKey } : { type: "meta" })
   });
   const json = await response.json().catch(() => null);
   if (!response.ok || !json?.universe) {
@@ -2131,9 +2087,7 @@ async function getSpotMeta(args) {
 function resolveAssetIndex(symbol, universe) {
   const [raw] = symbol.split("-");
   const target = raw.trim();
-  const index = universe.findIndex(
-    (entry) => entry.name.toUpperCase() === target.toUpperCase()
-  );
+  const index = universe.findIndex((entry) => entry.name.toUpperCase() === target.toUpperCase());
   if (index === -1) {
     throw new Error(`Unknown Hyperliquid asset symbol: ${symbol}`);
   }
@@ -2163,9 +2117,7 @@ async function getPerpDexs(args) {
 async function resolveDexIndex(args) {
   const dexs = await getPerpDexs(args);
   const target = args.dex.trim().toLowerCase();
-  const index = dexs.findIndex(
-    (entry) => entry?.name?.toLowerCase() === target
-  );
+  const index = dexs.findIndex((entry) => entry?.name?.toLowerCase() === target);
   if (index === -1) {
     throw new Error(`Unknown Hyperliquid perp dex: ${args.dex}`);
   }
@@ -2352,15 +2304,7 @@ async function signL1Action(args) {
   return splitSignature(signatureHex);
 }
 async function signSpotSend(args) {
-  const {
-    wallet: wallet2,
-    hyperliquidChain,
-    signatureChainId,
-    destination,
-    token: token2,
-    amount,
-    time
-  } = args;
+  const { wallet: wallet2, hyperliquidChain, signatureChainId, destination, token: token2, amount, time } = args;
   const domain = {
     name: "HyperliquidSignTransaction",
     version: "1",
@@ -2769,9 +2713,7 @@ var HyperliquidExchangeClient = class {
     this.expiresAfter = args.expiresAfter;
     const resolvedNonceSource = args.walletNonceProvider ?? args.wallet.nonceSource ?? args.nonceSource;
     if (!resolvedNonceSource) {
-      throw new Error(
-        "Wallet nonce source is required for Hyperliquid exchange actions."
-      );
+      throw new Error("Wallet nonce source is required for Hyperliquid exchange actions.");
     }
     this.nonceSource = resolvedNonceSource;
   }
@@ -2901,9 +2843,7 @@ var HyperliquidExchangeClient = class {
       expiresAfter: this.expiresAfter,
       nonceSource: this.nonceSource
     };
-    return setHyperliquidDexAbstraction(
-      params.user ? { ...base2, user: params.user } : base2
-    );
+    return setHyperliquidDexAbstraction(params.user ? { ...base2, user: params.user } : base2);
   }
   setAccountAbstractionMode(params) {
     const base2 = {
@@ -2927,24 +2867,18 @@ var HyperliquidExchangeClient = class {
       expiresAfter: this.expiresAfter,
       nonceSource: this.nonceSource
     };
-    return setHyperliquidPortfolioMargin(
-      params.user ? { ...base2, user: params.user } : base2
-    );
+    return setHyperliquidPortfolioMargin(params.user ? { ...base2, user: params.user } : base2);
   }
 };
 async function setHyperliquidPortfolioMargin(options) {
   const env = options.environment ?? "mainnet";
   if (!options.wallet?.account || !options.wallet.walletClient) {
-    throw new Error(
-      "Wallet with signing capability is required for portfolio margin."
-    );
+    throw new Error("Wallet with signing capability is required for portfolio margin.");
   }
   const nonce = options.nonce ?? options.walletNonceProvider?.() ?? options.wallet.nonceSource?.() ?? options.nonceSource?.() ?? Date.now();
   const signatureChainId = getSignatureChainId(env);
   const hyperliquidChain = HL_CHAIN_LABEL[env];
-  const user = normalizeAddress(
-    options.user ?? options.wallet.address
-  );
+  const user = normalizeAddress(options.user ?? options.wallet.address);
   const action = {
     type: "userPortfolioMargin",
     enabled: Boolean(options.enabled),
@@ -2973,16 +2907,12 @@ async function setHyperliquidPortfolioMargin(options) {
 async function setHyperliquidDexAbstraction(options) {
   const env = options.environment ?? "mainnet";
   if (!options.wallet?.account || !options.wallet.walletClient) {
-    throw new Error(
-      "Wallet with signing capability is required for dex abstraction."
-    );
+    throw new Error("Wallet with signing capability is required for dex abstraction.");
   }
   const nonce = options.nonce ?? options.walletNonceProvider?.() ?? options.wallet.nonceSource?.() ?? options.nonceSource?.() ?? Date.now();
   const signatureChainId = getSignatureChainId(env);
   const hyperliquidChain = HL_CHAIN_LABEL[env];
-  const user = normalizeAddress(
-    options.user ?? options.wallet.address
-  );
+  const user = normalizeAddress(options.user ?? options.wallet.address);
   const action = {
     type: "userDexAbstraction",
     enabled: Boolean(options.enabled),
@@ -3011,16 +2941,12 @@ async function setHyperliquidDexAbstraction(options) {
 async function setHyperliquidAccountAbstractionMode(options) {
   const env = options.environment ?? "mainnet";
   if (!options.wallet?.account || !options.wallet.walletClient) {
-    throw new Error(
-      "Wallet with signing capability is required for account abstraction mode."
-    );
+    throw new Error("Wallet with signing capability is required for account abstraction mode.");
   }
   const nonce = options.nonce ?? options.walletNonceProvider?.() ?? options.wallet.nonceSource?.() ?? options.nonceSource?.() ?? Date.now();
   const signatureChainId = getSignatureChainId(env);
   const hyperliquidChain = HL_CHAIN_LABEL[env];
-  const user = normalizeAddress(
-    options.user ?? options.wallet.address
-  );
+  const user = normalizeAddress(options.user ?? options.wallet.address);
   const abstraction = resolveHyperliquidAbstractionFromMode(options.mode);
   const action = {
     type: "userSetAbstraction",
@@ -3062,14 +2988,10 @@ async function cancelHyperliquidOrdersByCloid(options) {
   options.cancels.forEach((c) => assertSymbol(c.symbol));
   const action = {
     type: "cancelByCloid",
-    cancels: await withAssetIndexes(
-      options,
-      options.cancels,
-      (idx, entry) => ({
-        asset: idx,
-        cloid: normalizeCloid(entry.cloid)
-      })
-    )
+    cancels: await withAssetIndexes(options, options.cancels, (idx, entry) => ({
+      asset: idx,
+      cloid: normalizeCloid(entry.cloid)
+    }))
   };
   return submitExchangeAction(options, action);
 }
@@ -3951,6 +3873,28 @@ function readHyperliquidSpotAccountValue(params) {
 // src/adapters/hyperliquid/market-data.ts
 var META_CACHE_TTL_MS = 5 * 60 * 1e3;
 var allMidsCache = /* @__PURE__ */ new Map();
+function resolveGatewayBase(override) {
+  const value = override ?? process.env.OPENPOND_GATEWAY_URL ?? null;
+  if (typeof value !== "string") {
+    return null;
+  }
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+  return trimmed.replace(/\/$/, "");
+}
+function normalizeGatewaySymbol(value) {
+  const trimmed = value.trim();
+  if (!trimmed) return trimmed;
+  const idx = trimmed.indexOf(":");
+  if (idx > 0) {
+    const dex = trimmed.slice(0, idx).toLowerCase();
+    const rest = trimmed.slice(idx + 1);
+    return `${dex}:${rest.toUpperCase()}`;
+  }
+  return trimmed.toUpperCase();
+}
 function gcd(a, b) {
   let left = a < 0n ? -a : a;
   let right = b < 0n ? -b : b;
@@ -3998,10 +3942,7 @@ function formatScaledInt(value, decimals) {
     return `${negative ? "-" : ""}${integer.toString()}`;
   }
   const fractionStr = fraction.toString().padStart(decimals, "0");
-  return `${negative ? "-" : ""}${integer.toString()}.${fractionStr}`.replace(
-    /\.?0+$/,
-    ""
-  );
+  return `${negative ? "-" : ""}${integer.toString()}.${fractionStr}`.replace(/\.?0+$/, "");
 }
 function resolveSpotSizeDecimals(meta, symbol) {
   const universe = meta.universe ?? [];
@@ -4071,6 +4012,37 @@ async function fetchHyperliquidAllMids(environment) {
   allMidsCache.set(cacheKey, { fetchedAt: Date.now(), mids: json });
   return json;
 }
+async function fetchHyperliquidBars(params) {
+  const gatewayBase = resolveGatewayBase(params.gatewayBase);
+  if (!gatewayBase) {
+    throw new Error("OPENPOND_GATEWAY_URL is required.");
+  }
+  const normalizedCountBack = Math.max(1, Math.trunc(params.countBack));
+  if (!Number.isFinite(normalizedCountBack) || normalizedCountBack <= 0) {
+    throw new Error("countBack must be a positive integer.");
+  }
+  const url = new URL(`${gatewayBase}/v1/hyperliquid/bars`);
+  url.searchParams.set("symbol", normalizeGatewaySymbol(params.symbol));
+  url.searchParams.set("resolution", params.resolution);
+  url.searchParams.set("countBack", normalizedCountBack.toString());
+  if (typeof params.fromSeconds === "number" && Number.isFinite(params.fromSeconds)) {
+    url.searchParams.set("from", Math.max(0, Math.trunc(params.fromSeconds)).toString());
+  }
+  if (typeof params.toSeconds === "number" && Number.isFinite(params.toSeconds)) {
+    url.searchParams.set("to", Math.max(0, Math.trunc(params.toSeconds)).toString());
+  }
+  const response = await fetch(url.toString());
+  if (!response.ok) {
+    throw new Error(`Gateway error (${response.status})`);
+  }
+  const data = await response.json().catch(() => null);
+  const bars = Array.isArray(data?.bars) ? data.bars : [];
+  return bars.filter((bar) => {
+    if (!bar || typeof bar !== "object") return false;
+    const record = bar;
+    return typeof record.close === "number" && Number.isFinite(record.close) && typeof record.time === "number" && Number.isFinite(record.time);
+  });
+}
 async function fetchHyperliquidTickSize(params) {
   return fetchHyperliquidTickSizeForCoin(params.environment, params.symbol);
 }
@@ -4078,10 +4050,7 @@ async function fetchHyperliquidSpotTickSize(params) {
   if (!Number.isFinite(params.marketIndex)) {
     throw new Error("Hyperliquid spot market index is invalid.");
   }
-  return fetchHyperliquidTickSizeForCoin(
-    params.environment,
-    `@${params.marketIndex}`
-  );
+  return fetchHyperliquidTickSizeForCoin(params.environment, `@${params.marketIndex}`);
 }
 async function fetchHyperliquidTickSizeForCoin(environment, coin) {
   const base2 = API_BASES[environment];
@@ -4095,9 +4064,7 @@ async function fetchHyperliquidTickSizeForCoin(environment, coin) {
   }
   const data = await res.json().catch(() => null);
   const levels = Array.isArray(data?.levels) ? data?.levels ?? [] : [];
-  const prices = levels.flatMap(
-    (side) => Array.isArray(side) ? side.map((entry) => String(entry?.px ?? "")) : []
-  ).filter((px) => px.length > 0);
+  const prices = levels.flatMap((side) => Array.isArray(side) ? side.map((entry) => String(entry?.px ?? "")) : []).filter((px) => px.length > 0);
   if (prices.length < 2) {
     throw new Error(`Hyperliquid l2Book missing price levels for ${coin}`);
   }
@@ -4188,9 +4155,7 @@ async function fetchHyperliquidSpotMarketInfo(params) {
         price = readHyperliquidNumber(ctx?.markPx ?? ctx?.midPx ?? ctx?.oraclePx);
       }
       if (!price || price <= 0) {
-        throw new Error(
-          `No spot price available for ${normalizedBase}/${normalizedQuote}`
-        );
+        throw new Error(`No spot price available for ${normalizedBase}/${normalizedQuote}`);
       }
       const marketIndex = typeof market?.index === "number" ? market.index : idx;
       return {
@@ -4340,9 +4305,7 @@ async function placeHyperliquidOrder(options) {
   } = options;
   const effectiveBuilder = BUILDER_CODE;
   if (!wallet2?.account || !wallet2.walletClient) {
-    throw new Error(
-      "Hyperliquid order signing requires a wallet with signing capabilities."
-    );
+    throw new Error("Hyperliquid order signing requires a wallet with signing capabilities.");
   }
   if (!orders.length) {
     throw new Error("At least one order is required.");
@@ -4456,10 +4419,7 @@ async function placeHyperliquidOrder(options) {
   );
   if (errorStatuses.length) {
     const message = errorStatuses.map((entry) => entry.error).join(", ");
-    throw new HyperliquidApiError(
-      message || "Hyperliquid rejected the order.",
-      json
-    );
+    throw new HyperliquidApiError(message || "Hyperliquid rejected the order.", json);
   }
   return json;
 }
@@ -4479,9 +4439,7 @@ async function depositToHyperliquidBridge(options) {
   const usdcAddress = getUsdcAddress(environment);
   const amountUnits = parseUnits(amount, 6);
   if (!wallet2.walletClient || !wallet2.publicClient) {
-    throw new Error(
-      "Wallet client and public client are required for deposit."
-    );
+    throw new Error("Wallet client and public client are required for deposit.");
   }
   const walletClient = wallet2.walletClient;
   const publicClient = wallet2.publicClient;
@@ -4506,15 +4464,10 @@ async function depositToHyperliquidBridge(options) {
 }
 async function withdrawFromHyperliquid(options) {
   const { environment, amount, destination, wallet: wallet2 } = options;
-  const normalizedAmount = normalizePositiveDecimalString(
-    amount,
-    "Withdraw amount"
-  );
+  const normalizedAmount = normalizePositiveDecimalString(amount, "Withdraw amount");
   const parsedAmount = Number.parseFloat(normalizedAmount);
   if (!wallet2.account || !wallet2.walletClient || !wallet2.publicClient) {
-    throw new Error(
-      "Wallet client and public client are required for withdraw."
-    );
+    throw new Error("Wallet client and public client are required for withdraw.");
   }
   const signatureChainId = getSignatureChainId(environment);
   const hyperliquidChain = HL_CHAIN_LABEL[environment];
@@ -4597,9 +4550,7 @@ async function fetchHyperliquidClearinghouseState(params) {
 async function approveHyperliquidBuilderFee(options) {
   const { environment, wallet: wallet2, nonce, signatureChainId } = options;
   if (!wallet2?.account || !wallet2.walletClient) {
-    throw new Error(
-      "Hyperliquid builder approval requires a wallet with signing capabilities."
-    );
+    throw new Error("Hyperliquid builder approval requires a wallet with signing capabilities.");
   }
   const maxFeeRateValue = BUILDER_CODE.fee / 1e3;
   const formattedPercent = `${maxFeeRateValue}%`;
@@ -4822,9 +4773,7 @@ function normalizeStringArrayish(value) {
   return normalizeArrayish(value).map((entry) => entry == null ? "" : String(entry).trim()).filter((entry) => entry.length > 0);
 }
 function normalizeNumberArrayish(value) {
-  return normalizeArrayish(value).map(
-    (entry) => typeof entry === "number" ? entry : Number.parseFloat(String(entry))
-  ).filter((entry) => Number.isFinite(entry));
+  return normalizeArrayish(value).map((entry) => typeof entry === "number" ? entry : Number.parseFloat(String(entry))).filter((entry) => Number.isFinite(entry));
 }
 function normalizeTags(value) {
   if (!Array.isArray(value)) return [];
@@ -5468,9 +5417,7 @@ async function fetchPolymarketMarkets(params = {}) {
   if (params.slug) url.searchParams.set("slug", params.slug);
   const data = await requestJson3(url.toString());
   const markets = data.flatMap(
-    (event) => Array.isArray(event?.markets) ? event.markets.map(
-      (market) => normalizeGammaMarket(market, event)
-    ) : []
+    (event) => Array.isArray(event?.markets) ? event.markets.map((market) => normalizeGammaMarket(market, event)) : []
   );
   const filtered = params.category ? markets.filter(
     (market) => (market.category ?? "").toLowerCase().includes(params.category.toLowerCase())
@@ -5821,9 +5768,7 @@ function ensureTextContent(message, options) {
   if (flattened !== void 0) {
     return flattened;
   }
-  throw new AIError(
-    options?.errorMessage ?? "Assistant response did not contain textual content."
-  );
+  throw new AIError(options?.errorMessage ?? "Assistant response did not contain textual content.");
 }
 function extractTextPart(part, options) {
   if (!part || typeof part !== "object") {
@@ -6055,7 +6000,7 @@ async function streamText(options, clientConfig = {}) {
     } finally {
       try {
         reader.releaseLock();
-      } catch (error) {
+      } catch {
       }
       abortBundle.cleanup();
     }
@@ -6190,11 +6135,7 @@ function buildRequestPayload(options, model, capabilities, metadataExtras) {
   assignIfDefined(payload, "top_p", generation.topP);
   assignIfDefined(payload, "max_tokens", generation.maxTokens);
   assignIfDefined(payload, "stop", generation.stop);
-  assignIfDefined(
-    payload,
-    "frequency_penalty",
-    generation.frequencyPenalty
-  );
+  assignIfDefined(payload, "frequency_penalty", generation.frequencyPenalty);
   assignIfDefined(payload, "presence_penalty", generation.presencePenalty);
   assignIfDefined(payload, "response_format", generation.responseFormat);
   const toolExecution = options.toolExecution;
@@ -6206,11 +6147,7 @@ function buildRequestPayload(options, model, capabilities, metadataExtras) {
   } else if (options.toolChoice && options.toolChoice !== "none") {
     payload.tool_choice = "none";
   }
-  const metadataPayload = buildMetadataPayload(
-    options.metadata,
-    toolExecution,
-    metadataExtras
-  );
+  const metadataPayload = buildMetadataPayload(options.metadata, toolExecution, metadataExtras);
   if (metadataPayload) {
     payload.metadata = metadataPayload;
   }
@@ -6234,9 +6171,7 @@ function createAbortBundle(upstreamSignal, timeoutMs) {
     } else {
       const onAbort = () => controller.abort(upstreamSignal.reason);
       upstreamSignal.addEventListener("abort", onAbort, { once: true });
-      cleanupCallbacks.push(
-        () => upstreamSignal.removeEventListener("abort", onAbort)
-      );
+      cleanupCallbacks.push(() => upstreamSignal.removeEventListener("abort", onAbort));
     }
   }
   if (timeoutMs && timeoutMs > 0) {
@@ -6268,11 +6203,9 @@ function buildMetadataPayload(base2, toolExecution, extras) {
         continue;
       }
       if (key === "openpond" && typeof value === "object" && value !== null) {
-        const existing = {
-          ...metadata.openpond ?? {}
-        };
+        const existing = metadata.openpond;
         metadata.openpond = {
-          ...existing,
+          ...typeof existing === "object" && existing !== null ? existing : void 0,
           ...value
         };
       } else {
@@ -6281,8 +6214,9 @@ function buildMetadataPayload(base2, toolExecution, extras) {
     }
   }
   if (toolExecution) {
+    const existing = metadata.openpond;
     const openpond = {
-      ...metadata.openpond ?? {},
+      ...typeof existing === "object" && existing !== null ? existing : void 0,
       toolExecution
     };
     metadata.openpond = openpond;
@@ -6314,6 +6248,69 @@ function toAbortError(reason) {
     return new AIAbortError(reason.message);
   }
   return new AIAbortError(String(reason ?? "AI request aborted"));
+}
+var backtestDecisionRequestSchema = z.object({
+  mode: z.literal("backtest_decisions"),
+  source: z.string().min(1).optional(),
+  symbol: z.string().min(1).optional(),
+  lookbackDays: z.number().positive().optional(),
+  timeframeStart: z.string().optional(),
+  timeframeEnd: z.string().optional(),
+  from: z.number().int().nonnegative().optional(),
+  to: z.number().int().nonnegative().optional(),
+  initialEquityUsd: z.number().positive().optional()
+}).strict();
+var RESOLUTION_SECONDS = {
+  "1": 60,
+  "5": 300,
+  "15": 900,
+  "30": 1800,
+  "60": 3600,
+  "240": 14400,
+  "1D": 86400,
+  "1W": 604800
+};
+function parseTimeToSeconds(value) {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return Math.max(0, Math.trunc(value));
+  }
+  if (typeof value === "string" && value.trim().length > 0) {
+    const trimmed = value.trim();
+    if (/^-?(?:\d+\.?\d*|\.\d+)$/.test(trimmed)) {
+      const numeric = Number.parseFloat(trimmed);
+      return Math.max(0, Math.trunc(numeric));
+    }
+    const parsedDate = new Date(value);
+    if (!Number.isNaN(parsedDate.getTime())) {
+      return Math.max(0, Math.trunc(parsedDate.getTime() / 1e3));
+    }
+  }
+  return null;
+}
+function resolutionToSeconds(resolution) {
+  return RESOLUTION_SECONDS[resolution];
+}
+function estimateCountBack(params) {
+  const {
+    fallback,
+    lookbackDays,
+    resolution,
+    fromSeconds,
+    toSeconds,
+    minCountBack = 50,
+    bufferBars = 5
+  } = params;
+  if (typeof lookbackDays === "number" && Number.isFinite(lookbackDays) && lookbackDays > 0) {
+    const interval = resolutionToSeconds(resolution);
+    const bars = Math.ceil(lookbackDays * 86400 / interval);
+    return Math.max(minCountBack, bars + bufferBars);
+  }
+  if (typeof fromSeconds === "number" && Number.isFinite(fromSeconds) && typeof toSeconds === "number" && Number.isFinite(toSeconds) && toSeconds > fromSeconds) {
+    const interval = resolutionToSeconds(resolution);
+    const bars = Math.ceil((toSeconds - fromSeconds) / interval);
+    return Math.max(minCountBack, bars + bufferBars);
+  }
+  return fallback;
 }
 var METADATA_SPEC_VERSION = "1.1.0";
 var McpAnnotationsSchema = z.object({
@@ -6353,10 +6350,7 @@ var X402PaymentSchema = z.object({
   }),
   metadata: z.record(z.string(), z.unknown()).optional()
 }).passthrough();
-var PaymentConfigSchema = z.union([
-  X402PaymentSchema,
-  z.record(z.string(), z.unknown())
-]);
+var PaymentConfigSchema = z.union([X402PaymentSchema, z.record(z.string(), z.unknown())]);
 var DiscoveryMetadataSchema = z.object({
   keywords: z.array(z.string()).optional(),
   category: z.string().optional(),
@@ -6754,7 +6748,7 @@ function buildDiscovery(authored) {
   }
   const merged = {
     ...legacyDiscovery,
-    ...authored.discovery ?? {}
+    ...authored.discovery
   };
   return Object.keys(merged).length > 0 ? merged : void 0;
 }
@@ -6770,7 +6764,9 @@ function normalizeScheduleExpression(raw, context) {
   const cronBody = extractCronBody(value);
   const cronFields = cronBody.trim().split(/\s+/).filter(Boolean);
   if (cronFields.length !== 5 && cronFields.length !== 6) {
-    throw new Error(`${context}: cron expression must have 5 or 6 fields (got ${cronFields.length})`);
+    throw new Error(
+      `${context}: cron expression must have 5 or 6 fields (got ${cronFields.length})`
+    );
   }
   validateCronTokens(cronFields, context);
   return {
@@ -6794,15 +6790,13 @@ function validateCronTokens(fields, context) {
 }
 
 // src/cli/validate.ts
-var SUPPORTED_EXTENSIONS = [
-  ".ts",
-  ".tsx",
-  ".js",
-  ".jsx",
-  ".mjs",
-  ".cjs"
-];
+var SUPPORTED_EXTENSIONS = [".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"];
 var MIN_TEMPLATE_CONFIG_VERSION = 2;
+var TEMPLATE_PREVIEW_TITLE_MAX = 80;
+var TEMPLATE_PREVIEW_SUBTITLE_MAX = 120;
+var TEMPLATE_PREVIEW_DESCRIPTION_MAX = 1200;
+var TEMPLATE_PREVIEW_MIN_LINES = 3;
+var TEMPLATE_PREVIEW_MAX_LINES = 8;
 function normalizeTemplateConfigVersion(value) {
   if (typeof value === "number" && Number.isFinite(value)) {
     return value;
@@ -6824,6 +6818,63 @@ function normalizeTemplateConfigVersion(value) {
   }
   const major = Number.parseInt(majorMatch[1], 10);
   return Number.isFinite(major) ? major : null;
+}
+function parseNonEmptyString(value, fieldPath, opts = {}) {
+  const { max, required = false } = opts;
+  if (value == null) {
+    if (required) {
+      throw new Error(`${fieldPath} is required and must be a non-empty string.`);
+    }
+    return null;
+  }
+  if (typeof value !== "string") {
+    throw new Error(`${fieldPath} must be a string.`);
+  }
+  const trimmed = value.trim();
+  if (!trimmed) {
+    throw new Error(`${fieldPath} must be a non-empty string.`);
+  }
+  if (typeof max === "number" && trimmed.length > max) {
+    throw new Error(`${fieldPath} must be <= ${max} characters.`);
+  }
+  return trimmed;
+}
+function normalizeTemplatePreview(value, file, toolName, requirePreview) {
+  const pathPrefix = `${file}: profile.templatePreview`;
+  if (value == null) {
+    if (requirePreview) {
+      throw new Error(
+        `${pathPrefix} is required for strategy tools and must define subtitle + description.`
+      );
+    }
+    return null;
+  }
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error(`${pathPrefix} must be an object.`);
+  }
+  const record = value;
+  const title = parseNonEmptyString(record.title, `${pathPrefix}.title`, {
+    max: TEMPLATE_PREVIEW_TITLE_MAX
+  }) ?? toolName;
+  const subtitle = parseNonEmptyString(record.subtitle, `${pathPrefix}.subtitle`, {
+    required: true,
+    max: TEMPLATE_PREVIEW_SUBTITLE_MAX
+  });
+  const description = parseNonEmptyString(record.description, `${pathPrefix}.description`, {
+    required: true,
+    max: TEMPLATE_PREVIEW_DESCRIPTION_MAX
+  });
+  const descriptionLineCount = description.split(/\r?\n/).map((line) => line.trim()).filter((line) => line.length > 0).length;
+  if (descriptionLineCount < TEMPLATE_PREVIEW_MIN_LINES || descriptionLineCount > TEMPLATE_PREVIEW_MAX_LINES) {
+    throw new Error(
+      `${pathPrefix}.description must contain ${TEMPLATE_PREVIEW_MIN_LINES}-${TEMPLATE_PREVIEW_MAX_LINES} non-empty lines (target ~5 lines).`
+    );
+  }
+  return {
+    title,
+    subtitle,
+    description
+  };
 }
 async function validateCommand(options) {
   console.log("\u{1F50D} Validating OpenTool metadata...");
@@ -6902,38 +6953,40 @@ async function loadAndValidateTools(toolsDir, options = {}) {
         throw new Error(`${file}: export exactly one of GET or POST`);
       }
       let normalizedSchedule = null;
-      const schedule = toolModule?.profile?.schedule;
-      const profileNotifyEmail = typeof toolModule?.profile?.notifyEmail === "boolean" ? toolModule.profile.notifyEmail : void 0;
-      const profileCategoryRaw = typeof toolModule?.profile?.category === "string" ? toolModule.profile.category : void 0;
-      const allowedProfileCategories = /* @__PURE__ */ new Set(["strategy", "tracker", "orchestrator"]);
-      if (profileCategoryRaw && !allowedProfileCategories.has(profileCategoryRaw)) {
-        throw new Error(
-          `${file}: profile.category must be one of ${Array.from(allowedProfileCategories).join(", ")}`
+      const profileRaw = toolModule?.profile && typeof toolModule.profile === "object" ? toolModule.profile : null;
+      const schedule = profileRaw?.schedule ?? null;
+      const profileNotifyEmail = typeof profileRaw?.notifyEmail === "boolean" ? profileRaw.notifyEmail : void 0;
+      const allowedProfileCategories = ["strategy", "tracker", "orchestrator"];
+      const profileCategoryCandidate = typeof profileRaw?.category === "string" ? profileRaw.category : void 0;
+      let profileCategoryRaw;
+      if (profileCategoryCandidate !== void 0) {
+        const isAllowed = allowedProfileCategories.includes(
+          profileCategoryCandidate
         );
+        if (!isAllowed) {
+          throw new Error(
+            `${file}: profile.category must be one of ${allowedProfileCategories.join(", ")}`
+          );
+        }
+        profileCategoryRaw = profileCategoryCandidate;
       }
-      const profileAssetsRaw = toolModule?.profile?.assets;
+      const profileAssetsRaw = profileRaw?.assets;
       if (profileAssetsRaw !== void 0) {
         if (!Array.isArray(profileAssetsRaw)) {
           throw new Error(`${file}: profile.assets must be an array.`);
         }
         profileAssetsRaw.forEach((entry, index) => {
           if (!entry || typeof entry !== "object") {
-            throw new Error(
-              `${file}: profile.assets[${index}] must be an object.`
-            );
+            throw new Error(`${file}: profile.assets[${index}] must be an object.`);
           }
           const record = entry;
           const venue = typeof record.venue === "string" ? record.venue.trim() : "";
           if (!venue) {
-            throw new Error(
-              `${file}: profile.assets[${index}].venue must be a non-empty string.`
-            );
+            throw new Error(`${file}: profile.assets[${index}].venue must be a non-empty string.`);
           }
           const chain = record.chain;
           if (typeof chain !== "string" && typeof chain !== "number") {
-            throw new Error(
-              `${file}: profile.assets[${index}].chain must be a string or number.`
-            );
+            throw new Error(`${file}: profile.assets[${index}].chain must be a string or number.`);
           }
           const symbols = record.assetSymbols;
           if (!Array.isArray(symbols) || symbols.length === 0) {
@@ -6969,7 +7022,7 @@ async function loadAndValidateTools(toolsDir, options = {}) {
           }
         });
       }
-      const templateConfigRaw = toolModule?.profile?.templateConfig;
+      const templateConfigRaw = profileRaw?.templateConfig;
       if (templateConfigRaw !== void 0) {
         if (!templateConfigRaw || typeof templateConfigRaw !== "object") {
           throw new Error(`${file}: profile.templateConfig must be an object.`);
@@ -7006,6 +7059,13 @@ async function loadAndValidateTools(toolsDir, options = {}) {
           );
         }
       }
+      const normalizedTemplatePreview = normalizeTemplatePreview(
+        profileRaw?.templatePreview,
+        file,
+        toolName,
+        profileCategoryRaw === "strategy"
+      );
+      const normalizedProfile = profileRaw && normalizedTemplatePreview ? { ...profileRaw, templatePreview: normalizedTemplatePreview } : profileRaw;
       if (hasGET && schedule && typeof schedule.cron === "string" && schedule.cron.trim().length > 0) {
         normalizedSchedule = normalizeScheduleExpression(schedule.cron, file);
         if (typeof schedule.enabled === "boolean") {
@@ -7020,14 +7080,14 @@ async function loadAndValidateTools(toolsDir, options = {}) {
           throw new Error(`${file}: POST tools must export a Zod schema as 'schema'`);
         }
         if (schedule && typeof schedule.cron === "string") {
-          throw new Error(`${file}: POST tools must not define profile.schedule; use GET + cron for scheduled tasks.`);
+          throw new Error(
+            `${file}: POST tools must not define profile.schedule; use GET + cron for scheduled tasks.`
+          );
         }
       }
       const httpHandlers = [...httpHandlersRaw];
       if (httpHandlers.length === 0) {
-        throw new Error(
-          `${file} must export at least one HTTP handler (e.g. POST)`
-        );
+        throw new Error(`${file} must export at least one HTTP handler (e.g. POST)`);
       }
       if (paymentExport) {
         for (let index = 0; index < httpHandlers.length; index += 1) {
@@ -7053,7 +7113,7 @@ async function loadAndValidateTools(toolsDir, options = {}) {
             ...metadataOverrides,
             payment: metadataOverrides.payment ?? paymentExport,
             annotations: {
-              ...metadataOverrides.annotations ?? {},
+              ...metadataOverrides.annotations,
               requiresPayment: metadataOverrides.annotations?.requiresPayment ?? true
             }
           };
@@ -7075,9 +7135,9 @@ async function loadAndValidateTools(toolsDir, options = {}) {
         handler: async (params) => adapter(params),
         payment: paymentExport ?? null,
         schedule: normalizedSchedule,
-        profile: toolModule?.profile && typeof toolModule.profile === "object" ? toolModule.profile : null,
+        profile: normalizedProfile,
         ...profileNotifyEmail !== void 0 ? { notifyEmail: profileNotifyEmail } : {},
-        profileDescription: typeof toolModule?.profile?.description === "string" ? toolModule.profile?.description ?? null : null,
+        profileDescription: typeof profileRaw?.description === "string" ? profileRaw.description : null,
         ...profileCategoryRaw ? { profileCategory: profileCategoryRaw } : {}
       };
       tools.push(tool);
@@ -7310,6 +7370,6 @@ function timestamp() {
   return (/* @__PURE__ */ new Date()).toISOString().replace("T", " ").slice(0, 19);
 }
 
-export { AIAbortError, AIError, AIFetchError, AIResponseError, DEFAULT_BASE_URL, DEFAULT_CHAIN, DEFAULT_FACILITATOR, DEFAULT_HYPERLIQUID_MARKET_SLIPPAGE_BPS, DEFAULT_MODEL, DEFAULT_TIMEOUT_MS, DEFAULT_TOKENS, HTTP_METHODS2 as HTTP_METHODS, HyperliquidApiError, HyperliquidBuilderApprovalError, HyperliquidExchangeClient, HyperliquidGuardError, HyperliquidInfoClient, HyperliquidTermsError, PAYMENT_HEADERS, POLYMARKET_CHAIN_ID, POLYMARKET_CLOB_AUTH_DOMAIN, POLYMARKET_CLOB_DOMAIN, POLYMARKET_ENDPOINTS, POLYMARKET_EXCHANGE_ADDRESSES, PolymarketApiError, PolymarketAuthError, PolymarketExchangeClient, PolymarketInfoClient, SUPPORTED_CURRENCIES, StoreError, WEBSEARCH_TOOL_DEFINITION, WEBSEARCH_TOOL_NAME, X402BrowserClient, X402Client, X402PaymentRequiredError, __hyperliquidInternals, __hyperliquidMarketDataInternals, approveHyperliquidBuilderFee, batchModifyHyperliquidOrders, buildHmacSignature, buildHyperliquidMarketIdentity, buildHyperliquidProfileAssets, buildHyperliquidSpotUsdPriceMap, buildL1Headers, buildL2Headers, buildPolymarketOrderAmounts, buildSignedOrderPayload, cancelAllHyperliquidOrders, cancelAllPolymarketOrders, cancelHyperliquidOrders, cancelHyperliquidOrdersByCloid, cancelHyperliquidTwapOrder, cancelMarketPolymarketOrders, cancelPolymarketOrder, cancelPolymarketOrders, chains, computeHyperliquidMarketIocLimitPrice, createAIClient, createDevServer, createHyperliquidSubAccount, createMcpAdapter, createMonotonicNonceFactory, createPolymarketApiKey, createStdioServer, defineX402Payment, depositToHyperliquidBridge, derivePolymarketApiKey, ensureTextContent, executeTool, extractHyperliquidDex, extractHyperliquidOrderIds, fetchHyperliquidAllMids, fetchHyperliquidAssetCtxs, fetchHyperliquidClearinghouseState, fetchHyperliquidFrontendOpenOrders, fetchHyperliquidHistoricalOrders, fetchHyperliquidMeta, fetchHyperliquidMetaAndAssetCtxs, fetchHyperliquidOpenOrders, fetchHyperliquidOrderStatus, fetchHyperliquidPerpMarketInfo, fetchHyperliquidPreTransferCheck, fetchHyperliquidSizeDecimals, fetchHyperliquidSpotAccountValue, fetchHyperliquidSpotAssetCtxs, fetchHyperliquidSpotClearinghouseState, fetchHyperliquidSpotMarketInfo, fetchHyperliquidSpotMeta, fetchHyperliquidSpotMetaAndAssetCtxs, fetchHyperliquidSpotTickSize, fetchHyperliquidSpotUsdPriceMap, fetchHyperliquidTickSize, fetchHyperliquidUserFills, fetchHyperliquidUserFillsByTime, fetchHyperliquidUserRateLimit, fetchPolymarketMarket, fetchPolymarketMarkets, fetchPolymarketMidpoint, fetchPolymarketOrderbook, fetchPolymarketPrice, fetchPolymarketPriceHistory, flattenMessageContent, formatHyperliquidMarketablePrice, formatHyperliquidOrderSize, formatHyperliquidPrice, formatHyperliquidSize, generateMetadata, generateMetadataCommand, generateText, getHyperliquidMaxBuilderFee, getModelConfig, getMyPerformance, getMyTools, getRpcUrl, getX402PaymentContext, isHyperliquidSpotSymbol, isStreamingSupported, isToolCallingSupported, listModels, loadAndValidateTools, modifyHyperliquidOrder, normalizeHyperliquidBaseSymbol, normalizeHyperliquidMetaSymbol, normalizeModelName, normalizeNumberArrayish, normalizeSpotTokenName2 as normalizeSpotTokenName, normalizeStringArrayish, parseSpotPairSymbol, payX402, payX402WithWallet, placeHyperliquidOrder, placeHyperliquidTwapOrder, placePolymarketOrder, postAgentDigest, readHyperliquidAccountValue, readHyperliquidNumber, readHyperliquidPerpPosition, readHyperliquidPerpPositionSize, readHyperliquidSpotAccountValue, readHyperliquidSpotBalance, readHyperliquidSpotBalanceSize, recordHyperliquidBuilderApproval, recordHyperliquidTermsAcceptance, registry, requireX402Payment, reserveHyperliquidRequestWeight, resolveConfig2 as resolveConfig, resolveExchangeAddress, resolveHyperliquidAbstractionFromMode, resolveHyperliquidChain, resolveHyperliquidChainConfig, resolveHyperliquidErrorDetail, resolveHyperliquidOrderRef, resolveHyperliquidOrderSymbol, resolveHyperliquidPair, resolveHyperliquidProfileChain, resolveHyperliquidRpcEnvVar, resolveHyperliquidStoreNetwork, resolveHyperliquidSymbol, resolvePolymarketBaseUrl, resolveRuntimePath, resolveSpotMidCandidates, resolveSpotTokenCandidates, resolveToolset, responseToToolResponse, retrieve, roundHyperliquidPriceToTick, scheduleHyperliquidCancel, sendHyperliquidSpot, setHyperliquidAccountAbstractionMode, setHyperliquidDexAbstraction, setHyperliquidPortfolioMargin, store, streamText, tokens, transferHyperliquidSubAccount, updateHyperliquidIsolatedMargin, updateHyperliquidLeverage, validateCommand, wallet, walletToolkit, withX402Payment, withdrawFromHyperliquid };
+export { AIAbortError, AIError, AIFetchError, AIResponseError, DEFAULT_BASE_URL, DEFAULT_CHAIN, DEFAULT_FACILITATOR, DEFAULT_HYPERLIQUID_MARKET_SLIPPAGE_BPS, DEFAULT_MODEL, DEFAULT_TIMEOUT_MS, DEFAULT_TOKENS, HTTP_METHODS2 as HTTP_METHODS, HyperliquidApiError, HyperliquidBuilderApprovalError, HyperliquidExchangeClient, HyperliquidGuardError, HyperliquidInfoClient, HyperliquidTermsError, PAYMENT_HEADERS, POLYMARKET_CHAIN_ID, POLYMARKET_CLOB_AUTH_DOMAIN, POLYMARKET_CLOB_DOMAIN, POLYMARKET_ENDPOINTS, POLYMARKET_EXCHANGE_ADDRESSES, PolymarketApiError, PolymarketAuthError, PolymarketExchangeClient, PolymarketInfoClient, SUPPORTED_CURRENCIES, StoreError, WEBSEARCH_TOOL_DEFINITION, WEBSEARCH_TOOL_NAME, X402BrowserClient, X402Client, X402PaymentRequiredError, __hyperliquidInternals, __hyperliquidMarketDataInternals, approveHyperliquidBuilderFee, backtestDecisionRequestSchema, batchModifyHyperliquidOrders, buildHmacSignature, buildHyperliquidMarketIdentity, buildHyperliquidProfileAssets, buildHyperliquidSpotUsdPriceMap, buildL1Headers, buildL2Headers, buildPolymarketOrderAmounts, buildSignedOrderPayload, cancelAllHyperliquidOrders, cancelAllPolymarketOrders, cancelHyperliquidOrders, cancelHyperliquidOrdersByCloid, cancelHyperliquidTwapOrder, cancelMarketPolymarketOrders, cancelPolymarketOrder, cancelPolymarketOrders, chains, computeHyperliquidMarketIocLimitPrice, createAIClient, createDevServer, createHyperliquidSubAccount, createMcpAdapter, createMonotonicNonceFactory, createPolymarketApiKey, createStdioServer, defineX402Payment, depositToHyperliquidBridge, derivePolymarketApiKey, ensureTextContent, estimateCountBack, executeTool, extractHyperliquidDex, extractHyperliquidOrderIds, fetchHyperliquidAllMids, fetchHyperliquidAssetCtxs, fetchHyperliquidBars, fetchHyperliquidClearinghouseState, fetchHyperliquidFrontendOpenOrders, fetchHyperliquidHistoricalOrders, fetchHyperliquidMeta, fetchHyperliquidMetaAndAssetCtxs, fetchHyperliquidOpenOrders, fetchHyperliquidOrderStatus, fetchHyperliquidPerpMarketInfo, fetchHyperliquidPreTransferCheck, fetchHyperliquidSizeDecimals, fetchHyperliquidSpotAccountValue, fetchHyperliquidSpotAssetCtxs, fetchHyperliquidSpotClearinghouseState, fetchHyperliquidSpotMarketInfo, fetchHyperliquidSpotMeta, fetchHyperliquidSpotMetaAndAssetCtxs, fetchHyperliquidSpotTickSize, fetchHyperliquidSpotUsdPriceMap, fetchHyperliquidTickSize, fetchHyperliquidUserFills, fetchHyperliquidUserFillsByTime, fetchHyperliquidUserRateLimit, fetchPolymarketMarket, fetchPolymarketMarkets, fetchPolymarketMidpoint, fetchPolymarketOrderbook, fetchPolymarketPrice, fetchPolymarketPriceHistory, flattenMessageContent, formatHyperliquidMarketablePrice, formatHyperliquidOrderSize, formatHyperliquidPrice, formatHyperliquidSize, generateMetadata, generateMetadataCommand, generateText, getHyperliquidMaxBuilderFee, getModelConfig, getMyPerformance, getMyTools, getRpcUrl, getX402PaymentContext, isHyperliquidSpotSymbol, isStreamingSupported, isToolCallingSupported, listModels, loadAndValidateTools, modifyHyperliquidOrder, normalizeHyperliquidBaseSymbol, normalizeHyperliquidMetaSymbol, normalizeModelName, normalizeNumberArrayish, normalizeSpotTokenName2 as normalizeSpotTokenName, normalizeStringArrayish, parseSpotPairSymbol, parseTimeToSeconds, payX402, payX402WithWallet, placeHyperliquidOrder, placeHyperliquidTwapOrder, placePolymarketOrder, postAgentDigest, readHyperliquidAccountValue, readHyperliquidNumber, readHyperliquidPerpPosition, readHyperliquidPerpPositionSize, readHyperliquidSpotAccountValue, readHyperliquidSpotBalance, readHyperliquidSpotBalanceSize, recordHyperliquidBuilderApproval, recordHyperliquidTermsAcceptance, registry, requireX402Payment, reserveHyperliquidRequestWeight, resolutionToSeconds, resolveConfig2 as resolveConfig, resolveExchangeAddress, resolveHyperliquidAbstractionFromMode, resolveHyperliquidChain, resolveHyperliquidChainConfig, resolveHyperliquidErrorDetail, resolveHyperliquidOrderRef, resolveHyperliquidOrderSymbol, resolveHyperliquidPair, resolveHyperliquidProfileChain, resolveHyperliquidRpcEnvVar, resolveHyperliquidStoreNetwork, resolveHyperliquidSymbol, resolvePolymarketBaseUrl, resolveRuntimePath, resolveSpotMidCandidates, resolveSpotTokenCandidates, resolveToolset, responseToToolResponse, retrieve, roundHyperliquidPriceToTick, scheduleHyperliquidCancel, sendHyperliquidSpot, setHyperliquidAccountAbstractionMode, setHyperliquidDexAbstraction, setHyperliquidPortfolioMargin, store, streamText, tokens, transferHyperliquidSubAccount, updateHyperliquidIsolatedMargin, updateHyperliquidLeverage, validateCommand, wallet, walletToolkit, withX402Payment, withdrawFromHyperliquid };
 //# sourceMappingURL=index.js.map
 //# sourceMappingURL=index.js.map

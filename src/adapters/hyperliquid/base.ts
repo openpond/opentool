@@ -20,19 +20,15 @@ export const HL_CHAIN_LABEL = {
   testnet: "Testnet",
 } as const satisfies Record<HyperliquidEnvironment, string>;
 
-export const HL_BRIDGE_ADDRESSES: Record<
-  HyperliquidEnvironment,
-  `0x${string}`
-> = {
+export const HL_BRIDGE_ADDRESSES: Record<HyperliquidEnvironment, `0x${string}`> = {
   mainnet: "0x2df1c51e09aecf9cacb7bc98cb1742757f163df7",
   testnet: "0x08cfc1b6b2dcf36a1480b99353a354aa8ac56f89",
 };
 
-export const HL_USDC_ADDRESSES: Record<HyperliquidEnvironment, `0x${string}`> =
-  {
-    mainnet: "0xaf88d065e77c8cc2239327c5edb3a432268e5831",
-    testnet: "0x1baAbB04529D43a73232B713C0FE471f7c7334d5",
-  };
+export const HL_USDC_ADDRESSES: Record<HyperliquidEnvironment, `0x${string}`> = {
+  mainnet: "0xaf88d065e77c8cc2239327c5edb3a432268e5831",
+  testnet: "0x1baAbB04529D43a73232B713C0FE471f7c7334d5",
+};
 
 export const HL_SIGNATURE_CHAIN_ID = {
   mainnet: "0xa4b1",
@@ -46,26 +42,19 @@ export const EXCHANGE_TYPED_DATA_DOMAIN = {
   verifyingContract: "0x0000000000000000000000000000000000000000" as const,
 };
 
-export const ZERO_ADDRESS =
-  "0x0000000000000000000000000000000000000000" as const;
+export const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000" as const;
 export const MIN_DEPOSIT_USDC = 5;
 export const BUILDER_CODE: HyperliquidBuilderFee = {
   address: "0x4b2aec4F91612849d6e20C9c1881FabB1A48cd12",
   fee: 100,
 };
 
-const metaCache = new Map<
-  string,
-  { fetchedAt: number; universe: MetaResponse["universe"] }
->();
+const metaCache = new Map<string, { fetchedAt: number; universe: MetaResponse["universe"] }>();
 const spotMetaCache = new Map<
   string,
   { fetchedAt: number; universe: SpotUniverseItem[]; tokens: SpotToken[] }
 >();
-const perpDexsCache = new Map<
-  string,
-  { fetchedAt: number; dexs: PerpDexsResponse }
->();
+const perpDexsCache = new Map<string, { fetchedAt: number; dexs: PerpDexsResponse }>();
 
 export type HyperliquidEnvironment = "mainnet" | "testnet";
 
@@ -111,9 +100,7 @@ const normalizeHyperliquidBase = (value?: string | null): string | null => {
   if (!value) return null;
   const trimmed = value.trim();
   if (!trimmed) return null;
-  const withoutDex = trimmed.includes(":")
-    ? trimmed.split(":").slice(1).join(":")
-    : trimmed;
+  const withoutDex = trimmed.includes(":") ? trimmed.split(":").slice(1).join(":") : trimmed;
   const base = withoutDex.split("-")[0] ?? withoutDex;
   const normalized = (base.split("/")[0] ?? base).trim().toUpperCase();
   if (!normalized || normalized === UNKNOWN_SYMBOL) return null;
@@ -129,20 +116,12 @@ const normalizeSpotTokenName = (value?: string | null): string => {
   return raw;
 };
 
-const parseHyperliquidPair = (
-  value?: string | null
-): { base: string; quote: string } | null => {
+const parseHyperliquidPair = (value?: string | null): { base: string; quote: string } | null => {
   if (!value) return null;
   const trimmed = value.trim();
   if (!trimmed) return null;
-  const withoutDex = trimmed.includes(":")
-    ? trimmed.split(":").slice(1).join(":")
-    : trimmed;
-  const separator = withoutDex.includes("/")
-    ? "/"
-    : withoutDex.includes("-")
-      ? "-"
-      : null;
+  const withoutDex = trimmed.includes(":") ? trimmed.split(":").slice(1).join(":") : trimmed;
+  const separator = withoutDex.includes("/") ? "/" : withoutDex.includes("-") ? "-" : null;
   if (!separator) return null;
   const [baseRaw, ...rest] = withoutDex.split(separator);
   const quoteRaw = rest.join(separator);
@@ -154,14 +133,13 @@ const parseHyperliquidPair = (
 };
 
 export function buildHyperliquidMarketIdentity(
-  input: HyperliquidMarketIdentityInput
+  input: HyperliquidMarketIdentityInput,
 ): MarketIdentity | null {
   const rawSymbol = input.rawSymbol ?? input.symbol;
   const dex = extractDexPrefix(rawSymbol);
   const pair = parseHyperliquidPair(rawSymbol) ?? parseHyperliquidPair(input.symbol);
   const isSpot =
-    input.isSpot ??
-    (Boolean(pair) || rawSymbol.startsWith("@") || input.symbol.includes("/"));
+    input.isSpot ?? (Boolean(pair) || rawSymbol.startsWith("@") || input.symbol.includes("/"));
 
   const base =
     (input.base ? input.base.trim().toUpperCase() : null) ??
@@ -172,8 +150,7 @@ export function buildHyperliquidMarketIdentity(
   if (!base) return null;
 
   if (isSpot) {
-    const quote =
-      (input.quote ? input.quote.trim().toUpperCase() : null) ?? pair?.quote ?? null;
+    const quote = (input.quote ? input.quote.trim().toUpperCase() : null) ?? pair?.quote ?? null;
     if (!quote) return null;
     return {
       market_type: "spot",
@@ -197,26 +174,18 @@ export function buildHyperliquidMarketIdentity(
     canonical_symbol: `perp:hyperliquid:${base}`,
   };
 }
-export type HyperliquidTimeInForce =
-  | "Gtc"
-  | "Ioc"
-  | "Alo"
-  | "FrontendMarket"
-  | "LiquidationMarket";
+export type HyperliquidTimeInForce = "Gtc" | "Ioc" | "Alo" | "FrontendMarket" | "LiquidationMarket";
 export type HyperliquidGrouping = "na" | "normalTpsl" | "positionTpsl";
 export type HyperliquidTriggerType = "tp" | "sl";
 
 // Hyperliquid account abstraction modes (API naming).
-export type HyperliquidAbstraction =
-  | "unifiedAccount"
-  | "portfolioMargin"
-  | "disabled";
+export type HyperliquidAbstraction = "unifiedAccount" | "portfolioMargin" | "disabled";
 
 // Product-facing naming.
 export type HyperliquidAccountMode = "standard" | "unified" | "portfolio";
 
 export function resolveHyperliquidAbstractionFromMode(
-  mode: HyperliquidAccountMode
+  mode: HyperliquidAccountMode,
 ): HyperliquidAbstraction {
   switch (mode) {
     case "standard":
@@ -390,7 +359,10 @@ export type HyperliquidExchangeResponse<T = unknown> = {
 export type NonceSource = () => number;
 
 export class HyperliquidApiError extends Error {
-  constructor(message: string, public readonly response: unknown) {
+  constructor(
+    message: string,
+    public readonly response: unknown,
+  ) {
     super(message);
     this.name = "HyperliquidApiError";
   }
@@ -404,26 +376,20 @@ export class HyperliquidGuardError extends Error {
 }
 
 export class HyperliquidTermsError extends HyperliquidGuardError {
-  constructor(
-    message = "Hyperliquid terms must be accepted before proceeding."
-  ) {
+  constructor(message = "Hyperliquid terms must be accepted before proceeding.") {
     super(message);
     this.name = "HyperliquidTermsError";
   }
 }
 
 export class HyperliquidBuilderApprovalError extends HyperliquidGuardError {
-  constructor(
-    message = "Hyperliquid builder approval is required before using builder codes."
-  ) {
+  constructor(message = "Hyperliquid builder approval is required before using builder codes.") {
     super(message);
     this.name = "HyperliquidBuilderApprovalError";
   }
 }
 
-export function createMonotonicNonceFactory(
-  start: number = Date.now()
-): NonceSource {
+export function createMonotonicNonceFactory(start: number = Date.now()): NonceSource {
   let last = start;
   return () => {
     const now = Date.now();
@@ -452,16 +418,14 @@ export async function getUniverse(args: {
   const response = await args.fetcher(`${args.baseUrl}/info`, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify(
-      dexKey ? { type: "meta", dex: dexKey } : { type: "meta" }
-    ),
+    body: JSON.stringify(dexKey ? { type: "meta", dex: dexKey } : { type: "meta" }),
   });
 
   const json = (await response.json().catch(() => null)) as MetaResponse | null;
   if (!response.ok || !json?.universe) {
     throw new HyperliquidApiError(
       "Unable to load Hyperliquid metadata.",
-      json ?? { status: response.status }
+      json ?? { status: response.status },
     );
   }
 
@@ -486,13 +450,11 @@ async function getSpotMeta(args: {
     body: JSON.stringify({ type: "spotMeta" }),
   });
 
-  const json = (await response.json().catch(() => null)) as
-    | SpotMetaResponse
-    | null;
+  const json = (await response.json().catch(() => null)) as SpotMetaResponse | null;
   if (!response.ok || !json?.universe) {
     throw new HyperliquidApiError(
       "Unable to load Hyperliquid spot metadata.",
-      json ?? { status: response.status }
+      json ?? { status: response.status },
     );
   }
 
@@ -502,15 +464,10 @@ async function getSpotMeta(args: {
   return { universe, tokens };
 }
 
-export function resolveAssetIndex(
-  symbol: string,
-  universe: MetaResponse["universe"]
-): number {
+export function resolveAssetIndex(symbol: string, universe: MetaResponse["universe"]): number {
   const [raw] = symbol.split("-");
   const target = raw.trim();
-  const index = universe.findIndex(
-    (entry) => entry.name.toUpperCase() === target.toUpperCase()
-  );
+  const index = universe.findIndex((entry) => entry.name.toUpperCase() === target.toUpperCase());
   if (index === -1) {
     throw new Error(`Unknown Hyperliquid asset symbol: ${symbol}`);
   }
@@ -533,13 +490,11 @@ async function getPerpDexs(args: {
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ type: "perpDexs" }),
   });
-  const json = (await response.json().catch(() => null)) as
-    | PerpDexsResponse
-    | null;
+  const json = (await response.json().catch(() => null)) as PerpDexsResponse | null;
   if (!response.ok || !Array.isArray(json)) {
     throw new HyperliquidApiError(
       "Unable to load Hyperliquid perp dex metadata.",
-      json ?? { status: response.status }
+      json ?? { status: response.status },
     );
   }
 
@@ -555,9 +510,7 @@ async function resolveDexIndex(args: {
 }): Promise<number> {
   const dexs = await getPerpDexs(args);
   const target = args.dex.trim().toLowerCase();
-  const index = dexs.findIndex(
-    (entry) => entry?.name?.toLowerCase() === target
-  );
+  const index = dexs.findIndex((entry) => entry?.name?.toLowerCase() === target);
   if (index === -1) {
     throw new Error(`Unknown Hyperliquid perp dex: ${args.dex}`);
   }
@@ -569,9 +522,7 @@ function buildSpotTokenIndexMap(tokens: SpotToken[]): Map<string, number> {
   for (const token of tokens) {
     const name = normalizeSpotTokenName(token?.name);
     const index =
-      typeof token?.index === "number" && Number.isFinite(token.index)
-        ? token.index
-        : null;
+      typeof token?.index === "number" && Number.isFinite(token.index) ? token.index : null;
     if (!name || index == null) continue;
     if (!map.has(name) || token?.isCanonical) {
       map.set(name, index);
@@ -580,10 +531,7 @@ function buildSpotTokenIndexMap(tokens: SpotToken[]): Map<string, number> {
   return map;
 }
 
-function resolveSpotTokenIndex(
-  tokenMap: Map<string, number>,
-  value: string
-): number | null {
+function resolveSpotTokenIndex(tokenMap: Map<string, number>, value: string): number | null {
   const normalized = normalizeSpotTokenName(value);
   if (!normalized) return null;
   const direct = tokenMap.get(normalized);
@@ -654,7 +602,7 @@ export async function resolveHyperliquidAssetIndex(args: {
       dex,
     });
     const assetIndex = universe.findIndex(
-      (entry) => entry.name.toUpperCase() === trimmed.toUpperCase()
+      (entry) => entry.name.toUpperCase() === trimmed.toUpperCase(),
     );
     if (assetIndex === -1) {
       throw new Error(`Unknown Hyperliquid asset symbol: ${trimmed}`);
@@ -713,10 +661,7 @@ export function toApiDecimal(value: string | number | bigint): string {
     const exponent = Number(exponentPart);
     const [integerPart, fractionalPart = ""] = mantissa.split(".");
     if (exponent >= 0) {
-      return (
-        integerPart +
-        fractionalPart.padEnd(exponent + fractionalPart.length, "0")
-      );
+      return integerPart + fractionalPart.padEnd(exponent + fractionalPart.length, "0");
     }
     const zeros = "0".repeat(Math.abs(exponent) - 1);
     return `0.${zeros}${integerPart}${fractionalPart}`.replace(/\.0+$/, "");
@@ -799,15 +744,7 @@ export async function signSpotSend(args: {
   amount: string;
   time: bigint;
 }): Promise<ExchangeSignature> {
-  const {
-    wallet,
-    hyperliquidChain,
-    signatureChainId,
-    destination,
-    token,
-    amount,
-    time,
-  } = args;
+  const { wallet, hyperliquidChain, signatureChainId, destination, token, amount, time } = args;
   const domain = {
     name: "HyperliquidSignTransaction",
     version: "1",
@@ -1036,18 +973,12 @@ export function createL1ActionHash(args: {
   const nonceBytes = toUint64Bytes(nonce);
 
   const vaultMarker = vaultAddress ? new Uint8Array([1]) : new Uint8Array([0]);
-  const vaultBytes = vaultAddress
-    ? hexToBytes(vaultAddress.slice(2))
-    : new Uint8Array();
+  const vaultBytes = vaultAddress ? hexToBytes(vaultAddress.slice(2)) : new Uint8Array();
 
   const hasExpiresAfter = typeof expiresAfter === "number";
-  const expiresMarker = hasExpiresAfter
-    ? new Uint8Array([0])
-    : new Uint8Array();
+  const expiresMarker = hasExpiresAfter ? new Uint8Array([0]) : new Uint8Array();
   const expiresBytes =
-    hasExpiresAfter && expiresAfter !== undefined
-      ? toUint64Bytes(expiresAfter)
-      : new Uint8Array();
+    hasExpiresAfter && expiresAfter !== undefined ? toUint64Bytes(expiresAfter) : new Uint8Array();
 
   const bytes = concatBytes(
     actionBytes,
@@ -1055,7 +986,7 @@ export function createL1ActionHash(args: {
     vaultMarker,
     vaultBytes,
     expiresMarker,
-    expiresBytes
+    expiresBytes,
   );
   const hash = keccak_256(bytes);
   return `0x${bytesToHex(hash)}`;
@@ -1093,10 +1024,7 @@ export function getBaseUrl(environment: HyperliquidEnvironment): string {
   return API_BASES[environment];
 }
 
-export function assertPositiveNumber(
-  value: number,
-  label: string
-): asserts value is number {
+export function assertPositiveNumber(value: number, label: string): asserts value is number {
   if (!Number.isFinite(value) || value <= 0) {
     throw new Error(`${label} must be a positive number.`);
   }

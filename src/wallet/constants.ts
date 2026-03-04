@@ -1,11 +1,5 @@
 import { zeroAddress } from "viem";
-import {
-  arbitrum,
-  arbitrumSepolia,
-  base,
-  baseSepolia,
-  mainnet,
-} from "viem/chains";
+import { arbitrum, arbitrumSepolia, base, baseSepolia, mainnet } from "viem/chains";
 
 import type {
   ChainMetadata,
@@ -21,10 +15,7 @@ const BASE_SEPOLIA_ALCHEMY_HOST = "https://base-sepolia.g.alchemy.com/v2/";
 const ARBITRUM_ALCHEMY_HOST = "https://arb-mainnet.g.alchemy.com/v2/";
 const ARBITRUM_SEPOLIA_ALCHEMY_HOST = "https://arb-sepolia.g.alchemy.com/v2/";
 
-function buildRpcResolver(
-  host: string,
-  fallbackUrls: readonly string[]
-): RpcUrlResolver {
+function buildRpcResolver(host: string, fallbackUrls: readonly string[]): RpcUrlResolver {
   return (options) => {
     if (options?.url) {
       return options.url;
@@ -39,7 +30,7 @@ function buildRpcResolver(
     }
 
     throw new Error(
-      "No RPC URL available: supply a full url via options or an apiKey for the default host"
+      "No RPC URL available: supply a full url via options or an apiKey for the default host",
     );
   };
 }
@@ -58,10 +49,7 @@ const chains: Record<string, ChainMetadata> = {
     slug: "ethereum",
     name: "Ethereum",
     chain: mainnet,
-    rpcUrl: buildRpcResolver(
-      ETHEREUM_ALCHEMY_HOST,
-      mainnet.rpcUrls.default.http
-    ),
+    rpcUrl: buildRpcResolver(ETHEREUM_ALCHEMY_HOST, mainnet.rpcUrls.default.http),
     publicRpcUrls: mainnet.rpcUrls.default.http,
   },
   baseSepolia: {
@@ -69,20 +57,14 @@ const chains: Record<string, ChainMetadata> = {
     slug: "base-sepolia",
     name: "Base Sepolia",
     chain: baseSepolia,
-    rpcUrl: buildRpcResolver(
-      BASE_SEPOLIA_ALCHEMY_HOST,
-      baseSepolia.rpcUrls.default.http
-    ),
+    rpcUrl: buildRpcResolver(BASE_SEPOLIA_ALCHEMY_HOST, baseSepolia.rpcUrls.default.http),
   },
   arbitrum: {
     id: arbitrum.id,
     slug: "arbitrum",
     name: "Arbitrum One",
     chain: arbitrum,
-    rpcUrl: buildRpcResolver(
-      ARBITRUM_ALCHEMY_HOST,
-      arbitrum.rpcUrls.default.http
-    ),
+    rpcUrl: buildRpcResolver(ARBITRUM_ALCHEMY_HOST, arbitrum.rpcUrls.default.http),
     publicRpcUrls: arbitrum.rpcUrls.default.http,
   },
   arbitrumSepolia: {
@@ -90,19 +72,12 @@ const chains: Record<string, ChainMetadata> = {
     slug: "arbitrum-sepolia",
     name: "Arbitrum Sepolia",
     chain: arbitrumSepolia,
-    rpcUrl: buildRpcResolver(
-      ARBITRUM_SEPOLIA_ALCHEMY_HOST,
-      arbitrumSepolia.rpcUrls.default.http
-    ),
+    rpcUrl: buildRpcResolver(ARBITRUM_SEPOLIA_ALCHEMY_HOST, arbitrumSepolia.rpcUrls.default.http),
     publicRpcUrls: arbitrumSepolia.rpcUrls.default.http,
   },
 };
 
-function createNativeToken(
-  chainId: number,
-  symbol: string,
-  name: string
-): ChainTokenMap {
+function createNativeToken(chainId: number, symbol: string, name: string): ChainTokenMap {
   return {
     [symbol]: {
       symbol,
@@ -120,7 +95,7 @@ function token(
   symbol: string,
   name: string,
   address: HexAddress,
-  decimals: number
+  decimals: number,
 ) {
   return {
     symbol,
@@ -134,33 +109,15 @@ function token(
 const tokens: Record<string, ChainTokenMap> = {
   base: {
     ...createNativeToken(base.id, "ETH", "Ether"),
-    USDC: token(
-      base.id,
-      "USDC",
-      "USD Coin",
-      "0x833589fCD6eDb6E08f4c7C31c9A8Ba32D74b86B2",
-      6
-    ),
+    USDC: token(base.id, "USDC", "USD Coin", "0x833589fCD6eDb6E08f4c7C31c9A8Ba32D74b86B2", 6),
   },
   ethereum: {
     ...createNativeToken(mainnet.id, "ETH", "Ether"),
-    USDC: token(
-      mainnet.id,
-      "USDC",
-      "USD Coin",
-      "0xA0b86991c6218b36c1d19d4a2e9Eb0cE3606eB48",
-      6
-    ),
+    USDC: token(mainnet.id, "USDC", "USD Coin", "0xA0b86991c6218b36c1d19d4a2e9Eb0cE3606eB48", 6),
   },
   arbitrum: {
     ...createNativeToken(arbitrum.id, "ETH", "Ether"),
-    USDC: token(
-      arbitrum.id,
-      "USDC",
-      "USD Coin",
-      "0xaf88d065e77c8cc2239327c5edb3a432268e5831",
-      6
-    ),
+    USDC: token(arbitrum.id, "USDC", "USD Coin", "0xaf88d065e77c8cc2239327c5edb3a432268e5831", 6),
   },
   arbitrumSepolia: {
     ...createNativeToken(arbitrumSepolia.id, "ETH", "Ether"),
@@ -169,7 +126,7 @@ const tokens: Record<string, ChainTokenMap> = {
       "USDC",
       "USD Coin",
       "0x1baAbB04529D43a73232B713C0FE471f7c7334d5",
-      6
+      6,
     ),
   },
 };

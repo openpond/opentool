@@ -1,9 +1,4 @@
-import {
-  API_BASES,
-  HyperliquidApiError,
-  HyperliquidEnvironment,
-  normalizeAddress,
-} from "./base";
+import { API_BASES, HyperliquidApiError, HyperliquidEnvironment, normalizeAddress } from "./base";
 
 type InfoPayload =
   | { type: "meta" }
@@ -40,7 +35,7 @@ async function postInfo(environment: HyperliquidEnvironment, payload: InfoPayloa
   if (!response.ok) {
     throw new HyperliquidApiError(
       "Hyperliquid info request failed.",
-      data ?? { status: response.status }
+      data ?? { status: response.status },
     );
   }
   return data;
@@ -144,31 +139,27 @@ export async function fetchHyperliquidMeta(environment: HyperliquidEnvironment =
 }
 
 export async function fetchHyperliquidMetaAndAssetCtxs(
-  environment: HyperliquidEnvironment = "mainnet"
+  environment: HyperliquidEnvironment = "mainnet",
 ) {
   return postInfo(environment, { type: "metaAndAssetCtxs" });
 }
 
-export async function fetchHyperliquidSpotMeta(
-  environment: HyperliquidEnvironment = "mainnet"
-) {
+export async function fetchHyperliquidSpotMeta(environment: HyperliquidEnvironment = "mainnet") {
   return postInfo(environment, { type: "spotMeta" });
 }
 
 export async function fetchHyperliquidSpotMetaAndAssetCtxs(
-  environment: HyperliquidEnvironment = "mainnet"
+  environment: HyperliquidEnvironment = "mainnet",
 ) {
   return postInfo(environment, { type: "spotMetaAndAssetCtxs" });
 }
 
-export async function fetchHyperliquidAssetCtxs(
-  environment: HyperliquidEnvironment = "mainnet"
-) {
+export async function fetchHyperliquidAssetCtxs(environment: HyperliquidEnvironment = "mainnet") {
   return postInfo(environment, { type: "assetCtxs" });
 }
 
 export async function fetchHyperliquidSpotAssetCtxs(
-  environment: HyperliquidEnvironment = "mainnet"
+  environment: HyperliquidEnvironment = "mainnet",
 ) {
   return postInfo(environment, { type: "spotAssetCtxs" });
 }

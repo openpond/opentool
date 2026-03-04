@@ -1,9 +1,6 @@
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import {
-  CallToolRequestSchema,
-  ListToolsRequestSchema,
-} from "@modelcontextprotocol/sdk/types.js";
+import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import * as fs from "fs";
 import * as http from "http";
 import * as path from "path";
@@ -20,7 +17,7 @@ import dotenv from "dotenv";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const packageJson = JSON.parse(
-  fs.readFileSync(path.resolve(__dirname, "../../package.json"), "utf-8")
+  fs.readFileSync(path.resolve(__dirname, "../../package.json"), "utf-8"),
 );
 
 const cyan = "\x1b[36m";
@@ -39,9 +36,7 @@ export async function devCommand(options: DevOptions): Promise<void> {
   const port = options.port ?? 7000;
   const watch = options.watch ?? true;
   const enableStdio = options.stdio ?? false;
-  const log = enableStdio
-    ? (_message: string) => {}
-    : (message: string) => console.log(message);
+  const log = enableStdio ? (_message: string) => {} : (message: string) => console.log(message);
 
   try {
     const toolsDir = path.resolve(options.input);
@@ -57,9 +52,7 @@ export async function devCommand(options: DevOptions): Promise<void> {
     }
     let routes = expandRoutes(toolDefinitions);
 
-    const stdioController = enableStdio
-      ? await startMcpServer(() => toolDefinitions)
-      : null;
+    const stdioController = enableStdio ? await startMcpServer(() => toolDefinitions) : null;
 
     if (watch) {
       const reloadableExtensions = /\.(ts|js|mjs|cjs|tsx|jsx)$/i;
@@ -75,11 +68,7 @@ export async function devCommand(options: DevOptions): Promise<void> {
           return;
         }
         reloading = true;
-        log(
-          `${dim}\nDetected change in ${
-            changedPath ?? "tools directory"
-          }, reloading...${reset}`
-        );
+        log(`${dim}\nDetected change in ${changedPath ?? "tools directory"}, reloading...${reset}`);
         try {
           toolDefinitions = await loadToolDefinitions(toolsDir, projectRoot);
           routes = expandRoutes(toolDefinitions);
@@ -120,9 +109,7 @@ export async function devCommand(options: DevOptions): Promise<void> {
       log(`${dim}[request] ${method} ${routePath}${reset}`);
       try {
         await handleRequest({ req, res, port, routes });
-        log(
-          `${dim}[response] ${method} ${routePath} ${res.statusCode}${reset}`
-        );
+        log(`${dim}[response] ${method} ${routePath} ${res.statusCode}${reset}`);
       } catch (error) {
         console.error("Error handling request:", error);
         res.writeHead(500, { "Content-Type": "application/json" });
@@ -133,9 +120,7 @@ export async function devCommand(options: DevOptions): Promise<void> {
 
     server.listen(port, () => {
       log(`${bold}${dim}> dev opentool${reset}`);
-      log(
-        `   * ${bold}opentool${reset} ${cyan}v${packageJson.version}${reset}`
-      );
+      log(`   * ${bold}opentool${reset} ${cyan}v${packageJson.version}${reset}`);
       log(`   * ${bold}HTTP:${reset} http://localhost:${port}`);
       logStartup(toolDefinitions, enableStdio, log);
     });
@@ -155,7 +140,7 @@ export async function devCommand(options: DevOptions): Promise<void> {
 }
 
 async function startMcpServer(
-  getTools: () => InternalToolDefinition[]
+  getTools: () => InternalToolDefinition[],
 ): Promise<{ close(): Promise<void> }> {
   const server = new Server(
     {
@@ -166,7 +151,7 @@ async function startMcpServer(
       capabilities: {
         tools: {},
       },
-    }
+    },
   );
 
   server.setRequestHandler(ListToolsRequestSchema, async () => {
@@ -195,18 +180,14 @@ async function startMcpServer(
     }
 
     try {
-      const validatedParams = (tool.schema as any).parse(
-        request.params.arguments
-      );
+      const validatedParams = (tool.schema as any).parse(request.params.arguments);
       const handler =
         tool.handler ??
         createMcpAdapter({
           name: tool.metadata?.name ?? tool.filename,
           httpHandlers: toHttpHandlerMap(tool.httpHandlers),
           ...(tool.schema ? { schema: tool.schema } : {}),
-          ...(tool.mcpConfig?.defaultMethod
-            ? { defaultMethod: tool.mcpConfig.defaultMethod }
-            : {}),
+          ...(tool.mcpConfig?.defaultMethod ? { defaultMethod: tool.mcpConfig.defaultMethod } : {}),
         });
 
       const result = await handler(validatedParams);
@@ -237,7 +218,7 @@ async function startMcpServer(
 
 async function loadToolDefinitions(
   toolsDir: string,
-  projectRoot: string
+  projectRoot: string,
 ): Promise<InternalToolDefinition[]> {
   return loadAndValidateTools(toolsDir, { projectRoot });
 }
@@ -261,7 +242,7 @@ function expandRoutes(tools: InternalToolDefinition[]): DevRoute[] {
 function logStartup(
   tools: InternalToolDefinition[],
   stdio: boolean,
-  log: (message: string) => void
+  log: (message: string) => void,
 ): void {
   log(`\nTools: ${tools.length} tool${tools.length === 1 ? "" : "s"}`);
   printToolList(tools, log);
@@ -269,9 +250,7 @@ function logStartup(
     const mcpTools = tools.filter(isMcpEnabled);
     const label =
       mcpTools.length > 0
-        ? `MCP stdio enabled (${mcpTools.length} tool${
-            mcpTools.length === 1 ? "" : "s"
-          })`
+        ? `MCP stdio enabled (${mcpTools.length} tool${mcpTools.length === 1 ? "" : "s"})`
         : "MCP stdio enabled (no tools opted in)";
     log(`${dim}${label}${reset}`);
   }
@@ -280,7 +259,7 @@ function logStartup(
 function logReload(
   tools: InternalToolDefinition[],
   stdio: boolean,
-  log: (message: string) => void
+  log: (message: string) => void,
 ): void {
   log(`\nReloaded ${tools.length} tool${tools.length === 1 ? "" : "s"}`);
   printToolList(tools, log);
@@ -288,23 +267,16 @@ function logReload(
     const mcpTools = tools.filter(isMcpEnabled);
     const label =
       mcpTools.length > 0
-        ? `MCP stdio enabled (${mcpTools.length} tool${
-            mcpTools.length === 1 ? "" : "s"
-          })`
+        ? `MCP stdio enabled (${mcpTools.length} tool${mcpTools.length === 1 ? "" : "s"})`
         : "MCP stdio enabled (no tools opted in)";
     log(`${dim}${label}${reset}`);
   }
 }
 
-function printToolList(
-  tools: InternalToolDefinition[],
-  log: (message: string) => void
-): void {
+function printToolList(tools: InternalToolDefinition[], log: (message: string) => void): void {
   tools.forEach((tool) => {
     const name = tool.metadata?.name ?? tool.filename;
-    const methods = tool.httpHandlers
-      .map((handler) => handler.method)
-      .join(", ");
+    const methods = tool.httpHandlers.map((handler) => handler.method).join(", ");
     const tags: string[] = [];
     if (tool.mcpConfig?.enabled) {
       tags.push(`${dim}[mcp]${reset}`);
@@ -326,10 +298,7 @@ async function handleRequest(params: {
   const { req, res, port, routes } = params;
 
   res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader(
-    "Access-Control-Allow-Methods",
-    HTTP_METHODS.join(", ") + ", OPTIONS"
-  );
+  res.setHeader("Access-Control-Allow-Methods", HTTP_METHODS.join(", ") + ", OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
 
   if (req.method === "OPTIONS") {
@@ -349,7 +318,7 @@ async function handleRequest(params: {
       JSON.stringify({
         error: `Tool not found: ${method} /${toolName}`,
         availableTools: routes.map((r) => `${r.method} /${routeName(r.tool)}`),
-      })
+      }),
     );
     return;
   }
@@ -383,13 +352,9 @@ async function handleRequest(params: {
   res.end(Buffer.from(arrayBuffer));
 }
 
-function findRoute(
-  toolName: string,
-  method: string,
-  routes: DevRoute[]
-): DevRoute | undefined {
+function findRoute(toolName: string, method: string, routes: DevRoute[]): DevRoute | undefined {
   const direct = routes.find(
-    (route) => routeName(route.tool) === toolName && route.method === method
+    (route) => routeName(route.tool) === toolName && route.method === method,
   );
 
   if (direct) {
@@ -397,9 +362,7 @@ function findRoute(
   }
 
   if (method === "HEAD") {
-    return routes.find(
-      (route) => routeName(route.tool) === toolName && route.method === "GET"
-    );
+    return routes.find((route) => routeName(route.tool) === toolName && route.method === "GET");
   }
 
   return undefined;
@@ -427,11 +390,7 @@ async function readRequestBody(req: http.IncomingMessage): Promise<Buffer> {
   return Buffer.concat(chunks);
 }
 
-function createWebRequest(params: {
-  req: http.IncomingMessage;
-  url: URL;
-  body: Buffer;
-}): Request {
+function createWebRequest(params: { req: http.IncomingMessage; url: URL; body: Buffer }): Request {
   const { req, url, body } = params;
 
   const headers = new Headers();
@@ -466,15 +425,12 @@ interface DevRoute {
 }
 
 function toHttpHandlerMap(
-  handlers: HttpHandlerDefinition[]
+  handlers: HttpHandlerDefinition[],
 ): Record<string, HttpHandlerDefinition["handler"]> {
-  return handlers.reduce<Record<string, HttpHandlerDefinition["handler"]>>(
-    (acc, handler) => {
-      acc[handler.method.toUpperCase()] = handler.handler;
-      return acc;
-    },
-    {}
-  );
+  return handlers.reduce<Record<string, HttpHandlerDefinition["handler"]>>((acc, handler) => {
+    acc[handler.method.toUpperCase()] = handler.handler;
+    return acc;
+  }, {});
 }
 
 function isMcpEnabled(tool: InternalToolDefinition): boolean {

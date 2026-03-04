@@ -7,14 +7,12 @@ export const DEFAULT_MODEL = "fireworks:accounts/fireworks/models/glm-4p7";
 function assertFetchAvailable(fetchImplementation?: typeof fetch): asserts fetchImplementation {
   if (!fetchImplementation) {
     throw new Error(
-      "No fetch implementation available. Provide one via AIClientConfig.fetchImplementation."
+      "No fetch implementation available. Provide one via AIClientConfig.fetchImplementation.",
     );
   }
 }
 
-export function resolveConfig(
-  config: AIClientConfig = {}
-): ResolvedAIClientConfig {
+export function resolveConfig(config: AIClientConfig = {}): ResolvedAIClientConfig {
   const fetchImplementation = config.fetchImplementation ?? globalThis.fetch;
   assertFetchAvailable(fetchImplementation);
 
@@ -38,7 +36,7 @@ export function resolveConfig(
 
 export function mergeHeaders(
   base: Record<string, string>,
-  overrides?: Record<string, string>
+  overrides?: Record<string, string>,
 ): Record<string, string> {
   if (!overrides) {
     return { ...base };

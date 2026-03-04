@@ -58,11 +58,7 @@ program
   .command("metadata")
   .description("Generate OpenTool metadata JSON without building")
   .option("-i, --input <dir>", "Input directory containing tools", "tools")
-  .option(
-    "-o, --output <file>",
-    "Output file path for metadata.json",
-    "metadata.json"
-  )
+  .option("-o, --output <file>", "Output file path for metadata.json", "metadata.json")
   .option("--name <name>", "Server name", "opentool-server")
   .option("--version <version>", "Server version", "1.0.0")
   .action(generateMetadataCommand);

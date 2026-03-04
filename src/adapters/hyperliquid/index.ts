@@ -29,17 +29,17 @@ import type {
   ExchangeSignature,
 } from "./base";
 export type {
-  HyperliquidEnvironment as HyperliquidEnvironment,
-  HyperliquidTimeInForce as HyperliquidTimeInForce,
-  HyperliquidGrouping as HyperliquidGrouping,
-  HyperliquidTriggerType as HyperliquidTriggerType,
-  HyperliquidTriggerOptions as HyperliquidTriggerOptions,
-  HyperliquidOrderIntent as HyperliquidOrderIntent,
-  HyperliquidAbstraction as HyperliquidAbstraction,
-  HyperliquidAccountMode as HyperliquidAccountMode,
-  HyperliquidBuilderFee as HyperliquidBuilderFee,
-  MarketIdentity as MarketIdentity,
-  HyperliquidMarketIdentityInput as HyperliquidMarketIdentityInput,
+  HyperliquidEnvironment,
+  HyperliquidTimeInForce,
+  HyperliquidGrouping,
+  HyperliquidTriggerType,
+  HyperliquidTriggerOptions,
+  HyperliquidOrderIntent,
+  HyperliquidAbstraction,
+  HyperliquidAccountMode,
+  HyperliquidBuilderFee,
+  MarketIdentity,
+  HyperliquidMarketIdentityInput,
   NonceSource,
   HyperliquidExchangeResponse,
 } from "./base";
@@ -162,10 +162,7 @@ type ExchangeRequestBody = {
   expiresAfter?: number;
 };
 
-function assertPositiveDecimalInput(
-  value: string | number | bigint,
-  label: string
-): void {
+function assertPositiveDecimalInput(value: string | number | bigint, label: string): void {
   if (typeof value === "number") {
     if (!Number.isFinite(value) || value <= 0) {
       throw new Error(`${label} must be a positive number.`);
@@ -192,10 +189,7 @@ function assertPositiveDecimalInput(
   }
 }
 
-function normalizePositiveDecimalString(
-  raw: string,
-  label: string
-): string {
+function normalizePositiveDecimalString(raw: string, label: string): string {
   const trimmed = raw.trim();
   if (!trimmed.length) {
     throw new Error(`${label} must be a non-empty decimal string.`);
@@ -218,7 +212,7 @@ function normalizePositiveDecimalString(
  * Sign and submit one or more orders to the Hyperliquid exchange endpoint.
  */
 export async function placeHyperliquidOrder(
-  options: HyperliquidOrderOptions
+  options: HyperliquidOrderOptions,
 ): Promise<HyperliquidOrderResponse> {
   const {
     wallet,
@@ -233,9 +227,7 @@ export async function placeHyperliquidOrder(
   const effectiveBuilder = BUILDER_CODE;
 
   if (!wallet?.account || !wallet.walletClient) {
-    throw new Error(
-      "Hyperliquid order signing requires a wallet with signing capabilities."
-    );
+    throw new Error("Hyperliquid order signing requires a wallet with signing capabilities.");
   }
 
   if (!orders.length) {
@@ -287,7 +279,7 @@ export async function placeHyperliquidOrder(
       };
 
       return order;
-    })
+    }),
   );
 
   const action: ExchangeOrderAction = {
@@ -334,7 +326,8 @@ export async function placeHyperliquidOrder(
   });
 
   const rawText = await response.text().catch(() => null);
-  let parsed: HyperliquidOrderResponse | { error?: string; message?: string } | string | null = null;
+  let parsed: HyperliquidOrderResponse | { error?: string; message?: string } | string | null =
+    null;
   if (rawText && rawText.length) {
     try {
       parsed = JSON.parse(rawText) as
@@ -358,7 +351,7 @@ export async function placeHyperliquidOrder(
     const suffix = detail ? ` Detail: ${detail}` : "";
     throw new HyperliquidApiError(
       `Failed to submit Hyperliquid order.${suffix}`,
-      parsed ?? rawText ?? { status: response.status }
+      parsed ?? rawText ?? { status: response.status },
     );
   }
 
@@ -368,26 +361,22 @@ export async function placeHyperliquidOrder(
       detail
         ? `Hyperliquid API returned an error status: ${detail}`
         : "Hyperliquid API returned an error status.",
-      json
+      json,
     );
   }
 
   const statuses = json.response?.data?.statuses ?? [];
-  const errorStatuses = statuses.filter(
-    (entry): entry is { error: string } =>
-      Boolean(
-        entry &&
-          typeof entry === "object" &&
-          "error" in entry &&
-          typeof (entry as { error?: unknown }).error === "string"
-      )
+  const errorStatuses = statuses.filter((entry): entry is { error: string } =>
+    Boolean(
+      entry &&
+      typeof entry === "object" &&
+      "error" in entry &&
+      typeof (entry as { error?: unknown }).error === "string",
+    ),
   );
   if (errorStatuses.length) {
     const message = errorStatuses.map((entry) => entry.error).join(", ");
-    throw new HyperliquidApiError(
-      message || "Hyperliquid rejected the order.",
-      json
-    );
+    throw new HyperliquidApiError(message || "Hyperliquid rejected the order.", json);
   }
 
   return json;
@@ -417,9 +406,7 @@ export async function depositToHyperliquidBridge(options: {
   const amountUnits = parseUnits(amount, 6);
 
   if (!wallet.walletClient || !wallet.publicClient) {
-    throw new Error(
-      "Wallet client and public client are required for deposit."
-    );
+    throw new Error("Wallet client and public client are required for deposit.");
   }
 
   const walletClient = wallet.walletClient;
@@ -456,16 +443,11 @@ export async function withdrawFromHyperliquid(options: {
 }): Promise<HyperliquidWithdrawResult> {
   const { environment, amount, destination, wallet } = options;
 
-  const normalizedAmount = normalizePositiveDecimalString(
-    amount,
-    "Withdraw amount"
-  );
+  const normalizedAmount = normalizePositiveDecimalString(amount, "Withdraw amount");
   const parsedAmount = Number.parseFloat(normalizedAmount);
 
   if (!wallet.account || !wallet.walletClient || !wallet.publicClient) {
-    throw new Error(
-      "Wallet client and public client are required for withdraw."
-    );
+    throw new Error("Wallet client and public client are required for withdraw.");
   }
 
   const signatureChainId = getSignatureChainId(environment);
@@ -536,9 +518,7 @@ export async function withdrawFromHyperliquid(options: {
 
   if (!response.ok || json?.status !== "ok") {
     throw new Error(
-      `Hyperliquid withdraw failed: ${
-        json?.response ?? json?.error ?? response.statusText
-      }`
+      `Hyperliquid withdraw failed: ${json?.response ?? json?.error ?? response.statusText}`,
     );
   }
 
@@ -562,10 +542,7 @@ export async function fetchHyperliquidClearinghouseState(params: {
     body: JSON.stringify({ type: "clearinghouseState", user: walletAddress }),
   });
 
-  const data = (await response.json().catch(() => null)) as Record<
-    string,
-    unknown
-  > | null;
+  const data = (await response.json().catch(() => null)) as Record<string, unknown> | null;
 
   return {
     ok: response.ok,
@@ -577,14 +554,12 @@ export async function fetchHyperliquidClearinghouseState(params: {
  * Approve a max builder fee for a specific builder address (user-signed action).
  */
 export async function approveHyperliquidBuilderFee(
-  options: HyperliquidApproveBuilderFeeOptions
+  options: HyperliquidApproveBuilderFeeOptions,
 ): Promise<HyperliquidApproveBuilderFeeResponse> {
   const { environment, wallet, nonce, signatureChainId } = options;
 
   if (!wallet?.account || !wallet.walletClient) {
-    throw new Error(
-      "Hyperliquid builder approval requires a wallet with signing capabilities."
-    );
+    throw new Error("Hyperliquid builder approval requires a wallet with signing capabilities.");
   }
 
   const maxFeeRateValue = BUILDER_CODE.fee / 1000;
@@ -597,8 +572,7 @@ export async function approveHyperliquidBuilderFee(
 
   const effectiveNonce = nonce ?? Date.now();
   const signatureNonce = BigInt(effectiveNonce);
-  const signatureChainHex =
-    signatureChainId ?? getSignatureChainId(inferredEnvironment);
+  const signatureChainHex = signatureChainId ?? getSignatureChainId(inferredEnvironment);
 
   const approvalSignature = await signApproveBuilderFee({
     wallet,
@@ -630,7 +604,11 @@ export async function approveHyperliquidBuilderFee(
   });
 
   const rawText = await response.text().catch(() => null);
-  let parsed: HyperliquidApproveBuilderFeeResponse | { error?: string; message?: string } | string | null = null;
+  let parsed:
+    | HyperliquidApproveBuilderFeeResponse
+    | { error?: string; message?: string }
+    | string
+    | null = null;
   if (rawText && rawText.length) {
     try {
       parsed = JSON.parse(rawText) as
@@ -654,7 +632,7 @@ export async function approveHyperliquidBuilderFee(
     const suffix = detail ? ` Detail: ${detail}` : "";
     throw new HyperliquidApiError(
       `Failed to submit builder approval.${suffix}`,
-      parsed ?? rawText ?? { status: response.status }
+      parsed ?? rawText ?? { status: response.status },
     );
   }
 
@@ -664,7 +642,7 @@ export async function approveHyperliquidBuilderFee(
       detail
         ? `Hyperliquid builder approval returned an error: ${detail}`
         : "Hyperliquid builder approval returned an error.",
-      json
+      json,
     );
   }
 
@@ -695,15 +673,13 @@ export async function getHyperliquidMaxBuilderFee(params: {
   if (!response.ok) {
     throw new HyperliquidApiError(
       "Failed to query max builder fee.",
-      data ?? { status: response.status }
+      data ?? { status: response.status },
     );
   }
   return data;
 }
 
-export async function recordHyperliquidTermsAcceptance(
-  input: HyperliquidTermsRecordInput
-) {
+export async function recordHyperliquidTermsAcceptance(input: HyperliquidTermsRecordInput) {
   const { environment, walletAddress, storeOptions } = input;
   return store(
     {
@@ -717,12 +693,12 @@ export async function recordHyperliquidTermsAcceptance(
         note: "Hyperliquid does not expose a terms endpoint; this records local acknowledgement only.",
       },
     },
-    storeOptions
+    storeOptions,
   );
 }
 
 export async function recordHyperliquidBuilderApproval(
-  input: HyperliquidBuilderApprovalRecordInput
+  input: HyperliquidBuilderApprovalRecordInput,
 ) {
   const { environment, walletAddress, storeOptions } = input;
   const maxFeeRate = `${BUILDER_CODE.fee / 1000}%`;
@@ -739,7 +715,7 @@ export async function recordHyperliquidBuilderApproval(
         maxFeeRate,
       },
     },
-    storeOptions
+    storeOptions,
   );
 }
 

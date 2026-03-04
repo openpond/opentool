@@ -41,7 +41,9 @@ export async function generateMetadataCommand(options: GenerateMetadataOptions):
   }
 }
 
-export async function generateMetadata(options: GenerateMetadataOptions): Promise<GenerateMetadataResult> {
+export async function generateMetadata(
+  options: GenerateMetadataOptions,
+): Promise<GenerateMetadataResult> {
   const toolsDir = path.resolve(options.input);
   if (!fs.existsSync(toolsDir)) {
     throw new Error(`Tools directory not found: ${toolsDir}`);

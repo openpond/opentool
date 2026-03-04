@@ -98,9 +98,7 @@ export class HyperliquidExchangeClient {
     const resolvedNonceSource =
       args.walletNonceProvider ?? args.wallet.nonceSource ?? args.nonceSource;
     if (!resolvedNonceSource) {
-      throw new Error(
-        "Wallet nonce source is required for Hyperliquid exchange actions."
-      );
+      throw new Error("Wallet nonce source is required for Hyperliquid exchange actions.");
     }
     this.nonceSource = resolvedNonceSource;
   }
@@ -248,15 +246,10 @@ export class HyperliquidExchangeClient {
       nonceSource: this.nonceSource,
     } satisfies Omit<Parameters<typeof setHyperliquidDexAbstraction>[0], "user">;
 
-    return setHyperliquidDexAbstraction(
-      params.user ? { ...base, user: params.user } : base
-    );
+    return setHyperliquidDexAbstraction(params.user ? { ...base, user: params.user } : base);
   }
 
-  setAccountAbstractionMode(params: {
-    mode: HyperliquidAccountMode;
-    user?: `0x${string}`;
-  }) {
+  setAccountAbstractionMode(params: { mode: HyperliquidAccountMode; user?: `0x${string}` }) {
     const base = {
       wallet: this.wallet,
       mode: params.mode,
@@ -264,13 +257,10 @@ export class HyperliquidExchangeClient {
       vaultAddress: this.vaultAddress,
       expiresAfter: this.expiresAfter,
       nonceSource: this.nonceSource,
-    } satisfies Omit<
-      Parameters<typeof setHyperliquidAccountAbstractionMode>[0],
-      "user"
-    >;
+    } satisfies Omit<Parameters<typeof setHyperliquidAccountAbstractionMode>[0], "user">;
 
     return setHyperliquidAccountAbstractionMode(
-      params.user ? { ...base, user: params.user } : base
+      params.user ? { ...base, user: params.user } : base,
     );
   }
 
@@ -284,22 +274,20 @@ export class HyperliquidExchangeClient {
       nonceSource: this.nonceSource,
     } satisfies Omit<Parameters<typeof setHyperliquidPortfolioMargin>[0], "user">;
 
-    return setHyperliquidPortfolioMargin(
-      params.user ? { ...base, user: params.user } : base
-    );
+    return setHyperliquidPortfolioMargin(params.user ? { ...base, user: params.user } : base);
   }
 }
 
-export async function setHyperliquidPortfolioMargin(options: {
-  wallet: WalletFullContext;
-  enabled: boolean;
-  user?: `0x${string}`;
-} & CommonActionOptions): Promise<HyperliquidExchangeResponse<unknown>> {
+export async function setHyperliquidPortfolioMargin(
+  options: {
+    wallet: WalletFullContext;
+    enabled: boolean;
+    user?: `0x${string}`;
+  } & CommonActionOptions,
+): Promise<HyperliquidExchangeResponse<unknown>> {
   const env = options.environment ?? "mainnet";
   if (!options.wallet?.account || !options.wallet.walletClient) {
-    throw new Error(
-      "Wallet with signing capability is required for portfolio margin."
-    );
+    throw new Error("Wallet with signing capability is required for portfolio margin.");
   }
 
   const nonce =
@@ -311,9 +299,7 @@ export async function setHyperliquidPortfolioMargin(options: {
 
   const signatureChainId = getSignatureChainId(env);
   const hyperliquidChain = HL_CHAIN_LABEL[env];
-  const user = normalizeAddress(
-    options.user ?? (options.wallet.address as `0x${string}`)
-  );
+  const user = normalizeAddress(options.user ?? (options.wallet.address as `0x${string}`));
 
   const action: HyperliquidUserPortfolioMarginAction = {
     type: "userPortfolioMargin",
@@ -351,16 +337,16 @@ export async function setHyperliquidPortfolioMargin(options: {
   return postExchange(env, body);
 }
 
-export async function setHyperliquidDexAbstraction(options: {
-  wallet: WalletFullContext;
-  enabled: boolean;
-  user?: `0x${string}`;
-} & CommonActionOptions): Promise<HyperliquidExchangeResponse<unknown>> {
+export async function setHyperliquidDexAbstraction(
+  options: {
+    wallet: WalletFullContext;
+    enabled: boolean;
+    user?: `0x${string}`;
+  } & CommonActionOptions,
+): Promise<HyperliquidExchangeResponse<unknown>> {
   const env = options.environment ?? "mainnet";
   if (!options.wallet?.account || !options.wallet.walletClient) {
-    throw new Error(
-      "Wallet with signing capability is required for dex abstraction."
-    );
+    throw new Error("Wallet with signing capability is required for dex abstraction.");
   }
 
   const nonce =
@@ -372,9 +358,7 @@ export async function setHyperliquidDexAbstraction(options: {
 
   const signatureChainId = getSignatureChainId(env);
   const hyperliquidChain = HL_CHAIN_LABEL[env];
-  const user = normalizeAddress(
-    options.user ?? (options.wallet.address as `0x${string}`)
-  );
+  const user = normalizeAddress(options.user ?? (options.wallet.address as `0x${string}`));
 
   const action: HyperliquidUserDexAbstractionAction = {
     type: "userDexAbstraction",
@@ -412,16 +396,16 @@ export async function setHyperliquidDexAbstraction(options: {
   return postExchange(env, body);
 }
 
-export async function setHyperliquidAccountAbstractionMode(options: {
-  wallet: WalletFullContext;
-  mode: HyperliquidAccountMode;
-  user?: `0x${string}`;
-} & CommonActionOptions): Promise<HyperliquidExchangeResponse<unknown>> {
+export async function setHyperliquidAccountAbstractionMode(
+  options: {
+    wallet: WalletFullContext;
+    mode: HyperliquidAccountMode;
+    user?: `0x${string}`;
+  } & CommonActionOptions,
+): Promise<HyperliquidExchangeResponse<unknown>> {
   const env = options.environment ?? "mainnet";
   if (!options.wallet?.account || !options.wallet.walletClient) {
-    throw new Error(
-      "Wallet with signing capability is required for account abstraction mode."
-    );
+    throw new Error("Wallet with signing capability is required for account abstraction mode.");
   }
 
   const nonce =
@@ -433,12 +417,9 @@ export async function setHyperliquidAccountAbstractionMode(options: {
 
   const signatureChainId = getSignatureChainId(env);
   const hyperliquidChain = HL_CHAIN_LABEL[env];
-  const user = normalizeAddress(
-    options.user ?? (options.wallet.address as `0x${string}`)
-  );
+  const user = normalizeAddress(options.user ?? (options.wallet.address as `0x${string}`));
 
-  const abstraction: HyperliquidAbstraction =
-    resolveHyperliquidAbstractionFromMode(options.mode);
+  const abstraction: HyperliquidAbstraction = resolveHyperliquidAbstractionFromMode(options.mode);
 
   const action: HyperliquidUserSetAbstractionAction = {
     type: "userSetAbstraction",
@@ -476,10 +457,12 @@ export async function setHyperliquidAccountAbstractionMode(options: {
   return postExchange(env, body);
 }
 
-export async function cancelHyperliquidOrders(options: {
-  wallet: WalletFullContext;
-  cancels: CancelInput[];
-} & CommonActionOptions) {
+export async function cancelHyperliquidOrders(
+  options: {
+    wallet: WalletFullContext;
+    cancels: CancelInput[];
+  } & CommonActionOptions,
+) {
   options.cancels.forEach((c) => assertSymbol(c.symbol));
   const action = {
     type: "cancel",
@@ -491,36 +474,38 @@ export async function cancelHyperliquidOrders(options: {
   return submitExchangeAction(options, action);
 }
 
-export async function cancelHyperliquidOrdersByCloid(options: {
-  wallet: WalletFullContext;
-  cancels: CancelByCloidInput[];
-} & CommonActionOptions) {
+export async function cancelHyperliquidOrdersByCloid(
+  options: {
+    wallet: WalletFullContext;
+    cancels: CancelByCloidInput[];
+  } & CommonActionOptions,
+) {
   options.cancels.forEach((c) => assertSymbol(c.symbol));
   const action = {
     type: "cancelByCloid",
-    cancels: await withAssetIndexes(
-      options,
-      options.cancels,
-      (idx, entry) => ({
-        asset: idx,
-        cloid: normalizeCloid(entry.cloid),
-      })
-    ),
+    cancels: await withAssetIndexes(options, options.cancels, (idx, entry) => ({
+      asset: idx,
+      cloid: normalizeCloid(entry.cloid),
+    })),
   };
   return submitExchangeAction(options, action);
 }
 
-export async function cancelAllHyperliquidOrders(options: {
-  wallet: WalletFullContext;
-} & CommonActionOptions) {
+export async function cancelAllHyperliquidOrders(
+  options: {
+    wallet: WalletFullContext;
+  } & CommonActionOptions,
+) {
   const action = { type: "cancelAll" };
   return submitExchangeAction(options, action);
 }
 
-export async function scheduleHyperliquidCancel(options: {
-  wallet: WalletFullContext;
-  time?: number | null;
-} & CommonActionOptions) {
+export async function scheduleHyperliquidCancel(
+  options: {
+    wallet: WalletFullContext;
+    time?: number | null;
+  } & CommonActionOptions,
+) {
   if (options.time != null) {
     assertPositiveNumber(options.time, "time");
   }
@@ -531,11 +516,13 @@ export async function scheduleHyperliquidCancel(options: {
   return submitExchangeAction(options, action);
 }
 
-export async function modifyHyperliquidOrder(options: {
-  wallet: WalletFullContext;
-  modification: ModifyOrderInput;
-  grouping?: HyperliquidGrouping;
-} & CommonActionOptions) {
+export async function modifyHyperliquidOrder(
+  options: {
+    wallet: WalletFullContext;
+    modification: ModifyOrderInput;
+    grouping?: HyperliquidGrouping;
+  } & CommonActionOptions,
+) {
   const { modification } = options;
   const order = await buildOrder(modification.order, options);
   const action = {
@@ -546,16 +533,18 @@ export async function modifyHyperliquidOrder(options: {
   return submitExchangeAction(options, action);
 }
 
-export async function batchModifyHyperliquidOrders(options: {
-  wallet: WalletFullContext;
-  modifications: ModifyOrderInput[];
-} & CommonActionOptions) {
+export async function batchModifyHyperliquidOrders(
+  options: {
+    wallet: WalletFullContext;
+    modifications: ModifyOrderInput[];
+  } & CommonActionOptions,
+) {
   options.modifications.forEach((m) => assertSymbol(m.order.symbol));
   const modifies = await Promise.all(
     options.modifications.map(async (mod) => ({
       oid: mod.oid,
       order: await buildOrder(mod.order, options),
-    }))
+    })),
   );
   const action = {
     type: "batchModify",
@@ -564,10 +553,12 @@ export async function batchModifyHyperliquidOrders(options: {
   return submitExchangeAction(options, action);
 }
 
-export async function placeHyperliquidTwapOrder(options: {
-  wallet: WalletFullContext;
-  twap: TwapOrderInput;
-} & CommonActionOptions) {
+export async function placeHyperliquidTwapOrder(
+  options: {
+    wallet: WalletFullContext;
+    twap: TwapOrderInput;
+  } & CommonActionOptions,
+) {
   const { twap } = options;
   assertSymbol(twap.symbol);
   assertPositiveDecimal(twap.size, "size");
@@ -593,10 +584,12 @@ export async function placeHyperliquidTwapOrder(options: {
   return submitExchangeAction(options, action);
 }
 
-export async function cancelHyperliquidTwapOrder(options: {
-  wallet: WalletFullContext;
-  cancel: TwapCancelInput;
-} & CommonActionOptions) {
+export async function cancelHyperliquidTwapOrder(
+  options: {
+    wallet: WalletFullContext;
+    cancel: TwapCancelInput;
+  } & CommonActionOptions,
+) {
   assertSymbol(options.cancel.symbol);
   const env = options.environment ?? "mainnet";
   const asset = await resolveHyperliquidAssetIndex({
@@ -613,10 +606,12 @@ export async function cancelHyperliquidTwapOrder(options: {
   return submitExchangeAction(options, action);
 }
 
-export async function updateHyperliquidLeverage(options: {
-  wallet: WalletFullContext;
-  input: UpdateLeverageInput;
-} & CommonActionOptions) {
+export async function updateHyperliquidLeverage(
+  options: {
+    wallet: WalletFullContext;
+    input: UpdateLeverageInput;
+  } & CommonActionOptions,
+) {
   assertSymbol(options.input.symbol);
   assertPositiveNumber(options.input.leverage, "leverage");
   const env = options.environment ?? "mainnet";
@@ -635,10 +630,12 @@ export async function updateHyperliquidLeverage(options: {
   return submitExchangeAction(options, action);
 }
 
-export async function updateHyperliquidIsolatedMargin(options: {
-  wallet: WalletFullContext;
-  input: UpdateIsolatedMarginInput;
-} & CommonActionOptions) {
+export async function updateHyperliquidIsolatedMargin(
+  options: {
+    wallet: WalletFullContext;
+    input: UpdateIsolatedMarginInput;
+  } & CommonActionOptions,
+) {
   assertSymbol(options.input.symbol);
   assertPositiveNumber(options.input.ntli, "ntli");
   const env = options.environment ?? "mainnet";
@@ -657,10 +654,12 @@ export async function updateHyperliquidIsolatedMargin(options: {
   return submitExchangeAction(options, action);
 }
 
-export async function reserveHyperliquidRequestWeight(options: {
-  wallet: WalletFullContext;
-  weight: number;
-} & CommonActionOptions) {
+export async function reserveHyperliquidRequestWeight(
+  options: {
+    wallet: WalletFullContext;
+    weight: number;
+  } & CommonActionOptions,
+) {
   assertPositiveNumber(options.weight, "weight");
   const action = {
     type: "reserveRequestWeight",
@@ -669,10 +668,12 @@ export async function reserveHyperliquidRequestWeight(options: {
   return submitExchangeAction(options, action);
 }
 
-export async function createHyperliquidSubAccount(options: {
-  wallet: WalletFullContext;
-  name: string;
-} & CommonActionOptions) {
+export async function createHyperliquidSubAccount(
+  options: {
+    wallet: WalletFullContext;
+    name: string;
+  } & CommonActionOptions,
+) {
   assertString(options.name, "name");
   const action = {
     type: "createSubAccount",
@@ -681,12 +682,14 @@ export async function createHyperliquidSubAccount(options: {
   return submitExchangeAction(options, action);
 }
 
-export async function transferHyperliquidSubAccount(options: {
-  wallet: WalletFullContext;
-  subAccountUser: `0x${string}`;
-  isDeposit: boolean;
-  usd: string | number | bigint;
-} & CommonActionOptions) {
+export async function transferHyperliquidSubAccount(
+  options: {
+    wallet: WalletFullContext;
+    subAccountUser: `0x${string}`;
+    isDeposit: boolean;
+    usd: string | number | bigint;
+  } & CommonActionOptions,
+) {
   assertString(options.subAccountUser, "subAccountUser");
   const usdScaled = normalizeUsdToInt(options.usd);
   const action = {
@@ -716,8 +719,7 @@ export async function sendHyperliquidSpot(options: {
   const signatureChainId = getSignatureChainId(env);
   const hyperliquidChain = HL_CHAIN_LABEL[env];
 
-  const nonce =
-    options.nonce ?? options.nonceSource?.() ?? Date.now();
+  const nonce = options.nonce ?? options.nonceSource?.() ?? Date.now();
   const time = BigInt(nonce);
 
   const signature = await signSpotSend({
@@ -745,7 +747,7 @@ export async function sendHyperliquidSpot(options: {
 
 async function submitExchangeAction(
   options: { wallet: WalletFullContext } & CommonActionOptions,
-  action: Record<string, unknown> | ExchangeOrderAction
+  action: Record<string, unknown> | ExchangeOrderAction,
 ): Promise<HyperliquidExchangeResponse<unknown>> {
   if (!options.wallet?.account || !options.wallet.walletClient) {
     throw new Error("Hyperliquid exchange actions require a signing wallet.");
@@ -766,9 +768,7 @@ async function submitExchangeAction(
     wallet: options.wallet,
     action,
     nonce: effectiveNonce,
-    vaultAddress: options.vaultAddress
-      ? normalizeAddress(options.vaultAddress)
-      : undefined,
+    vaultAddress: options.vaultAddress ? normalizeAddress(options.vaultAddress) : undefined,
     expiresAfter: options.expiresAfter,
     isTestnet: env === "testnet",
   });
@@ -798,7 +798,7 @@ async function submitExchangeAction(
 async function withAssetIndexes<TInput>(
   options: { environment?: HyperliquidEnvironment },
   entries: TInput[],
-  mapper: (assetIndex: number, entry: TInput) => Record<string, unknown>
+  mapper: (assetIndex: number, entry: TInput) => Record<string, unknown>,
 ) {
   const env = options.environment ?? "mainnet";
   return Promise.all(
@@ -810,13 +810,13 @@ async function withAssetIndexes<TInput>(
         fetcher: fetch,
       });
       return mapper(assetIndex, entry);
-    })
+    }),
   );
 }
 
 async function buildOrder(
   intent: HyperliquidOrderIntent,
-  options: { environment?: HyperliquidEnvironment }
+  options: { environment?: HyperliquidEnvironment },
 ): Promise<ExchangeOrderAction["orders"][number]> {
   assertSymbol(intent.symbol);
   assertPositiveDecimal(intent.price, "price");
@@ -853,7 +853,7 @@ async function buildOrder(
 }
 
 function mapTrigger(
-  trigger: HyperliquidTriggerOptions
+  trigger: HyperliquidTriggerOptions,
 ): ExchangeOrderAction["orders"][number]["t"] {
   assertPositiveDecimal(trigger.triggerPx, "triggerPx");
   return {
@@ -889,10 +889,7 @@ function assertString(value: unknown, label: string) {
   }
 }
 
-function assertPositiveDecimal(
-  value: string | number | bigint,
-  label: string
-) {
+function assertPositiveDecimal(value: string | number | bigint, label: string) {
   if (typeof value === "number") {
     assertPositiveNumber(value, label);
     return;
@@ -955,7 +952,7 @@ function collectExchangeErrorMessages(payload: unknown): string[] {
 
 async function postExchange(
   env: HyperliquidEnvironment,
-  body: Record<string, unknown>
+  body: Record<string, unknown>,
 ): Promise<HyperliquidExchangeResponse<unknown>> {
   const response = await fetch(`${API_BASES[env]}/exchange`, {
     method: "POST",

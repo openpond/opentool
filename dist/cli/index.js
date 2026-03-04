@@ -128,10 +128,7 @@ var X402PaymentSchema = z.object({
   }),
   metadata: z.record(z.string(), z.unknown()).optional()
 }).passthrough();
-var PaymentConfigSchema = z.union([
-  X402PaymentSchema,
-  z.record(z.string(), z.unknown())
-]);
+var PaymentConfigSchema = z.union([X402PaymentSchema, z.record(z.string(), z.unknown())]);
 var DiscoveryMetadataSchema = z.object({
   keywords: z.array(z.string()).optional(),
   category: z.string().optional(),
@@ -460,7 +457,7 @@ function buildDiscovery(authored) {
   }
   const merged = {
     ...legacyDiscovery,
-    ...authored.discovery ?? {}
+    ...authored.discovery
   };
   return Object.keys(merged).length > 0 ? merged : void 0;
 }
@@ -592,7 +589,10 @@ async function verifyX402Payment(attempt, definition, options = {}) {
     console.log("[x402] Facilitator /verify response", { status: verifyResponse.status });
     if (!verifyResponse.ok) {
       const errorText = await verifyResponse.text().catch(() => "");
-      console.error("[x402] Facilitator /verify error", { status: verifyResponse.status, body: errorText });
+      console.error("[x402] Facilitator /verify error", {
+        status: verifyResponse.status,
+        body: errorText
+      });
       return {
         success: false,
         failure: {
@@ -640,7 +640,10 @@ async function verifyX402Payment(attempt, definition, options = {}) {
         console.log("[x402] Facilitator /settle response", { status: settleResponse.status });
         if (!settleResponse.ok) {
           const errorText = await settleResponse.text().catch(() => "");
-          console.error("[x402] Facilitator /settle error", { status: settleResponse.status, body: errorText });
+          console.error("[x402] Facilitator /settle error", {
+            status: settleResponse.status,
+            body: errorText
+          });
           return {
             success: false,
             failure: {
@@ -658,7 +661,9 @@ async function verifyX402Payment(attempt, definition, options = {}) {
           });
         }
       } catch (error) {
-        console.error("[x402] Settlement exception", { error: error instanceof Error ? error.message : String(error) });
+        console.error("[x402] Settlement exception", {
+          error: error instanceof Error ? error.message : String(error)
+        });
         return {
           success: false,
           failure: {
@@ -747,7 +752,7 @@ function ensureTrailingSlash(url) {
 }
 
 // src/x402/index.ts
-var PAYMENT_CONTEXT_SYMBOL = Symbol.for("opentool.x402.context");
+var PAYMENT_CONTEXT_SYMBOL = /* @__PURE__ */ Symbol.for("opentool.x402.context");
 var X402PaymentRequiredError = class extends Error {
   constructor(response, verification) {
     super("X402 Payment required");
@@ -838,9 +843,7 @@ function createMcpAdapter(options) {
   const defaultMethod = resolveDefaultMethod(options);
   const httpHandler = options.httpHandlers[defaultMethod];
   if (!httpHandler) {
-    throw new Error(
-      `Tool "${options.name}" does not export an HTTP handler for ${defaultMethod}`
-    );
+    throw new Error(`Tool "${options.name}" does not export an HTTP handler for ${defaultMethod}`);
   }
   return async function invoke(rawArguments) {
     const validated = normalizedSchema ? normalizedSchema.parse(rawArguments ?? {}) : rawArguments;
@@ -948,15 +951,7 @@ async function responseToToolResponse(response) {
 }
 
 // src/types/index.ts
-var HTTP_METHODS = [
-  "GET",
-  "HEAD",
-  "POST",
-  "PUT",
-  "DELETE",
-  "PATCH",
-  "OPTIONS"
-];
+var HTTP_METHODS = ["GET", "HEAD", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"];
 
 // src/utils/schedule.ts
 var CRON_WRAPPED_REGEX = /^cron\((.*)\)$/i;
@@ -969,7 +964,9 @@ function normalizeScheduleExpression(raw, context) {
   const cronBody = extractCronBody(value);
   const cronFields = cronBody.trim().split(/\s+/).filter(Boolean);
   if (cronFields.length !== 5 && cronFields.length !== 6) {
-    throw new Error(`${context}: cron expression must have 5 or 6 fields (got ${cronFields.length})`);
+    throw new Error(
+      `${context}: cron expression must have 5 or 6 fields (got ${cronFields.length})`
+    );
   }
   validateCronTokens(cronFields, context);
   return {
@@ -993,15 +990,13 @@ function validateCronTokens(fields, context) {
 }
 
 // src/cli/validate.ts
-var SUPPORTED_EXTENSIONS = [
-  ".ts",
-  ".tsx",
-  ".js",
-  ".jsx",
-  ".mjs",
-  ".cjs"
-];
+var SUPPORTED_EXTENSIONS = [".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"];
 var MIN_TEMPLATE_CONFIG_VERSION = 2;
+var TEMPLATE_PREVIEW_TITLE_MAX = 80;
+var TEMPLATE_PREVIEW_SUBTITLE_MAX = 120;
+var TEMPLATE_PREVIEW_DESCRIPTION_MAX = 1200;
+var TEMPLATE_PREVIEW_MIN_LINES = 3;
+var TEMPLATE_PREVIEW_MAX_LINES = 8;
 function normalizeTemplateConfigVersion(value) {
   if (typeof value === "number" && Number.isFinite(value)) {
     return value;
@@ -1023,6 +1018,63 @@ function normalizeTemplateConfigVersion(value) {
   }
   const major = Number.parseInt(majorMatch[1], 10);
   return Number.isFinite(major) ? major : null;
+}
+function parseNonEmptyString(value, fieldPath, opts = {}) {
+  const { max, required = false } = opts;
+  if (value == null) {
+    if (required) {
+      throw new Error(`${fieldPath} is required and must be a non-empty string.`);
+    }
+    return null;
+  }
+  if (typeof value !== "string") {
+    throw new Error(`${fieldPath} must be a string.`);
+  }
+  const trimmed = value.trim();
+  if (!trimmed) {
+    throw new Error(`${fieldPath} must be a non-empty string.`);
+  }
+  if (typeof max === "number" && trimmed.length > max) {
+    throw new Error(`${fieldPath} must be <= ${max} characters.`);
+  }
+  return trimmed;
+}
+function normalizeTemplatePreview(value, file, toolName, requirePreview) {
+  const pathPrefix = `${file}: profile.templatePreview`;
+  if (value == null) {
+    if (requirePreview) {
+      throw new Error(
+        `${pathPrefix} is required for strategy tools and must define subtitle + description.`
+      );
+    }
+    return null;
+  }
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error(`${pathPrefix} must be an object.`);
+  }
+  const record = value;
+  const title = parseNonEmptyString(record.title, `${pathPrefix}.title`, {
+    max: TEMPLATE_PREVIEW_TITLE_MAX
+  }) ?? toolName;
+  const subtitle = parseNonEmptyString(record.subtitle, `${pathPrefix}.subtitle`, {
+    required: true,
+    max: TEMPLATE_PREVIEW_SUBTITLE_MAX
+  });
+  const description = parseNonEmptyString(record.description, `${pathPrefix}.description`, {
+    required: true,
+    max: TEMPLATE_PREVIEW_DESCRIPTION_MAX
+  });
+  const descriptionLineCount = description.split(/\r?\n/).map((line) => line.trim()).filter((line) => line.length > 0).length;
+  if (descriptionLineCount < TEMPLATE_PREVIEW_MIN_LINES || descriptionLineCount > TEMPLATE_PREVIEW_MAX_LINES) {
+    throw new Error(
+      `${pathPrefix}.description must contain ${TEMPLATE_PREVIEW_MIN_LINES}-${TEMPLATE_PREVIEW_MAX_LINES} non-empty lines (target ~5 lines).`
+    );
+  }
+  return {
+    title,
+    subtitle,
+    description
+  };
 }
 async function validateCommand(options) {
   console.log("\u{1F50D} Validating OpenTool metadata...");
@@ -1135,38 +1187,40 @@ async function loadAndValidateTools(toolsDir, options = {}) {
         throw new Error(`${file}: export exactly one of GET or POST`);
       }
       let normalizedSchedule = null;
-      const schedule = toolModule?.profile?.schedule;
-      const profileNotifyEmail = typeof toolModule?.profile?.notifyEmail === "boolean" ? toolModule.profile.notifyEmail : void 0;
-      const profileCategoryRaw = typeof toolModule?.profile?.category === "string" ? toolModule.profile.category : void 0;
-      const allowedProfileCategories = /* @__PURE__ */ new Set(["strategy", "tracker", "orchestrator"]);
-      if (profileCategoryRaw && !allowedProfileCategories.has(profileCategoryRaw)) {
-        throw new Error(
-          `${file}: profile.category must be one of ${Array.from(allowedProfileCategories).join(", ")}`
+      const profileRaw = toolModule?.profile && typeof toolModule.profile === "object" ? toolModule.profile : null;
+      const schedule = profileRaw?.schedule ?? null;
+      const profileNotifyEmail = typeof profileRaw?.notifyEmail === "boolean" ? profileRaw.notifyEmail : void 0;
+      const allowedProfileCategories = ["strategy", "tracker", "orchestrator"];
+      const profileCategoryCandidate = typeof profileRaw?.category === "string" ? profileRaw.category : void 0;
+      let profileCategoryRaw;
+      if (profileCategoryCandidate !== void 0) {
+        const isAllowed = allowedProfileCategories.includes(
+          profileCategoryCandidate
         );
+        if (!isAllowed) {
+          throw new Error(
+            `${file}: profile.category must be one of ${allowedProfileCategories.join(", ")}`
+          );
+        }
+        profileCategoryRaw = profileCategoryCandidate;
       }
-      const profileAssetsRaw = toolModule?.profile?.assets;
+      const profileAssetsRaw = profileRaw?.assets;
       if (profileAssetsRaw !== void 0) {
         if (!Array.isArray(profileAssetsRaw)) {
           throw new Error(`${file}: profile.assets must be an array.`);
         }
         profileAssetsRaw.forEach((entry, index) => {
           if (!entry || typeof entry !== "object") {
-            throw new Error(
-              `${file}: profile.assets[${index}] must be an object.`
-            );
+            throw new Error(`${file}: profile.assets[${index}] must be an object.`);
           }
           const record = entry;
           const venue = typeof record.venue === "string" ? record.venue.trim() : "";
           if (!venue) {
-            throw new Error(
-              `${file}: profile.assets[${index}].venue must be a non-empty string.`
-            );
+            throw new Error(`${file}: profile.assets[${index}].venue must be a non-empty string.`);
           }
           const chain = record.chain;
           if (typeof chain !== "string" && typeof chain !== "number") {
-            throw new Error(
-              `${file}: profile.assets[${index}].chain must be a string or number.`
-            );
+            throw new Error(`${file}: profile.assets[${index}].chain must be a string or number.`);
           }
           const symbols = record.assetSymbols;
           if (!Array.isArray(symbols) || symbols.length === 0) {
@@ -1202,7 +1256,7 @@ async function loadAndValidateTools(toolsDir, options = {}) {
           }
         });
       }
-      const templateConfigRaw = toolModule?.profile?.templateConfig;
+      const templateConfigRaw = profileRaw?.templateConfig;
       if (templateConfigRaw !== void 0) {
         if (!templateConfigRaw || typeof templateConfigRaw !== "object") {
           throw new Error(`${file}: profile.templateConfig must be an object.`);
@@ -1239,6 +1293,13 @@ async function loadAndValidateTools(toolsDir, options = {}) {
           );
         }
       }
+      const normalizedTemplatePreview = normalizeTemplatePreview(
+        profileRaw?.templatePreview,
+        file,
+        toolName,
+        profileCategoryRaw === "strategy"
+      );
+      const normalizedProfile = profileRaw && normalizedTemplatePreview ? { ...profileRaw, templatePreview: normalizedTemplatePreview } : profileRaw;
       if (hasGET && schedule && typeof schedule.cron === "string" && schedule.cron.trim().length > 0) {
         normalizedSchedule = normalizeScheduleExpression(schedule.cron, file);
         if (typeof schedule.enabled === "boolean") {
@@ -1253,14 +1314,14 @@ async function loadAndValidateTools(toolsDir, options = {}) {
           throw new Error(`${file}: POST tools must export a Zod schema as 'schema'`);
         }
         if (schedule && typeof schedule.cron === "string") {
-          throw new Error(`${file}: POST tools must not define profile.schedule; use GET + cron for scheduled tasks.`);
+          throw new Error(
+            `${file}: POST tools must not define profile.schedule; use GET + cron for scheduled tasks.`
+          );
         }
       }
       const httpHandlers = [...httpHandlersRaw];
       if (httpHandlers.length === 0) {
-        throw new Error(
-          `${file} must export at least one HTTP handler (e.g. POST)`
-        );
+        throw new Error(`${file} must export at least one HTTP handler (e.g. POST)`);
       }
       if (paymentExport) {
         for (let index = 0; index < httpHandlers.length; index += 1) {
@@ -1286,7 +1347,7 @@ async function loadAndValidateTools(toolsDir, options = {}) {
             ...metadataOverrides,
             payment: metadataOverrides.payment ?? paymentExport,
             annotations: {
-              ...metadataOverrides.annotations ?? {},
+              ...metadataOverrides.annotations,
               requiresPayment: metadataOverrides.annotations?.requiresPayment ?? true
             }
           };
@@ -1308,9 +1369,9 @@ async function loadAndValidateTools(toolsDir, options = {}) {
         handler: async (params) => adapter(params),
         payment: paymentExport ?? null,
         schedule: normalizedSchedule,
-        profile: toolModule?.profile && typeof toolModule.profile === "object" ? toolModule.profile : null,
+        profile: normalizedProfile,
         ...profileNotifyEmail !== void 0 ? { notifyEmail: profileNotifyEmail } : {},
-        profileDescription: typeof toolModule?.profile?.description === "string" ? toolModule.profile?.description ?? null : null,
+        profileDescription: typeof profileRaw?.description === "string" ? profileRaw.description : null,
         ...profileCategoryRaw ? { profileCategory: profileCategoryRaw } : {}
       };
       tools.push(tool);
@@ -1542,10 +1603,6 @@ async function buildProject(options) {
     compiledTools,
     outputDir
   });
-  const workflowBundles = await buildWorkflowsIfPresent({
-    projectRoot,
-    outputDir
-  });
   const shouldBuildMcpServer = compiledTools.some((artifact) => artifact.mcpEnabled);
   if (shouldBuildMcpServer) {
     await writeMcpServer({
@@ -1564,7 +1621,6 @@ async function buildProject(options) {
     defaultsApplied,
     tools,
     compiledTools,
-    workflowBundles,
     toolsManifestPath,
     sharedModules
   };
@@ -1753,19 +1809,12 @@ async function writeMcpServer(options) {
 }
 function writeToolsManifest(options) {
   const manifestPath = path6.join(options.outputDir, "tools.json");
-  const legacyManifestPath = path6.join(
-    options.outputDir,
-    ".well-known",
-    "opentool",
-    "cron.json"
-  );
+  const legacyManifestPath = path6.join(options.outputDir, ".well-known", "opentool", "cron.json");
   if (fs4.existsSync(legacyManifestPath)) {
     fs4.rmSync(legacyManifestPath, { force: true });
   }
   const entries = options.tools.map((tool) => {
-    const compiled = options.compiledTools.find(
-      (artifact) => artifact.filename === tool.filename
-    );
+    const compiled = options.compiledTools.find((artifact) => artifact.filename === tool.filename);
     if (!compiled) {
       throw new Error(`Internal error: missing compiled artifact for ${tool.filename}`);
     }
@@ -1815,18 +1864,6 @@ function logBuildSummary(artifacts, options) {
   if (artifacts.toolsManifestPath) {
     console.log("  \u2022 tools.json (runtime tool manifest)");
   }
-  if (artifacts.workflowBundles) {
-    console.log("  \u2022 .well-known/workflow/v1/ (workflow bundles)");
-    console.log("     - flow.js");
-    console.log("     - step.js");
-    console.log("     - webhook.js");
-    if (artifacts.workflowBundles.clientBundlePath) {
-      console.log("     - client.js");
-    }
-    if (artifacts.workflowBundles.manifestPath) {
-      console.log("     - manifest.json");
-    }
-  }
   if (artifacts.defaultsApplied.length > 0) {
     console.log("\nDefaults applied during metadata synthesis:");
     artifacts.defaultsApplied.forEach((entry) => console.log(`  \u2022 ${entry}`));
@@ -1835,183 +1872,6 @@ function logBuildSummary(artifacts, options) {
     console.log("\n\u2139\uFE0F MCP adapter skipped (no tools opted in)");
   }
 }
-async function buildWorkflowsIfPresent(options) {
-  const workflowsDir = options.workflowsDir ?? path6.join(options.projectRoot, "workflows");
-  if (!fs4.existsSync(workflowsDir)) {
-    return null;
-  }
-  if (!hasWorkflowSourceFiles(workflowsDir)) {
-    return null;
-  }
-  const nodeVersion = process.versions?.node ?? "0.0.0";
-  const nodeMajor = Number(nodeVersion.split(".")[0] ?? 0);
-  if (!Number.isFinite(nodeMajor) || nodeMajor < 22) {
-    console.warn(
-      `[${timestamp()}] Workflow bundles skipped (requires Node >= 22, current ${nodeVersion})`
-    );
-    return null;
-  }
-  let BaseBuilder;
-  try {
-    ({ BaseBuilder } = await import('@workflow/cli/dist/lib/builders/base-builder.js'));
-  } catch (error) {
-    const details = error instanceof Error ? `
-Reason: ${error.message}` : "";
-    throw new Error(
-      `[${timestamp()}] Workflow sources detected, but optional dependency '@workflow/cli' is not installed. Install it with "npm install @workflow/cli" (or add it to devDependencies) and rerun the build.` + details
-    );
-  }
-  class OpenToolWorkflowBuilder extends BaseBuilder {
-    constructor(config) {
-      super(config);
-    }
-    async build() {
-      const inputFiles = await this.getInputFiles();
-      const tsConfig = await this.getTsConfigOptions();
-      const shared = {
-        inputFiles,
-        ...tsConfig.baseUrl ? { tsBaseUrl: tsConfig.baseUrl } : {},
-        ...tsConfig.paths ? { tsPaths: tsConfig.paths } : {}
-      };
-      await this.buildStepsBundle(shared);
-      await this.buildWorkflowsBundle(shared);
-      await this.buildWebhookRoute();
-      await this.buildClientLibrary();
-    }
-    async buildStepsBundle(options2) {
-      console.log(
-        "Creating OpenTool workflow steps bundle at",
-        this.config.stepsBundlePath
-      );
-      const stepsBundlePath2 = path6.resolve(
-        this.config.workingDir,
-        this.config.stepsBundlePath
-      );
-      await fs4.promises.mkdir(path6.dirname(stepsBundlePath2), { recursive: true });
-      await this.createStepsBundle({
-        outfile: stepsBundlePath2,
-        ...options2
-      });
-    }
-    async buildWorkflowsBundle(options2) {
-      console.log(
-        "Creating OpenTool workflow bundle at",
-        this.config.workflowsBundlePath
-      );
-      const workflowBundlePath = path6.resolve(
-        this.config.workingDir,
-        this.config.workflowsBundlePath
-      );
-      await fs4.promises.mkdir(path6.dirname(workflowBundlePath), {
-        recursive: true
-      });
-      await this.createWorkflowsBundle({
-        outfile: workflowBundlePath,
-        bundleFinalOutput: false,
-        ...options2
-      });
-    }
-    async buildWebhookRoute() {
-      console.log(
-        "Creating OpenTool workflow webhook bundle at",
-        this.config.webhookBundlePath
-      );
-      const webhookBundlePath2 = path6.resolve(
-        this.config.workingDir,
-        this.config.webhookBundlePath
-      );
-      await fs4.promises.mkdir(path6.dirname(webhookBundlePath2), {
-        recursive: true
-      });
-      await this.createWebhookBundle({ outfile: webhookBundlePath2 });
-    }
-    async buildClientLibrary() {
-      if (!this.config?.clientBundlePath) {
-        return;
-      }
-      const clientBundlePath2 = path6.resolve(
-        this.config.workingDir,
-        this.config.clientBundlePath
-      );
-      await fs4.promises.mkdir(path6.dirname(clientBundlePath2), {
-        recursive: true
-      });
-      await this.createWorkflowsBundle({
-        outfile: clientBundlePath2,
-        bundleFinalOutput: true
-      });
-    }
-  }
-  const relativeSourceDir = path6.relative(options.projectRoot, workflowsDir) || ".";
-  const outputBase = path6.join(
-    options.outputDir,
-    ".well-known",
-    "workflow",
-    "v1"
-  );
-  const stepsBundlePath = path6.join(outputBase, "step.js");
-  const workflowsBundlePath = path6.join(outputBase, "flow.js");
-  const webhookBundlePath = path6.join(outputBase, "webhook.js");
-  const manifestPath = path6.join(outputBase, "manifest.json");
-  const builder = new OpenToolWorkflowBuilder({
-    workingDir: options.projectRoot,
-    dirs: [relativeSourceDir],
-    buildTarget: "standalone",
-    stepsBundlePath,
-    workflowsBundlePath,
-    webhookBundlePath,
-    ...{},
-    workflowManifestPath: manifestPath,
-    externalPackages: [
-      "workflow",
-      "workflow/internal/builtins",
-      "workflow/internal/private",
-      "workflow/runtime",
-      "workflow/api"
-    ]
-  });
-  console.log(
-    `[${timestamp()}] Building workflows from ${workflowsDir} -> ${outputBase}`
-  );
-  await builder.build();
-  return {
-    sourceDir: workflowsDir,
-    outputDir: outputBase,
-    stepsBundlePath,
-    workflowsBundlePath,
-    webhookBundlePath,
-    ...{},
-    manifestPath
-  };
-}
-function hasWorkflowSourceFiles(directory) {
-  const entries = fs4.readdirSync(directory, { withFileTypes: true });
-  for (const entry of entries) {
-    if (entry.isDirectory()) {
-      if (hasWorkflowSourceFiles(path6.join(directory, entry.name))) {
-        return true;
-      }
-      continue;
-    }
-    if (entry.isFile()) {
-      const extension = path6.extname(entry.name).toLowerCase();
-      if (WORKFLOW_SOURCE_EXTENSIONS.has(extension)) {
-        return true;
-      }
-    }
-  }
-  return false;
-}
-var WORKFLOW_SOURCE_EXTENSIONS = /* @__PURE__ */ new Set([
-  ".ts",
-  ".tsx",
-  ".js",
-  ".jsx",
-  ".mjs",
-  ".cjs",
-  ".mts",
-  ".cts"
-]);
 function timestamp() {
   return (/* @__PURE__ */ new Date()).toISOString().replace("T", " ").slice(0, 19);
 }
@@ -2058,10 +1918,8 @@ async function devCommand(options) {
           return;
         }
         reloading = true;
-        log(
-          `${dim}
-Detected change in ${changedPath ?? "tools directory"}, reloading...${reset}`
-        );
+        log(`${dim}
+Detected change in ${changedPath ?? "tools directory"}, reloading...${reset}`);
         try {
           toolDefinitions = await loadToolDefinitions(toolsDir, projectRoot);
           routes = expandRoutes(toolDefinitions);
@@ -2094,9 +1952,7 @@ Detected change in ${changedPath ?? "tools directory"}, reloading...${reset}`
       log(`${dim}[request] ${method} ${routePath}${reset}`);
       try {
         await handleRequest({ req, res, port, routes });
-        log(
-          `${dim}[response] ${method} ${routePath} ${res.statusCode}${reset}`
-        );
+        log(`${dim}[response] ${method} ${routePath} ${res.statusCode}${reset}`);
       } catch (error) {
         console.error("Error handling request:", error);
         res.writeHead(500, { "Content-Type": "application/json" });
@@ -2106,9 +1962,7 @@ Detected change in ${changedPath ?? "tools directory"}, reloading...${reset}`
     });
     server.listen(port, () => {
       log(`${bold}${dim}> dev opentool${reset}`);
-      log(
-        `   * ${bold}opentool${reset} ${cyan}v${packageJson.version}${reset}`
-      );
+      log(`   * ${bold}opentool${reset} ${cyan}v${packageJson.version}${reset}`);
       log(`   * ${bold}HTTP:${reset} http://localhost:${port}`);
       logStartup(toolDefinitions, enableStdio, log);
     });
@@ -2161,9 +2015,7 @@ async function startMcpServer(getTools) {
       throw new Error(`Tool ${request.params.name} not found`);
     }
     try {
-      const validatedParams = tool.schema.parse(
-        request.params.arguments
-      );
+      const validatedParams = tool.schema.parse(request.params.arguments);
       const handler = tool.handler ?? createMcpAdapter({
         name: tool.metadata?.name ?? tool.filename,
         httpHandlers: toHttpHandlerMap2(tool.httpHandlers),
@@ -2247,10 +2099,7 @@ function printToolList(tools, log) {
 async function handleRequest(params) {
   const { req, res, port, routes } = params;
   res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader(
-    "Access-Control-Allow-Methods",
-    HTTP_METHODS.join(", ") + ", OPTIONS"
-  );
+  res.setHeader("Access-Control-Allow-Methods", HTTP_METHODS.join(", ") + ", OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
   if (req.method === "OPTIONS") {
     res.writeHead(200);
@@ -2303,9 +2152,7 @@ function findRoute(toolName, method, routes) {
     return direct;
   }
   if (method === "HEAD") {
-    return routes.find(
-      (route) => routeName(route.tool) === toolName && route.method === "GET"
-    );
+    return routes.find((route) => routeName(route.tool) === toolName && route.method === "GET");
   }
   return void 0;
 }
@@ -2352,13 +2199,10 @@ function createWebRequest(params) {
   return new Request(url, init);
 }
 function toHttpHandlerMap2(handlers) {
-  return handlers.reduce(
-    (acc, handler) => {
-      acc[handler.method.toUpperCase()] = handler.handler;
-      return acc;
-    },
-    {}
-  );
+  return handlers.reduce((acc, handler) => {
+    acc[handler.method.toUpperCase()] = handler.handler;
+    return acc;
+  }, {});
 }
 function isMcpEnabled(tool) {
   return Boolean(tool.mcpConfig?.enabled);
@@ -2458,7 +2302,7 @@ async function updateMetadata(targetDir, name, description) {
   const raw = await promises.readFile(filePath, "utf-8");
   const displayName = toDisplayName(name);
   const resolvedDescription = description || "OpenTool project";
-  const updated = raw.replace(/name:\s*\".*?\"/, `name: "${toPackageName(name)}"`).replace(/displayName:\s*\".*?\"/, `displayName: "${displayName}"`).replace(/description:\s*\".*?\"/, `description: "${resolvedDescription}"`);
+  const updated = raw.replace(/name:\s*".*?"/, `name: "${toPackageName(name)}"`).replace(/displayName:\s*".*?"/, `displayName: "${displayName}"`).replace(/description:\s*".*?"/, `description: "${resolvedDescription}"`);
   await promises.writeFile(filePath, updated, "utf-8");
 }
 async function initCommand(options) {
@@ -2466,9 +2310,7 @@ async function initCommand(options) {
   const templateDir = resolveTemplateDir();
   const empty = await directoryIsEmpty(targetDir);
   if (!empty && !options.force) {
-    throw new Error(
-      `Directory not empty: ${targetDir}. Use --force to overwrite.`
-    );
+    throw new Error(`Directory not empty: ${targetDir}. Use --force to overwrite.`);
   }
   await copyDir(templateDir, targetDir);
   const projectName = options.name || path6__default.basename(targetDir);
@@ -2490,11 +2332,7 @@ program.command("dev").description("Start HTTP dev server (optional MCP stdio)")
 program.command("build").description("Build tools for deployment").option("-i, --input <dir>", "Input directory containing tools", "tools").option("-o, --output <dir>", "Output directory for built tools", "dist").option("--name <name>", "Server name", "opentool-server").option("--version <version>", "Server version", "1.0.0").action(buildCommand);
 program.command("validate").description("Validate metadata for registry submission").option("-i, --input <dir>", "Input directory containing tools", "tools").action(validateCommand);
 program.command("validate-full").description("Full validation of tools and metadata").option("-i, --input <dir>", "Input directory containing tools", "tools").action(validateFullCommand);
-program.command("metadata").description("Generate OpenTool metadata JSON without building").option("-i, --input <dir>", "Input directory containing tools", "tools").option(
-  "-o, --output <file>",
-  "Output file path for metadata.json",
-  "metadata.json"
-).option("--name <name>", "Server name", "opentool-server").option("--version <version>", "Server version", "1.0.0").action(generateMetadataCommand);
+program.command("metadata").description("Generate OpenTool metadata JSON without building").option("-i, --input <dir>", "Input directory containing tools", "tools").option("-o, --output <file>", "Output file path for metadata.json", "metadata.json").option("--name <name>", "Server name", "opentool-server").option("--version <version>", "Server version", "1.0.0").action(generateMetadataCommand);
 program.command("init").description("Create a new OpenTool project in the target directory").option("-d, --dir <dir>", "Target directory", ".").option("-n, --name <name>", "Project name").option("--description <description>", "Project description").option("--force", "Overwrite existing files", false).action(async (cmdOptions) => {
   await initCommand({
     dir: cmdOptions.dir,

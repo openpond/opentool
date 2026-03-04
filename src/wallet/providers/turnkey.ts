@@ -47,7 +47,7 @@ function createNonceSource(start: number = Date.now()) {
 }
 
 export async function createTurnkeyProvider(
-  config: TurnkeyProviderConfig
+  config: TurnkeyProviderConfig,
 ): Promise<TurnkeyProviderResult> {
   const turnkey = new Turnkey({
     apiBaseUrl: config.apiBaseUrl ?? "https://api.turnkey.com",

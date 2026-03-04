@@ -16,15 +16,7 @@ export const backtestDecisionRequestSchema = z
 
 export type BacktestDecisionRequest = z.infer<typeof backtestDecisionRequestSchema>;
 
-export type BacktestResolution =
-  | "1"
-  | "5"
-  | "15"
-  | "30"
-  | "60"
-  | "240"
-  | "1D"
-  | "1W";
+export type BacktestResolution = "1" | "5" | "15" | "30" | "60" | "240" | "1D" | "1W";
 
 const RESOLUTION_SECONDS: Record<BacktestResolution, number> = {
   "1": 60,
