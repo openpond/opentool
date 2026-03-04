@@ -1,5 +1,11 @@
 # opentool
 
+## 0.10.2
+
+### Patch Changes
+
+- 969b094: relax-post-and-schedule-val-rules
+
 ## 0.10.1
 
 ### Patch Changes
