@@ -3425,6 +3425,9 @@ function resolveHyperliquidPair(value) {
   }
   return null;
 }
+function resolveHyperliquidLeverageMode(symbol) {
+  return symbol.includes(":") ? "isolated" : "cross";
+}
 function resolveHyperliquidProfileChain(environment) {
   return environment === "testnet" ? "hyperliquid-testnet" : "hyperliquid";
 }
@@ -3524,6 +3527,175 @@ function resolveHyperliquidSymbol(asset, override) {
   const base2 = raw.split("-")[0] ?? raw;
   const baseNoPair = base2.split("/")[0] ?? base2;
   return baseNoPair.trim().toUpperCase();
+}
+function resolveHyperliquidPerpSymbol(asset) {
+  const raw = asset.trim();
+  if (!raw) return raw;
+  const dex = extractHyperliquidDex(raw);
+  const base2 = normalizeHyperliquidBaseSymbol(raw) ?? raw.toUpperCase();
+  return dex ? `${dex}:${base2}` : base2;
+}
+function resolveHyperliquidSpotSymbol(asset, defaultQuote = "USDC") {
+  const quote = defaultQuote.trim().toUpperCase() || "USDC";
+  const raw = asset.trim().toUpperCase();
+  if (!raw) {
+    return { symbol: raw, base: raw, quote };
+  }
+  const pair = resolveHyperliquidPair(raw);
+  if (pair) {
+    const [base3, pairQuote] = pair.split("/");
+    return {
+      symbol: pair,
+      base: base3?.trim() ?? raw,
+      quote: pairQuote?.trim() ?? quote
+    };
+  }
+  const base2 = normalizeHyperliquidBaseSymbol(raw) ?? raw;
+  return { symbol: `${base2}/${quote}`, base: base2, quote };
+}
+
+// src/adapters/hyperliquid/strategy.ts
+function clampDcaWeight(value) {
+  if (typeof value !== "number" || !Number.isFinite(value)) return 0;
+  return Math.min(1e6, Math.max(0, value));
+}
+function resolveHyperliquidBudgetUsd(params) {
+  const { config, accountValue } = params;
+  if (config.allocationMode === "fixed") {
+    const desiredUsd = config.amountUsd ?? 0;
+    if (!Number.isFinite(desiredUsd) || desiredUsd <= 0) {
+      throw new Error("fixed allocation requires amountUsd");
+    }
+    return desiredUsd;
+  }
+  if (!Number.isFinite(accountValue ?? Number.NaN)) {
+    throw new Error("percent allocation requires accountValue");
+  }
+  const rawUsd = accountValue * (config.percentOfEquity / 100);
+  const maxPercentUsd = accountValue * (config.maxPercentOfEquity / 100);
+  return Math.min(rawUsd, maxPercentUsd);
+}
+function resolveHyperliquidDcaSymbolEntries(inputs, fallbackSymbol) {
+  const entries = [];
+  const values = Array.isArray(inputs) ? inputs : [];
+  for (const input of values) {
+    if (typeof input === "string") {
+      const trimmed = input.trim();
+      if (!trimmed) continue;
+      const [rawSymbol, rawWeight] = trimmed.split(":");
+      const symbol2 = rawSymbol?.trim();
+      if (!symbol2) continue;
+      const parsedWeight2 = typeof rawWeight === "string" && rawWeight.trim().length > 0 ? Number.parseFloat(rawWeight.trim()) : 1;
+      const weight2 = Number.isFinite(parsedWeight2) && parsedWeight2 > 0 ? parsedWeight2 : 1;
+      entries.push({ symbol: symbol2, weight: weight2 });
+      continue;
+    }
+    if (!input || typeof input !== "object") continue;
+    const symbol = input.symbol?.trim();
+    if (!symbol) continue;
+    const parsedWeight = typeof input.weight === "number" && Number.isFinite(input.weight) ? input.weight : 1;
+    const weight = parsedWeight > 0 ? parsedWeight : 1;
+    entries.push({ symbol, weight });
+  }
+  if (entries.length > 0) {
+    return entries;
+  }
+  return [{ symbol: fallbackSymbol, weight: 1 }];
+}
+function normalizeHyperliquidDcaEntries(params) {
+  const map = /* @__PURE__ */ new Map();
+  const entries = Array.isArray(params.entries) ? params.entries : [];
+  for (const entry of entries) {
+    if (!entry || typeof entry !== "object") continue;
+    const symbol = typeof entry.symbol === "string" ? entry.symbol.trim() : "";
+    if (!symbol) continue;
+    const key = symbol.toUpperCase();
+    const weight = clampDcaWeight(entry.weight);
+    if (weight <= 0) continue;
+    const existing = map.get(key);
+    if (existing) {
+      existing.weight += weight;
+    } else {
+      map.set(key, { symbol, weight });
+    }
+  }
+  if (map.size === 0) {
+    map.set(params.fallbackSymbol.toUpperCase(), {
+      symbol: params.fallbackSymbol,
+      weight: 1
+    });
+  }
+  const entriesList = Array.from(map.values());
+  const totalWeight = entriesList.reduce((sum, entry) => sum + entry.weight, 0);
+  if (!Number.isFinite(totalWeight) || totalWeight <= 0) {
+    return [];
+  }
+  return entriesList.map((entry) => ({
+    symbol: entry.symbol,
+    weight: entry.weight,
+    normalizedWeight: entry.weight / totalWeight
+  }));
+}
+function resolveHyperliquidMaxPerRunUsd(targetNotionalUsd, hedgeRatio) {
+  if (!Number.isFinite(targetNotionalUsd) || targetNotionalUsd <= 0) return 0;
+  const ratio = Number.isFinite(hedgeRatio) && hedgeRatio > 0 ? hedgeRatio : 1;
+  return Math.max(targetNotionalUsd, targetNotionalUsd * ratio);
+}
+function clampHyperliquidAbs(value, limit) {
+  if (!Number.isFinite(value) || !Number.isFinite(limit) || limit <= 0) return 0;
+  const capped = Math.min(Math.abs(value), limit);
+  return Math.sign(value) * capped;
+}
+function resolveHyperliquidTargetSize(params) {
+  const { config, execution, accountValue, currentPrice } = params;
+  if (execution.size && Number.isFinite(execution.size)) {
+    return { targetSize: execution.size, budgetUsd: execution.size * currentPrice };
+  }
+  if (config.allocationMode === "fixed") {
+    const budgetUsd2 = resolveHyperliquidBudgetUsd({
+      config,
+      accountValue
+    });
+    return { targetSize: budgetUsd2 / currentPrice, budgetUsd: budgetUsd2 };
+  }
+  const budgetUsd = resolveHyperliquidBudgetUsd({
+    config,
+    accountValue
+  });
+  return { targetSize: budgetUsd / currentPrice, budgetUsd };
+}
+function planHyperliquidTrade(params) {
+  const { signal, mode, currentSize, targetSize } = params;
+  if (signal === "hold" || signal === "unknown") return null;
+  if (signal === "buy") {
+    const desired2 = mode === "long-short" ? targetSize : Math.max(targetSize, 0);
+    const delta2 = desired2 - currentSize;
+    if (delta2 <= 0) return null;
+    return {
+      side: "buy",
+      size: delta2,
+      reduceOnly: false,
+      targetSize: desired2
+    };
+  }
+  if (mode === "long-only") {
+    if (currentSize <= 0) return null;
+    return {
+      side: "sell",
+      size: currentSize,
+      reduceOnly: true,
+      targetSize: 0
+    };
+  }
+  const desired = -Math.abs(targetSize);
+  const delta = currentSize - desired;
+  if (delta <= 0) return null;
+  return {
+    side: "sell",
+    size: delta,
+    reduceOnly: false,
+    targetSize: desired
+  };
 }
 
 // src/adapters/hyperliquid/order-utils.ts
@@ -3870,9 +4042,10 @@ function readHyperliquidSpotAccountValue(params) {
 
 // src/adapters/hyperliquid/market-data.ts
 var META_CACHE_TTL_MS = 5 * 60 * 1e3;
+var DEFAULT_OPENPOND_GATEWAY_URL = "https://gateway.openpond.dev";
 var allMidsCache = /* @__PURE__ */ new Map();
 function resolveGatewayBase(override) {
-  const value = override ?? process.env.OPENPOND_GATEWAY_URL ?? null;
+  const value = override ?? process.env.OPENPOND_GATEWAY_URL ?? DEFAULT_OPENPOND_GATEWAY_URL;
   if (typeof value !== "string") {
     return null;
   }
@@ -4039,6 +4212,25 @@ async function fetchHyperliquidBars(params) {
     if (!bar || typeof bar !== "object") return false;
     const record = bar;
     return typeof record.close === "number" && Number.isFinite(record.close) && typeof record.time === "number" && Number.isFinite(record.time);
+  });
+}
+function normalizeHyperliquidIndicatorBars(bars) {
+  return bars.filter(
+    (bar) => bar && typeof bar === "object" && typeof bar.time === "number" && Number.isFinite(bar.time) && typeof bar.close === "number" && Number.isFinite(bar.close)
+  ).map((bar) => {
+    const close = bar.close;
+    const open = typeof bar.open === "number" && Number.isFinite(bar.open) ? bar.open : close;
+    const high = typeof bar.high === "number" && Number.isFinite(bar.high) ? bar.high : close;
+    const low = typeof bar.low === "number" && Number.isFinite(bar.low) ? bar.low : close;
+    const volume = typeof bar.volume === "number" && Number.isFinite(bar.volume) ? bar.volume : 0;
+    return {
+      time: bar.time,
+      open,
+      high,
+      low,
+      close,
+      volume
+    };
   });
 }
 async function fetchHyperliquidTickSize(params) {
@@ -4249,6 +4441,78 @@ var __hyperliquidMarketDataInternals = {
   toScaledInt,
   formatScaledInt
 };
+
+// src/adapters/hyperliquid/utils.ts
+var DEFAULT_HYPERLIQUID_CADENCE_CRON = {
+  daily: "0 8 * * *",
+  hourly: "0 * * * *",
+  weekly: "0 8 * * 1",
+  "twice-weekly": "0 8 * * 1,4",
+  monthly: "0 8 1 * *"
+};
+function parseHyperliquidJson(raw) {
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+function clampHyperliquidInt(value, min, max, fallback) {
+  if (value == null) return fallback;
+  if (typeof value === "string" && value.trim().length === 0) return fallback;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return fallback;
+  const numeric = Math.trunc(parsed);
+  if (!Number.isFinite(numeric)) return fallback;
+  return Math.min(max, Math.max(min, numeric));
+}
+function clampHyperliquidFloat(value, min, max, fallback) {
+  if (value == null) return fallback;
+  if (typeof value === "string" && value.trim().length === 0) return fallback;
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return fallback;
+  return Math.min(max, Math.max(min, numeric));
+}
+function resolveHyperliquidScheduleEvery(input, options) {
+  const min = options?.min ?? 1;
+  const max = options?.max ?? 59;
+  const fallback = options?.fallback ?? 1;
+  return clampHyperliquidInt(input, min, max, fallback);
+}
+function resolveHyperliquidScheduleUnit(input, fallback = "hours") {
+  if (input === "minutes") return "minutes";
+  if (input === "hours") return "hours";
+  return fallback;
+}
+function resolveHyperliquidIntervalCron(every, unit) {
+  if (unit === "minutes") {
+    return every === 1 ? "* * * * *" : `*/${every} * * * *`;
+  }
+  return every === 1 ? "0 * * * *" : `0 */${every} * * *`;
+}
+function resolveHyperliquidHourlyInterval(input, fallback = 1) {
+  return clampHyperliquidInt(input, 1, 24, fallback);
+}
+function resolveHyperliquidCadenceCron(cadence, hourlyInterval, cadenceToCron = DEFAULT_HYPERLIQUID_CADENCE_CRON) {
+  if (cadence !== "hourly") {
+    return cadenceToCron[cadence];
+  }
+  const interval = resolveHyperliquidHourlyInterval(hourlyInterval, 1);
+  return interval === 1 ? cadenceToCron.hourly : `0 */${interval} * * *`;
+}
+function resolveHyperliquidCadenceFromResolution(resolution) {
+  if (resolution === "60") {
+    return { cadence: "hourly", hourlyInterval: 1 };
+  }
+  if (resolution === "240") {
+    return { cadence: "hourly", hourlyInterval: 4 };
+  }
+  if (resolution === "1W") {
+    return { cadence: "weekly" };
+  }
+  return { cadence: "daily" };
+}
 
 // src/adapters/hyperliquid/index.ts
 function assertPositiveDecimalInput(value, label) {
@@ -6247,8 +6511,9 @@ function toAbortError(reason) {
   }
   return new AIAbortError(String(reason ?? "AI request aborted"));
 }
+var BACKTEST_DECISION_MODE = "backtest_decisions";
 var backtestDecisionRequestSchema = z.object({
-  mode: z.literal("backtest_decisions"),
+  mode: z.literal(BACKTEST_DECISION_MODE),
   source: z.string().min(1).optional(),
   symbol: z.string().min(1).optional(),
   lookbackDays: z.number().positive().optional(),
@@ -6309,6 +6574,57 @@ function estimateCountBack(params) {
     return Math.max(minCountBack, bars + bufferBars);
   }
   return fallback;
+}
+function resolveBacktestMode(value) {
+  if (typeof value !== "string") return null;
+  const normalized = value.trim().toLowerCase();
+  return normalized === BACKTEST_DECISION_MODE ? BACKTEST_DECISION_MODE : null;
+}
+function resolveBacktestWindow(params) {
+  const fromSeconds = parseTimeToSeconds(params.from) ?? parseTimeToSeconds(params.timeframeStart);
+  const toSeconds = parseTimeToSeconds(params.to) ?? parseTimeToSeconds(params.timeframeEnd);
+  const hasWindow = fromSeconds != null && toSeconds != null && Number.isFinite(fromSeconds) && Number.isFinite(toSeconds) && toSeconds > fromSeconds;
+  const resolvedFrom = hasWindow ? fromSeconds : void 0;
+  const resolvedTo = hasWindow ? toSeconds : void 0;
+  const lookbackDays = typeof params.lookbackDays === "number" && Number.isFinite(params.lookbackDays) ? params.lookbackDays : void 0;
+  const countBack = estimateCountBack({
+    fallback: params.fallbackCountBack,
+    resolution: params.resolution,
+    ...lookbackDays != null ? { lookbackDays } : {},
+    ...resolvedFrom != null ? { fromSeconds: resolvedFrom } : {},
+    ...resolvedTo != null ? { toSeconds: resolvedTo } : {},
+    ...typeof params.minCountBack === "number" ? { minCountBack: params.minCountBack } : {},
+    ...typeof params.bufferBars === "number" ? { bufferBars: params.bufferBars } : {}
+  });
+  return {
+    ...resolvedFrom != null ? { fromSeconds: resolvedFrom } : {},
+    ...resolvedTo != null ? { toSeconds: resolvedTo } : {},
+    countBack
+  };
+}
+function resolveBacktestAccountValueUsd(value) {
+  if (typeof value === "number" && Number.isFinite(value) && value > 0) {
+    return value;
+  }
+  if (typeof value === "string" && value.trim().length > 0) {
+    const parsed = Number.parseFloat(value.trim());
+    if (Number.isFinite(parsed) && parsed > 0) {
+      return parsed;
+    }
+  }
+  return void 0;
+}
+function buildBacktestDecisionSeriesInput(request) {
+  const accountValueUsd = resolveBacktestAccountValueUsd(request.initialEquityUsd);
+  return {
+    ...request.symbol ? { symbol: request.symbol } : {},
+    ...request.timeframeStart ? { timeframeStart: request.timeframeStart } : {},
+    ...request.timeframeEnd ? { timeframeEnd: request.timeframeEnd } : {},
+    ...request.from != null ? { from: request.from } : {},
+    ...request.to != null ? { to: request.to } : {},
+    ...request.lookbackDays != null ? { lookbackDays: request.lookbackDays } : {},
+    ...accountValueUsd != null ? { accountValueUsd } : {}
+  };
 }
 var METADATA_SPEC_VERSION = "1.1.0";
 var McpAnnotationsSchema = z.object({
@@ -7389,6 +7705,6 @@ function timestamp() {
   return (/* @__PURE__ */ new Date()).toISOString().replace("T", " ").slice(0, 19);
 }
 
-export { AIAbortError, AIError, AIFetchError, AIResponseError, DEFAULT_BASE_URL, DEFAULT_CHAIN, DEFAULT_FACILITATOR, DEFAULT_HYPERLIQUID_MARKET_SLIPPAGE_BPS, DEFAULT_MODEL, DEFAULT_TIMEOUT_MS, DEFAULT_TOKENS, HTTP_METHODS2 as HTTP_METHODS, HyperliquidApiError, HyperliquidBuilderApprovalError, HyperliquidExchangeClient, HyperliquidGuardError, HyperliquidInfoClient, HyperliquidTermsError, PAYMENT_HEADERS, POLYMARKET_CHAIN_ID, POLYMARKET_CLOB_AUTH_DOMAIN, POLYMARKET_CLOB_DOMAIN, POLYMARKET_ENDPOINTS, POLYMARKET_EXCHANGE_ADDRESSES, PolymarketApiError, PolymarketAuthError, PolymarketExchangeClient, PolymarketInfoClient, SUPPORTED_CURRENCIES, StoreError, WEBSEARCH_TOOL_DEFINITION, WEBSEARCH_TOOL_NAME, X402BrowserClient, X402Client, X402PaymentRequiredError, __hyperliquidInternals, __hyperliquidMarketDataInternals, approveHyperliquidBuilderFee, backtestDecisionRequestSchema, batchModifyHyperliquidOrders, buildHmacSignature, buildHyperliquidMarketIdentity, buildHyperliquidProfileAssets, buildHyperliquidSpotUsdPriceMap, buildL1Headers, buildL2Headers, buildPolymarketOrderAmounts, buildSignedOrderPayload, cancelAllHyperliquidOrders, cancelAllPolymarketOrders, cancelHyperliquidOrders, cancelHyperliquidOrdersByCloid, cancelHyperliquidTwapOrder, cancelMarketPolymarketOrders, cancelPolymarketOrder, cancelPolymarketOrders, chains, computeHyperliquidMarketIocLimitPrice, createAIClient, createDevServer, createHyperliquidSubAccount, createMcpAdapter, createMonotonicNonceFactory, createPolymarketApiKey, createStdioServer, defineX402Payment, depositToHyperliquidBridge, derivePolymarketApiKey, ensureTextContent, estimateCountBack, executeTool, extractHyperliquidDex, extractHyperliquidOrderIds, fetchHyperliquidAllMids, fetchHyperliquidAssetCtxs, fetchHyperliquidBars, fetchHyperliquidClearinghouseState, fetchHyperliquidFrontendOpenOrders, fetchHyperliquidHistoricalOrders, fetchHyperliquidMeta, fetchHyperliquidMetaAndAssetCtxs, fetchHyperliquidOpenOrders, fetchHyperliquidOrderStatus, fetchHyperliquidPerpMarketInfo, fetchHyperliquidPreTransferCheck, fetchHyperliquidSizeDecimals, fetchHyperliquidSpotAccountValue, fetchHyperliquidSpotAssetCtxs, fetchHyperliquidSpotClearinghouseState, fetchHyperliquidSpotMarketInfo, fetchHyperliquidSpotMeta, fetchHyperliquidSpotMetaAndAssetCtxs, fetchHyperliquidSpotTickSize, fetchHyperliquidSpotUsdPriceMap, fetchHyperliquidTickSize, fetchHyperliquidUserFills, fetchHyperliquidUserFillsByTime, fetchHyperliquidUserRateLimit, fetchPolymarketMarket, fetchPolymarketMarkets, fetchPolymarketMidpoint, fetchPolymarketOrderbook, fetchPolymarketPrice, fetchPolymarketPriceHistory, flattenMessageContent, formatHyperliquidMarketablePrice, formatHyperliquidOrderSize, formatHyperliquidPrice, formatHyperliquidSize, generateMetadata, generateMetadataCommand, generateText, getHyperliquidMaxBuilderFee, getModelConfig, getMyPerformance, getMyTools, getRpcUrl, getX402PaymentContext, isHyperliquidSpotSymbol, isStreamingSupported, isToolCallingSupported, listModels, loadAndValidateTools, modifyHyperliquidOrder, normalizeHyperliquidBaseSymbol, normalizeHyperliquidMetaSymbol, normalizeModelName, normalizeNumberArrayish, normalizeSpotTokenName2 as normalizeSpotTokenName, normalizeStringArrayish, parseSpotPairSymbol, parseTimeToSeconds, payX402, payX402WithWallet, placeHyperliquidOrder, placeHyperliquidTwapOrder, placePolymarketOrder, postAgentDigest, readHyperliquidAccountValue, readHyperliquidNumber, readHyperliquidPerpPosition, readHyperliquidPerpPositionSize, readHyperliquidSpotAccountValue, readHyperliquidSpotBalance, readHyperliquidSpotBalanceSize, recordHyperliquidBuilderApproval, recordHyperliquidTermsAcceptance, registry, requireX402Payment, reserveHyperliquidRequestWeight, resolutionToSeconds, resolveConfig2 as resolveConfig, resolveExchangeAddress, resolveHyperliquidAbstractionFromMode, resolveHyperliquidChain, resolveHyperliquidChainConfig, resolveHyperliquidErrorDetail, resolveHyperliquidOrderRef, resolveHyperliquidOrderSymbol, resolveHyperliquidPair, resolveHyperliquidProfileChain, resolveHyperliquidRpcEnvVar, resolveHyperliquidStoreNetwork, resolveHyperliquidSymbol, resolvePolymarketBaseUrl, resolveRuntimePath, resolveSpotMidCandidates, resolveSpotTokenCandidates, resolveToolset, responseToToolResponse, retrieve, roundHyperliquidPriceToTick, scheduleHyperliquidCancel, sendHyperliquidSpot, setHyperliquidAccountAbstractionMode, setHyperliquidDexAbstraction, setHyperliquidPortfolioMargin, store, streamText, tokens, transferHyperliquidSubAccount, updateHyperliquidIsolatedMargin, updateHyperliquidLeverage, validateCommand, wallet, walletToolkit, withX402Payment, withdrawFromHyperliquid };
+export { AIAbortError, AIError, AIFetchError, AIResponseError, BACKTEST_DECISION_MODE, DEFAULT_BASE_URL, DEFAULT_CHAIN, DEFAULT_FACILITATOR, DEFAULT_HYPERLIQUID_CADENCE_CRON, DEFAULT_HYPERLIQUID_MARKET_SLIPPAGE_BPS, DEFAULT_MODEL, DEFAULT_TIMEOUT_MS, DEFAULT_TOKENS, HTTP_METHODS2 as HTTP_METHODS, HyperliquidApiError, HyperliquidBuilderApprovalError, HyperliquidExchangeClient, HyperliquidGuardError, HyperliquidInfoClient, HyperliquidTermsError, PAYMENT_HEADERS, POLYMARKET_CHAIN_ID, POLYMARKET_CLOB_AUTH_DOMAIN, POLYMARKET_CLOB_DOMAIN, POLYMARKET_ENDPOINTS, POLYMARKET_EXCHANGE_ADDRESSES, PolymarketApiError, PolymarketAuthError, PolymarketExchangeClient, PolymarketInfoClient, SUPPORTED_CURRENCIES, StoreError, WEBSEARCH_TOOL_DEFINITION, WEBSEARCH_TOOL_NAME, X402BrowserClient, X402Client, X402PaymentRequiredError, __hyperliquidInternals, __hyperliquidMarketDataInternals, approveHyperliquidBuilderFee, backtestDecisionRequestSchema, batchModifyHyperliquidOrders, buildBacktestDecisionSeriesInput, buildHmacSignature, buildHyperliquidMarketIdentity, buildHyperliquidProfileAssets, buildHyperliquidSpotUsdPriceMap, buildL1Headers, buildL2Headers, buildPolymarketOrderAmounts, buildSignedOrderPayload, cancelAllHyperliquidOrders, cancelAllPolymarketOrders, cancelHyperliquidOrders, cancelHyperliquidOrdersByCloid, cancelHyperliquidTwapOrder, cancelMarketPolymarketOrders, cancelPolymarketOrder, cancelPolymarketOrders, chains, clampHyperliquidAbs, clampHyperliquidFloat, clampHyperliquidInt, computeHyperliquidMarketIocLimitPrice, createAIClient, createDevServer, createHyperliquidSubAccount, createMcpAdapter, createMonotonicNonceFactory, createPolymarketApiKey, createStdioServer, defineX402Payment, depositToHyperliquidBridge, derivePolymarketApiKey, ensureTextContent, estimateCountBack, executeTool, extractHyperliquidDex, extractHyperliquidOrderIds, fetchHyperliquidAllMids, fetchHyperliquidAssetCtxs, fetchHyperliquidBars, fetchHyperliquidClearinghouseState, fetchHyperliquidFrontendOpenOrders, fetchHyperliquidHistoricalOrders, fetchHyperliquidMeta, fetchHyperliquidMetaAndAssetCtxs, fetchHyperliquidOpenOrders, fetchHyperliquidOrderStatus, fetchHyperliquidPerpMarketInfo, fetchHyperliquidPreTransferCheck, fetchHyperliquidSizeDecimals, fetchHyperliquidSpotAccountValue, fetchHyperliquidSpotAssetCtxs, fetchHyperliquidSpotClearinghouseState, fetchHyperliquidSpotMarketInfo, fetchHyperliquidSpotMeta, fetchHyperliquidSpotMetaAndAssetCtxs, fetchHyperliquidSpotTickSize, fetchHyperliquidSpotUsdPriceMap, fetchHyperliquidTickSize, fetchHyperliquidUserFills, fetchHyperliquidUserFillsByTime, fetchHyperliquidUserRateLimit, fetchPolymarketMarket, fetchPolymarketMarkets, fetchPolymarketMidpoint, fetchPolymarketOrderbook, fetchPolymarketPrice, fetchPolymarketPriceHistory, flattenMessageContent, formatHyperliquidMarketablePrice, formatHyperliquidOrderSize, formatHyperliquidPrice, formatHyperliquidSize, generateMetadata, generateMetadataCommand, generateText, getHyperliquidMaxBuilderFee, getModelConfig, getMyPerformance, getMyTools, getRpcUrl, getX402PaymentContext, isHyperliquidSpotSymbol, isStreamingSupported, isToolCallingSupported, listModels, loadAndValidateTools, modifyHyperliquidOrder, normalizeHyperliquidBaseSymbol, normalizeHyperliquidDcaEntries, normalizeHyperliquidIndicatorBars, normalizeHyperliquidMetaSymbol, normalizeModelName, normalizeNumberArrayish, normalizeSpotTokenName2 as normalizeSpotTokenName, normalizeStringArrayish, parseHyperliquidJson, parseSpotPairSymbol, parseTimeToSeconds, payX402, payX402WithWallet, placeHyperliquidOrder, placeHyperliquidTwapOrder, placePolymarketOrder, planHyperliquidTrade, postAgentDigest, readHyperliquidAccountValue, readHyperliquidNumber, readHyperliquidPerpPosition, readHyperliquidPerpPositionSize, readHyperliquidSpotAccountValue, readHyperliquidSpotBalance, readHyperliquidSpotBalanceSize, recordHyperliquidBuilderApproval, recordHyperliquidTermsAcceptance, registry, requireX402Payment, reserveHyperliquidRequestWeight, resolutionToSeconds, resolveBacktestAccountValueUsd, resolveBacktestMode, resolveBacktestWindow, resolveConfig2 as resolveConfig, resolveExchangeAddress, resolveHyperliquidAbstractionFromMode, resolveHyperliquidBudgetUsd, resolveHyperliquidCadenceCron, resolveHyperliquidCadenceFromResolution, resolveHyperliquidChain, resolveHyperliquidChainConfig, resolveHyperliquidDcaSymbolEntries, resolveHyperliquidErrorDetail, resolveHyperliquidHourlyInterval, resolveHyperliquidIntervalCron, resolveHyperliquidLeverageMode, resolveHyperliquidMaxPerRunUsd, resolveHyperliquidOrderRef, resolveHyperliquidOrderSymbol, resolveHyperliquidPair, resolveHyperliquidPerpSymbol, resolveHyperliquidProfileChain, resolveHyperliquidRpcEnvVar, resolveHyperliquidScheduleEvery, resolveHyperliquidScheduleUnit, resolveHyperliquidSpotSymbol, resolveHyperliquidStoreNetwork, resolveHyperliquidSymbol, resolveHyperliquidTargetSize, resolvePolymarketBaseUrl, resolveRuntimePath, resolveSpotMidCandidates, resolveSpotTokenCandidates, resolveToolset, responseToToolResponse, retrieve, roundHyperliquidPriceToTick, scheduleHyperliquidCancel, sendHyperliquidSpot, setHyperliquidAccountAbstractionMode, setHyperliquidDexAbstraction, setHyperliquidPortfolioMargin, store, streamText, tokens, transferHyperliquidSubAccount, updateHyperliquidIsolatedMargin, updateHyperliquidLeverage, validateCommand, wallet, walletToolkit, withX402Payment, withdrawFromHyperliquid };
 //# sourceMappingURL=index.js.map
 //# sourceMappingURL=index.js.map

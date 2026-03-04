@@ -1,8 +1,11 @@
 import { z } from "zod";
 
+export const BACKTEST_DECISION_MODE = "backtest_decisions" as const;
+export type BacktestMode = typeof BACKTEST_DECISION_MODE;
+
 export const backtestDecisionRequestSchema = z
   .object({
-    mode: z.literal("backtest_decisions"),
+    mode: z.literal(BACKTEST_DECISION_MODE),
     source: z.string().min(1).optional(),
     symbol: z.string().min(1).optional(),
     lookbackDays: z.number().positive().optional(),
@@ -89,4 +92,98 @@ export function estimateCountBack(params: {
   }
 
   return fallback;
+}
+
+export function resolveBacktestMode(value: unknown): BacktestMode | null {
+  if (typeof value !== "string") return null;
+  const normalized = value.trim().toLowerCase();
+  return normalized === BACKTEST_DECISION_MODE ? BACKTEST_DECISION_MODE : null;
+}
+
+export type ResolvedBacktestWindow = {
+  fromSeconds?: number;
+  toSeconds?: number;
+  countBack: number;
+};
+
+export function resolveBacktestWindow(params: {
+  fallbackCountBack: number;
+  lookbackDays?: unknown;
+  resolution: BacktestResolution;
+  from?: unknown;
+  to?: unknown;
+  timeframeStart?: unknown;
+  timeframeEnd?: unknown;
+  minCountBack?: number;
+  bufferBars?: number;
+}): ResolvedBacktestWindow {
+  const fromSeconds = parseTimeToSeconds(params.from) ?? parseTimeToSeconds(params.timeframeStart);
+  const toSeconds = parseTimeToSeconds(params.to) ?? parseTimeToSeconds(params.timeframeEnd);
+  const hasWindow =
+    fromSeconds != null &&
+    toSeconds != null &&
+    Number.isFinite(fromSeconds) &&
+    Number.isFinite(toSeconds) &&
+    toSeconds > fromSeconds;
+
+  const resolvedFrom = hasWindow ? fromSeconds : undefined;
+  const resolvedTo = hasWindow ? toSeconds : undefined;
+  const lookbackDays =
+    typeof params.lookbackDays === "number" && Number.isFinite(params.lookbackDays)
+      ? params.lookbackDays
+      : undefined;
+
+  const countBack = estimateCountBack({
+    fallback: params.fallbackCountBack,
+    resolution: params.resolution,
+    ...(lookbackDays != null ? { lookbackDays } : {}),
+    ...(resolvedFrom != null ? { fromSeconds: resolvedFrom } : {}),
+    ...(resolvedTo != null ? { toSeconds: resolvedTo } : {}),
+    ...(typeof params.minCountBack === "number" ? { minCountBack: params.minCountBack } : {}),
+    ...(typeof params.bufferBars === "number" ? { bufferBars: params.bufferBars } : {}),
+  });
+
+  return {
+    ...(resolvedFrom != null ? { fromSeconds: resolvedFrom } : {}),
+    ...(resolvedTo != null ? { toSeconds: resolvedTo } : {}),
+    countBack,
+  };
+}
+
+export function resolveBacktestAccountValueUsd(value: unknown): number | undefined {
+  if (typeof value === "number" && Number.isFinite(value) && value > 0) {
+    return value;
+  }
+  if (typeof value === "string" && value.trim().length > 0) {
+    const parsed = Number.parseFloat(value.trim());
+    if (Number.isFinite(parsed) && parsed > 0) {
+      return parsed;
+    }
+  }
+  return undefined;
+}
+
+export type BacktestDecisionSeriesInput = {
+  symbol?: string;
+  timeframeStart?: string;
+  timeframeEnd?: string;
+  from?: number;
+  to?: number;
+  lookbackDays?: number;
+  accountValueUsd?: number;
+};
+
+export function buildBacktestDecisionSeriesInput(
+  request: Partial<BacktestDecisionRequest>,
+): BacktestDecisionSeriesInput {
+  const accountValueUsd = resolveBacktestAccountValueUsd(request.initialEquityUsd);
+  return {
+    ...(request.symbol ? { symbol: request.symbol } : {}),
+    ...(request.timeframeStart ? { timeframeStart: request.timeframeStart } : {}),
+    ...(request.timeframeEnd ? { timeframeEnd: request.timeframeEnd } : {}),
+    ...(request.from != null ? { from: request.from } : {}),
+    ...(request.to != null ? { to: request.to } : {}),
+    ...(request.lookbackDays != null ? { lookbackDays: request.lookbackDays } : {}),
+    ...(accountValueUsd != null ? { accountValueUsd } : {}),
+  };
 }

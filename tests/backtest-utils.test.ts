@@ -2,8 +2,13 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import {
+  BACKTEST_DECISION_MODE,
+  buildBacktestDecisionSeriesInput,
   estimateCountBack,
   parseTimeToSeconds,
+  resolveBacktestAccountValueUsd,
+  resolveBacktestMode,
+  resolveBacktestWindow,
   resolutionToSeconds,
 } from "../src/backtest";
 
@@ -45,4 +50,75 @@ test("estimateCountBack derives from lookbackDays/window and falls back", () => 
     toSeconds: 50,
   });
   assert.equal(fallback, 240);
+});
+
+test("resolveBacktestMode normalizes accepted mode and rejects others", () => {
+  assert.equal(resolveBacktestMode(" backtest_decisions "), BACKTEST_DECISION_MODE);
+  assert.equal(resolveBacktestMode("BACKTEST_DECISIONS"), BACKTEST_DECISION_MODE);
+  assert.equal(resolveBacktestMode("other"), null);
+  assert.equal(resolveBacktestMode(null), null);
+});
+
+test("resolveBacktestWindow applies precedence and invalid-range fallback", () => {
+  const direct = resolveBacktestWindow({
+    fallbackCountBack: 240,
+    resolution: "60",
+    from: 100,
+    to: 1000,
+    timeframeStart: "2026-03-01T00:00:00Z",
+    timeframeEnd: "2026-03-02T00:00:00Z",
+  });
+  assert.equal(direct.fromSeconds, 100);
+  assert.equal(direct.toSeconds, 1000);
+  assert.equal(direct.countBack, 50);
+
+  const withLookback = resolveBacktestWindow({
+    fallbackCountBack: 240,
+    resolution: "60",
+    lookbackDays: 3,
+  });
+  assert.equal(withLookback.fromSeconds, undefined);
+  assert.equal(withLookback.toSeconds, undefined);
+  assert.equal(withLookback.countBack, 77);
+
+  const invalidRange = resolveBacktestWindow({
+    fallbackCountBack: 240,
+    resolution: "60",
+    from: 2000,
+    to: 1000,
+  });
+  assert.equal(invalidRange.fromSeconds, undefined);
+  assert.equal(invalidRange.toSeconds, undefined);
+  assert.equal(invalidRange.countBack, 240);
+});
+
+test("resolveBacktestAccountValueUsd parses finite positive values", () => {
+  assert.equal(resolveBacktestAccountValueUsd(1000), 1000);
+  assert.equal(resolveBacktestAccountValueUsd("2500.5"), 2500.5);
+  assert.equal(resolveBacktestAccountValueUsd(0), undefined);
+  assert.equal(resolveBacktestAccountValueUsd(""), undefined);
+  assert.equal(resolveBacktestAccountValueUsd("nope"), undefined);
+});
+
+test("buildBacktestDecisionSeriesInput maps request payload to runtime params", () => {
+  const input = buildBacktestDecisionSeriesInput({
+    mode: BACKTEST_DECISION_MODE,
+    symbol: "BTC",
+    timeframeStart: "2026-03-01T00:00:00Z",
+    timeframeEnd: "2026-03-03T00:00:00Z",
+    from: 111,
+    to: 222,
+    lookbackDays: 2,
+    initialEquityUsd: 5000,
+  });
+
+  assert.deepEqual(input, {
+    symbol: "BTC",
+    timeframeStart: "2026-03-01T00:00:00Z",
+    timeframeEnd: "2026-03-03T00:00:00Z",
+    from: 111,
+    to: 222,
+    lookbackDays: 2,
+    accountValueUsd: 5000,
+  });
 });

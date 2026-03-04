@@ -723,9 +723,11 @@ export * from "./exchange";
 export * from "./info";
 export * from "./env";
 export * from "./symbols";
+export * from "./strategy";
 export * from "./order-utils";
 export * from "./state-readers";
 export * from "./market-data";
+export * from "./utils";
 
 export const __hyperliquidInternals = {
   toApiDecimal,

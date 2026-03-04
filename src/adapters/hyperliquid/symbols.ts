@@ -54,6 +54,10 @@ export function resolveHyperliquidPair(value?: string | null): string | null {
   return null;
 }
 
+export function resolveHyperliquidLeverageMode(symbol: string): "cross" | "isolated" {
+  return symbol.includes(":") ? "isolated" : "cross";
+}
+
 export type HyperliquidProfileChain = "hyperliquid" | "hyperliquid-testnet";
 
 export type HyperliquidProfileAssetInput = {
@@ -198,4 +202,38 @@ export function resolveHyperliquidSymbol(asset: string, override?: string): stri
   const base = raw.split("-")[0] ?? raw;
   const baseNoPair = base.split("/")[0] ?? base;
   return baseNoPair.trim().toUpperCase();
+}
+
+export function resolveHyperliquidPerpSymbol(asset: string): string {
+  const raw = asset.trim();
+  if (!raw) return raw;
+
+  const dex = extractHyperliquidDex(raw);
+  const base = normalizeHyperliquidBaseSymbol(raw) ?? raw.toUpperCase();
+  return dex ? `${dex}:${base}` : base;
+}
+
+export function resolveHyperliquidSpotSymbol(asset: string, defaultQuote = "USDC"): {
+  symbol: string;
+  base: string;
+  quote: string;
+} {
+  const quote = defaultQuote.trim().toUpperCase() || "USDC";
+  const raw = asset.trim().toUpperCase();
+  if (!raw) {
+    return { symbol: raw, base: raw, quote };
+  }
+
+  const pair = resolveHyperliquidPair(raw);
+  if (pair) {
+    const [base, pairQuote] = pair.split("/");
+    return {
+      symbol: pair,
+      base: base?.trim() ?? raw,
+      quote: pairQuote?.trim() ?? quote,
+    };
+  }
+
+  const base = normalizeHyperliquidBaseSymbol(raw) ?? raw;
+  return { symbol: `${base}/${quote}`, base, quote };
 }
