@@ -16,6 +16,8 @@ test("parseTimeToSeconds handles numeric, ISO, and invalid values", () => {
   assert.equal(parseTimeToSeconds(123.9), 123);
   assert.equal(parseTimeToSeconds("456.7"), 456);
   assert.equal(parseTimeToSeconds("2026-03-04T00:00:00Z"), 1772582400);
+  assert.equal(parseTimeToSeconds(-30), 0);
+  assert.equal(parseTimeToSeconds("-12.5"), 0);
   assert.equal(parseTimeToSeconds(""), null);
   assert.equal(parseTimeToSeconds("not-a-date"), null);
 });
@@ -90,6 +92,16 @@ test("resolveBacktestWindow applies precedence and invalid-range fallback", () =
   assert.equal(invalidRange.fromSeconds, undefined);
   assert.equal(invalidRange.toSeconds, undefined);
   assert.equal(invalidRange.countBack, 240);
+
+  const fromTimeframe = resolveBacktestWindow({
+    fallbackCountBack: 240,
+    resolution: "60",
+    timeframeStart: "2026-03-01T00:00:00Z",
+    timeframeEnd: "2026-03-01T04:00:00Z",
+  });
+  assert.equal(fromTimeframe.fromSeconds, 1772323200);
+  assert.equal(fromTimeframe.toSeconds, 1772337600);
+  assert.equal(fromTimeframe.countBack, 50);
 });
 
 test("resolveBacktestAccountValueUsd parses finite positive values", () => {

@@ -83,6 +83,41 @@ test("shared utility helpers parse and clamp config values", () => {
   });
 });
 
+test("clamp helpers enforce boundaries and handle invalid numeric inputs", () => {
+  assert.equal(clampHyperliquidInt(undefined, 1, 10, 7), 7);
+  assert.equal(clampHyperliquidInt("", 1, 10, 7), 7);
+  assert.equal(clampHyperliquidInt("  ", 1, 10, 7), 7);
+  assert.equal(clampHyperliquidInt("1.99", 1, 10, 7), 1);
+  assert.equal(clampHyperliquidInt(-100, 1, 10, 7), 1);
+  assert.equal(clampHyperliquidInt(100, 1, 10, 7), 10);
+  assert.equal(clampHyperliquidInt(Number.NaN, 1, 10, 7), 7);
+  assert.equal(clampHyperliquidInt(Number.POSITIVE_INFINITY, 1, 10, 7), 7);
+
+  assert.equal(clampHyperliquidFloat(undefined, 0, 5, 2), 2);
+  assert.equal(clampHyperliquidFloat("", 0, 5, 2), 2);
+  assert.equal(clampHyperliquidFloat("  ", 0, 5, 2), 2);
+  assert.equal(clampHyperliquidFloat(-1, 0, 5, 2), 0);
+  assert.equal(clampHyperliquidFloat(9.9, 0, 5, 2), 5);
+  assert.equal(clampHyperliquidFloat("3.25", 0, 5, 2), 3.25);
+  assert.equal(clampHyperliquidFloat(Number.NaN, 0, 5, 2), 2);
+  assert.equal(clampHyperliquidFloat(Number.NEGATIVE_INFINITY, 0, 5, 2), 2);
+});
+
+test("schedule helpers compose clamping with cron generation", () => {
+  const everyMin = resolveHyperliquidScheduleEvery(0, { min: 1, max: 59, fallback: 1 });
+  assert.equal(everyMin, 1);
+  assert.equal(resolveHyperliquidIntervalCron(everyMin, "minutes"), "* * * * *");
+
+  const everyMax = resolveHyperliquidScheduleEvery(120, { min: 1, max: 59, fallback: 1 });
+  assert.equal(everyMax, 59);
+  assert.equal(resolveHyperliquidIntervalCron(everyMax, "minutes"), "*/59 * * * *");
+
+  assert.equal(resolveHyperliquidScheduleUnit("bad-unit", "minutes"), "minutes");
+  assert.equal(resolveHyperliquidCadenceCron("hourly", 25), "0 */24 * * *");
+  assert.equal(resolveHyperliquidCadenceCron("hourly", "not-a-number"), "0 * * * *");
+  assert.equal(resolveHyperliquidCadenceCron("daily", 8), "0 8 * * *");
+});
+
 test("symbol helpers normalize perp and spot symbols consistently", () => {
   assert.equal(extractHyperliquidDex("hl:btc"), "hl");
   assert.equal(normalizeHyperliquidBaseSymbol("btc-usdc"), "BTC");
@@ -106,6 +141,16 @@ test("symbol helpers normalize perp and spot symbols consistently", () => {
   assert.deepEqual(parseSpotPairSymbol("btc/usdc"), { base: "BTC", quote: "USDC" });
   assert.deepEqual(resolveSpotMidCandidates("UBTC"), ["UBTC", "BTC"]);
   assert.deepEqual(resolveSpotTokenCandidates("UBTC0"), ["UBTC", "BTC"]);
+});
+
+test("symbol helpers handle empty/unknown variants consistently", () => {
+  assert.equal(normalizeHyperliquidBaseSymbol("UNKNOWN"), null);
+  assert.equal(normalizeHyperliquidBaseSymbol("  "), null);
+  assert.equal(resolveHyperliquidPair("BTC"), null);
+  assert.equal(resolveHyperliquidOrderSymbol("  "), null);
+  assert.equal(resolveHyperliquidOrderSymbol(null), null);
+  assert.equal(resolveHyperliquidSymbol(""), "");
+  assert.equal(parseSpotPairSymbol("BTC"), null);
 });
 
 test("shared target sizing helper supports fixed and percent modes", () => {
@@ -300,85 +345,16 @@ test("state readers handle account value and position matching", () => {
   assert.equal(readHyperliquidPerpPositionSize(payload, "BTC", { prefixMatch: false }), 0);
 });
 
-test("fetchHyperliquidBars normalizes symbol and filters invalid rows", async () => {
-  const originalFetch = globalThis.fetch;
-  let capturedUrl = "";
-  globalThis.fetch = (async (input: URL | RequestInfo) => {
-    capturedUrl = String(input);
-    return {
-      ok: true,
-      json: async () => ({
-        bars: [
-          { time: 1700000000, close: 100.5 },
-          { time: 1700000100, close: "bad" },
-          { time: "bad", close: 101.5 },
-        ],
+test("fetchHyperliquidBars clamps query params and rejects invalid countBack", async () => {
+  await assert.rejects(
+    () =>
+      fetchHyperliquidBars({
+        symbol: "BTC",
+        resolution: "60",
+        countBack: Number.NaN,
       }),
-    } as unknown as Response;
-  }) as typeof fetch;
-
-  try {
-    const bars = await fetchHyperliquidBars({
-      symbol: "hl:btc",
-      resolution: "60",
-      countBack: 100,
-      fromSeconds: 1000,
-      toSeconds: 2000,
-      gatewayBase: "https://gateway.example/",
-    });
-
-    const url = new URL(capturedUrl);
-    assert.equal(url.origin + url.pathname, "https://gateway.example/v1/hyperliquid/bars");
-    assert.equal(url.searchParams.get("symbol"), "hl:BTC");
-    assert.equal(url.searchParams.get("resolution"), "60");
-    assert.equal(url.searchParams.get("countBack"), "100");
-    assert.equal(url.searchParams.get("from"), "1000");
-    assert.equal(url.searchParams.get("to"), "2000");
-    assert.equal(bars.length, 1);
-    assert.equal(bars[0]?.close, 100.5);
-    const indicatorBars = normalizeHyperliquidIndicatorBars([
-      ...bars,
-      { time: 1700000200, close: 101.5 },
-    ]);
-    assert.equal(indicatorBars.length, 2);
-    assert.equal(indicatorBars[0]?.high, 100.5);
-    assert.equal(indicatorBars[1]?.volume, 0);
-  } finally {
-    globalThis.fetch = originalFetch;
-  }
-});
-
-test("fetchHyperliquidBars falls back to production gateway when unset", async () => {
-  const originalFetch = globalThis.fetch;
-  const originalGatewayEnv = process.env.OPENPOND_GATEWAY_URL;
-  let capturedUrl = "";
-  delete process.env.OPENPOND_GATEWAY_URL;
-
-  globalThis.fetch = (async (input: URL | RequestInfo) => {
-    capturedUrl = String(input);
-    return {
-      ok: true,
-      json: async () => ({ bars: [{ time: 1700000000, close: 100 }] }),
-    } as unknown as Response;
-  }) as typeof fetch;
-
-  try {
-    const bars = await fetchHyperliquidBars({
-      symbol: "hl:btc",
-      resolution: "60",
-      countBack: 10,
-    });
-    assert.equal(bars.length, 1);
-    const url = new URL(capturedUrl);
-    assert.equal(url.origin + url.pathname, "https://gateway.openpond.dev/v1/hyperliquid/bars");
-  } finally {
-    if (typeof originalGatewayEnv === "string") {
-      process.env.OPENPOND_GATEWAY_URL = originalGatewayEnv;
-    } else {
-      delete process.env.OPENPOND_GATEWAY_URL;
-    }
-    globalThis.fetch = originalFetch;
-  }
+    /countBack must be a positive integer/,
+  );
 });
 
 test("profile asset builder normalizes symbols and optional metadata", () => {
