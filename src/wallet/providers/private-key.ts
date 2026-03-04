@@ -1,4 +1,11 @@
-import { createPublicClient, createWalletClient, http, type Chain, type PublicClient, type Transport } from "viem";
+import {
+  createPublicClient,
+  createWalletClient,
+  http,
+  type Chain,
+  type PublicClient,
+  type Transport,
+} from "viem";
 import { privateKeyToAccount, type Account } from "viem/accounts";
 
 import type {
@@ -42,7 +49,7 @@ function createNonceSource(start: number = Date.now()) {
 }
 
 export function createPrivateKeyProvider(
-  config: PrivateKeyProviderConfig
+  config: PrivateKeyProviderConfig,
 ): PrivateKeyProviderResult {
   const privateKey = normalizePrivateKey(config.privateKey);
   const account = privateKeyToAccount(privateKey);

@@ -49,10 +49,7 @@ const X402PaymentSchema = z
   .passthrough();
 
 // Accept x402 or any custom payment config
-export const PaymentConfigSchema = z.union([
-  X402PaymentSchema,
-  z.record(z.string(), z.unknown()),
-]);
+export const PaymentConfigSchema = z.union([X402PaymentSchema, z.record(z.string(), z.unknown())]);
 
 export type PaymentConfig = z.infer<typeof PaymentConfigSchema>;
 

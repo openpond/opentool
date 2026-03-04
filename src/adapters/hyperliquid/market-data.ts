@@ -14,10 +14,7 @@ import {
   resolveSpotMidCandidates,
   resolveSpotTokenCandidates,
 } from "./symbols";
-import {
-  readHyperliquidNumber,
-  readHyperliquidSpotAccountValue,
-} from "./state-readers";
+import { readHyperliquidNumber, readHyperliquidSpotAccountValue } from "./state-readers";
 
 type PerpUniverseItem = {
   name?: string;
@@ -54,15 +51,7 @@ type SpotMetaResponse = {
   tokens?: SpotToken[];
 };
 
-export type HyperliquidBarResolution =
-  | "1"
-  | "5"
-  | "15"
-  | "30"
-  | "60"
-  | "240"
-  | "1D"
-  | "1W";
+export type HyperliquidBarResolution = "1" | "5" | "15" | "30" | "60" | "240" | "1D" | "1W";
 
 export type HyperliquidBar = {
   time: number;
@@ -172,10 +161,7 @@ function formatScaledInt(value: bigint, decimals: number): string {
     return `${negative ? "-" : ""}${integer.toString()}`;
   }
   const fractionStr = fraction.toString().padStart(decimals, "0");
-  return `${negative ? "-" : ""}${integer.toString()}.${fractionStr}`.replace(
-    /\.?0+$/,
-    ""
-  );
+  return `${negative ? "-" : ""}${integer.toString()}.${fractionStr}`.replace(/\.?0+$/, "");
 }
 
 function resolveSpotSizeDecimals(meta: SpotMetaResponse, symbol: string): number {
@@ -188,8 +174,7 @@ function resolveSpotSizeDecimals(meta: SpotMetaResponse, symbol: string): number
   const tokenMap = new Map<number, { name: string; szDecimals: number }>();
   for (const token of tokens) {
     const index = token?.index;
-    const szDecimals =
-      typeof token?.szDecimals === "number" ? token.szDecimals : null;
+    const szDecimals = typeof token?.szDecimals === "number" ? token.szDecimals : null;
     if (typeof index !== "number" || szDecimals == null) continue;
     tokenMap.set(index, {
       name: normalizeSpotTokenName(token?.name),
@@ -222,9 +207,7 @@ function resolveSpotSizeDecimals(meta: SpotMetaResponse, symbol: string): number
   const normalizedQuote = normalizeSpotTokenName(pair.quote).toUpperCase();
 
   for (const market of universe) {
-    const [baseIndex, quoteIndex] = Array.isArray(market?.tokens)
-      ? market.tokens
-      : [];
+    const [baseIndex, quoteIndex] = Array.isArray(market?.tokens) ? market.tokens : [];
     const baseToken = tokenMap.get(baseIndex ?? -1);
     const quoteToken = tokenMap.get(quoteIndex ?? -1);
     if (!baseToken || !quoteToken) continue;
@@ -240,7 +223,7 @@ function resolveSpotSizeDecimals(meta: SpotMetaResponse, symbol: string): number
 }
 
 export async function fetchHyperliquidAllMids(
-  environment: HyperliquidEnvironment
+  environment: HyperliquidEnvironment,
 ): Promise<Record<string, string | number>> {
   const cacheKey = environment;
   const cached = allMidsCache.get(cacheKey);
@@ -254,9 +237,7 @@ export async function fetchHyperliquidAllMids(
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ type: "allMids" }),
   });
-  const json = (await res.json().catch(() => null)) as
-    | Record<string, string | number>
-    | null;
+  const json = (await res.json().catch(() => null)) as Record<string, string | number> | null;
   if (!res.ok || !json || typeof json !== "object") {
     throw new Error(`Failed to load Hyperliquid mid prices (${res.status}).`);
   }
@@ -327,15 +308,12 @@ export async function fetchHyperliquidSpotTickSize(params: {
   if (!Number.isFinite(params.marketIndex)) {
     throw new Error("Hyperliquid spot market index is invalid.");
   }
-  return fetchHyperliquidTickSizeForCoin(
-    params.environment,
-    `@${params.marketIndex}`
-  );
+  return fetchHyperliquidTickSizeForCoin(params.environment, `@${params.marketIndex}`);
 }
 
 async function fetchHyperliquidTickSizeForCoin(
   environment: HyperliquidEnvironment,
-  coin: string
+  coin: string,
 ): Promise<HyperliquidTickSize> {
   const base = API_BASES[environment];
   const res = await fetch(`${base}/info`, {
@@ -347,14 +325,12 @@ async function fetchHyperliquidTickSizeForCoin(
     throw new Error(`Hyperliquid l2Book failed for ${coin}`);
   }
 
-  const data = (await res.json().catch(() => null)) as
-    | { levels?: Array<Array<{ px?: string | number }>> }
-    | null;
-  const levels = Array.isArray(data?.levels) ? data?.levels ?? [] : [];
+  const data = (await res.json().catch(() => null)) as {
+    levels?: Array<Array<{ px?: string | number }>>;
+  } | null;
+  const levels = Array.isArray(data?.levels) ? (data?.levels ?? []) : [];
   const prices = levels
-    .flatMap((side) =>
-      Array.isArray(side) ? side.map((entry) => String(entry?.px ?? "")) : []
-    )
+    .flatMap((side) => (Array.isArray(side) ? side.map((entry) => String(entry?.px ?? "")) : []))
     .filter((px) => px.length > 0);
 
   if (prices.length < 2) {
@@ -395,8 +371,7 @@ export async function fetchHyperliquidPerpMarketInfo(params: {
   const target = normalizeHyperliquidMetaSymbol(params.symbol).toUpperCase();
 
   const idx = universe.findIndex(
-    (entry) =>
-      normalizeHyperliquidMetaSymbol(entry?.name ?? "").toUpperCase() === target
+    (entry) => normalizeHyperliquidMetaSymbol(entry?.name ?? "").toUpperCase() === target,
   );
   if (idx < 0) {
     throw new Error(`Unknown Hyperliquid perp asset: ${params.symbol}`);
@@ -460,9 +435,7 @@ export async function fetchHyperliquidSpotMarketInfo(params: {
 
   for (let idx = 0; idx < universe.length; idx += 1) {
     const market = universe[idx];
-    const [baseIndex, quoteIndex] = Array.isArray(market?.tokens)
-      ? market.tokens
-      : [];
+    const [baseIndex, quoteIndex] = Array.isArray(market?.tokens) ? market.tokens : [];
     const baseToken = tokenMap.get(baseIndex ?? -1);
     const quoteToken = tokenMap.get(quoteIndex ?? -1);
     if (!baseToken || !quoteToken) continue;
@@ -473,12 +446,11 @@ export async function fetchHyperliquidSpotMarketInfo(params: {
       baseCandidates.some((candidate) => marketBaseCandidates.includes(candidate)) &&
       quoteCandidates.some((candidate) => marketQuoteCandidates.includes(candidate))
     ) {
-      const contextIndex =
-        typeof market?.index === "number" ? market.index : idx;
+      const contextIndex = typeof market?.index === "number" ? market.index : idx;
       const ctx =
-        (contextIndex >= 0 && contextIndex < contexts.length
-          ? contexts[contextIndex]
-          : null) ?? contexts[idx] ?? null;
+        (contextIndex >= 0 && contextIndex < contexts.length ? contexts[contextIndex] : null) ??
+        contexts[idx] ??
+        null;
 
       let price: number | null = null;
       if (mids) {
@@ -494,9 +466,7 @@ export async function fetchHyperliquidSpotMarketInfo(params: {
         price = readHyperliquidNumber(ctx?.markPx ?? ctx?.midPx ?? ctx?.oraclePx);
       }
       if (!price || price <= 0) {
-        throw new Error(
-          `No spot price available for ${normalizedBase}/${normalizedQuote}`
-        );
+        throw new Error(`No spot price available for ${normalizedBase}/${normalizedQuote}`);
       }
 
       const marketIndex = typeof market?.index === "number" ? market.index : idx;
@@ -531,8 +501,7 @@ export async function fetchHyperliquidSizeDecimals(params: {
   const universe = Array.isArray(meta?.universe) ? meta.universe : [];
   const normalized = normalizeHyperliquidMetaSymbol(symbol).toUpperCase();
   const match = universe.find(
-    (entry) =>
-      normalizeHyperliquidMetaSymbol(entry?.name ?? "").toUpperCase() === normalized
+    (entry) => normalizeHyperliquidMetaSymbol(entry?.name ?? "").toUpperCase() === normalized,
   );
   if (!match || typeof match.szDecimals !== "number") {
     throw new Error(`No size decimals found for ${symbol}.`);
@@ -560,20 +529,17 @@ export function buildHyperliquidSpotUsdPriceMap(params: {
 
   for (let idx = 0; idx < universe.length; idx += 1) {
     const market = universe[idx];
-    const [baseIndex, quoteIndex] = Array.isArray(market?.tokens)
-      ? market.tokens
-      : [];
+    const [baseIndex, quoteIndex] = Array.isArray(market?.tokens) ? market.tokens : [];
     const base = tokenMap.get(baseIndex ?? -1);
     const quote = tokenMap.get(quoteIndex ?? -1);
     if (!base || !quote) continue;
     if (quote !== "USDC") continue;
 
-    const contextIndex =
-      typeof market?.index === "number" ? market.index : idx;
+    const contextIndex = typeof market?.index === "number" ? market.index : idx;
     const ctx =
-      (contextIndex >= 0 && contextIndex < params.ctxs.length
-        ? params.ctxs[contextIndex]
-        : null) ?? params.ctxs[idx] ?? null;
+      (contextIndex >= 0 && contextIndex < params.ctxs.length ? params.ctxs[contextIndex] : null) ??
+      params.ctxs[idx] ??
+      null;
 
     let price: number | null = null;
     if (params.mids) {
@@ -598,7 +564,7 @@ export function buildHyperliquidSpotUsdPriceMap(params: {
 }
 
 export async function fetchHyperliquidSpotUsdPriceMap(
-  environment: HyperliquidEnvironment
+  environment: HyperliquidEnvironment,
 ): Promise<Map<string, number>> {
   const [spotMetaAndCtxs, mids] = await Promise.all([
     fetchHyperliquidSpotMetaAndAssetCtxs(environment),

@@ -15,15 +15,7 @@ export interface ToolResponse {
   isError?: boolean;
 }
 
-export const HTTP_METHODS = [
-  "GET",
-  "HEAD",
-  "POST",
-  "PUT",
-  "DELETE",
-  "PATCH",
-  "OPTIONS",
-] as const;
+export const HTTP_METHODS = ["GET", "HEAD", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"] as const;
 
 export type HttpMethod = (typeof HTTP_METHODS)[number];
 
@@ -49,7 +41,7 @@ export interface McpConfig {
 }
 
 export interface InternalToolDefinition<
-  TSchema extends z.ZodSchema | undefined = z.ZodSchema | undefined
+  TSchema extends z.ZodSchema | undefined = z.ZodSchema | undefined,
 > {
   filename: string;
   schema?: TSchema;
@@ -80,4 +72,10 @@ export interface BuildConfig {
   serverVersion?: string;
 }
 
-export type { Tool, ToolMetadataOverrides, Metadata, BuildMetadata, PaymentConfig } from "./metadata";
+export type {
+  Tool,
+  ToolMetadataOverrides,
+  Metadata,
+  BuildMetadata,
+  PaymentConfig,
+} from "./metadata";

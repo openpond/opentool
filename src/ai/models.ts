@@ -1,10 +1,4 @@
-export type ModelProvider =
-  | "openai"
-  | "anthropic"
-  | "google"
-  | "deepseek"
-  | "fireworks"
-  | "custom";
+export type ModelProvider = "openai" | "anthropic" | "google" | "deepseek" | "fireworks" | "custom";
 
 export interface ModelConfig {
   name: string;
@@ -72,7 +66,7 @@ const ALIAS_LOOKUP: Record<string, string> = MODEL_REGISTRY.reduce(
     }
     return accumulator;
   },
-  {} as Record<string, string>
+  {} as Record<string, string>,
 );
 
 const DEFAULT_MODEL_NAME =

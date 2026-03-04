@@ -137,7 +137,7 @@ interface EmitToolsConfig {
 
 async function emitTools(
   tools: InternalToolDefinition[],
-  config: EmitToolsConfig
+  config: EmitToolsConfig,
 ): Promise<CompiledToolArtifact[]> {
   const toolsOutDir = path.join(config.outputDir, "tools");
   if (fs.existsSync(toolsOutDir)) {
@@ -193,7 +193,7 @@ interface EmitSharedModulesConfig {
 }
 
 async function emitSharedModules(
-  config: EmitSharedModulesConfig
+  config: EmitSharedModulesConfig,
 ): Promise<SharedModulesInfo | null> {
   const srcDir = path.join(config.projectRoot, "src");
   if (!fs.existsSync(srcDir)) {
@@ -356,7 +356,7 @@ module.exports = { server };
 
 async function writeMcpServer(options: ServerOptions): Promise<void> {
   const serverCode = renderMcpServer(options);
-  const serverPath = path.join(options.outputDir, 'mcp-server.js');
+  const serverPath = path.join(options.outputDir, "mcp-server.js");
   fs.writeFileSync(serverPath, serverCode);
   fs.chmodSync(serverPath, 0o755);
 }
@@ -367,19 +367,12 @@ function writeToolsManifest(options: {
   outputDir: string;
 }): string | null {
   const manifestPath = path.join(options.outputDir, "tools.json");
-  const legacyManifestPath = path.join(
-    options.outputDir,
-    ".well-known",
-    "opentool",
-    "cron.json"
-  );
+  const legacyManifestPath = path.join(options.outputDir, ".well-known", "opentool", "cron.json");
   if (fs.existsSync(legacyManifestPath)) {
     fs.rmSync(legacyManifestPath, { force: true });
   }
   const entries: ToolsManifestEntry[] = options.tools.map((tool) => {
-    const compiled = options.compiledTools.find(
-      (artifact) => artifact.filename === tool.filename
-    );
+    const compiled = options.compiledTools.find((artifact) => artifact.filename === tool.filename);
     if (!compiled) {
       throw new Error(`Internal error: missing compiled artifact for ${tool.filename}`);
     }
@@ -425,7 +418,7 @@ function logBuildSummary(artifacts: BuildArtifacts, options: BuildOptions): void
     console.log(
       `  • src/ (${artifacts.sharedModules.count} shared module${
         artifacts.sharedModules.count === 1 ? "" : "s"
-      } compiled)`
+      } compiled)`,
     );
   }
   artifacts.compiledTools.forEach((tool) => {

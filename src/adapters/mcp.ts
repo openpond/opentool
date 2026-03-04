@@ -2,15 +2,7 @@ import { z, type ZodSchema } from "zod";
 import { X402PaymentRequiredError } from "../x402/index";
 import type { ToolResponse } from "../types/index";
 
-export const HTTP_METHODS = [
-  "GET",
-  "HEAD",
-  "POST",
-  "PUT",
-  "DELETE",
-  "PATCH",
-  "OPTIONS",
-] as const;
+export const HTTP_METHODS = ["GET", "HEAD", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"] as const;
 
 export type HttpMethod = (typeof HTTP_METHODS)[number];
 
@@ -30,9 +22,7 @@ export function createMcpAdapter(options: CreateMcpAdapterOptions) {
   const httpHandler = options.httpHandlers[defaultMethod];
 
   if (!httpHandler) {
-    throw new Error(
-      `Tool "${options.name}" does not export an HTTP handler for ${defaultMethod}`
-    );
+    throw new Error(`Tool "${options.name}" does not export an HTTP handler for ${defaultMethod}`);
   }
 
   return async function invoke(rawArguments: unknown): Promise<ToolResponse> {
@@ -65,7 +55,7 @@ function resolveDefaultMethod(options: CreateMcpAdapterOptions): HttpMethod {
   }
 
   const available = Object.keys(options.httpHandlers).filter(
-    (method) => typeof options.httpHandlers[method] === "function"
+    (method) => typeof options.httpHandlers[method] === "function",
   );
   if (available.length > 0) {
     return available[0] as HttpMethod;

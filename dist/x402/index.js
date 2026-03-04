@@ -589,7 +589,7 @@ async function payX402WithWallet(walletClient, chainId, request) {
 }
 
 // src/x402/index.ts
-var PAYMENT_CONTEXT_SYMBOL = Symbol.for("opentool.x402.context");
+var PAYMENT_CONTEXT_SYMBOL = /* @__PURE__ */ Symbol.for("opentool.x402.context");
 var X402PaymentRequiredError = class extends Error {
   constructor(response, verification) {
     super("X402 Payment required");

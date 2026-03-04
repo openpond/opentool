@@ -114,7 +114,9 @@ export interface MetadataBuildResult {
   sourceMetadataPath: string;
 }
 
-export async function buildMetadataArtifact(options: MetadataBuildOptions): Promise<MetadataBuildResult> {
+export async function buildMetadataArtifact(
+  options: MetadataBuildOptions,
+): Promise<MetadataBuildResult> {
   const projectRoot = options.projectRoot;
   const packageInfo = readPackageJson(projectRoot);
   const { metadata: authored, sourcePath } = await loadMetadata(projectRoot);
@@ -127,7 +129,7 @@ export async function buildMetadataArtifact(options: MetadataBuildOptions): Prom
     authored.name,
     () => packageInfo.name ?? folderName,
     defaultsApplied,
-    "package.json name"
+    "package.json name",
   );
 
   const displayName = resolveField(
@@ -141,7 +143,7 @@ export async function buildMetadataArtifact(options: MetadataBuildOptions): Prom
         .join(" ");
     },
     defaultsApplied,
-    "package.json name"
+    "package.json name",
   );
 
   const versionRaw = resolveField(
@@ -149,7 +151,7 @@ export async function buildMetadataArtifact(options: MetadataBuildOptions): Prom
     authored.version,
     () => packageInfo.version ?? "0.1.0",
     defaultsApplied,
-    "package.json version"
+    "package.json version",
   );
   const version = typeof versionRaw === "number" ? String(versionRaw) : versionRaw;
 
@@ -265,7 +267,7 @@ function resolveField<T>(
   value: T | undefined,
   fallback: () => T,
   defaultsApplied: string[],
-  fallbackLabel: string
+  fallbackLabel: string,
 ): T {
   if (value !== undefined && value !== null && value !== "") {
     return value;
@@ -325,7 +327,7 @@ function buildDiscovery(authored: Metadata): DiscoveryMetadata | undefined {
 
   const merged = {
     ...legacyDiscovery,
-    ...(authored.discovery ?? {}),
+    ...authored.discovery,
   } as DiscoveryMetadata;
 
   return Object.keys(merged).length > 0 ? merged : undefined;

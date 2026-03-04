@@ -41,25 +41,25 @@ async function copyDir(src: string, dest: string) {
 }
 
 function toPackageName(value: string): string {
-  return value
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9-]+/g, "-")
-    .replace(/^-+|-+$/g, "") || "opentool-project";
+  return (
+    value
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9-]+/g, "-")
+      .replace(/^-+|-+$/g, "") || "opentool-project"
+  );
 }
 
 function toDisplayName(value: string): string {
-  return value
-    .trim()
-    .replace(/[-_]+/g, " ")
-    .replace(/\b\w/g, (ch) => ch.toUpperCase()) || "OpenTool Project";
+  return (
+    value
+      .trim()
+      .replace(/[-_]+/g, " ")
+      .replace(/\b\w/g, (ch) => ch.toUpperCase()) || "OpenTool Project"
+  );
 }
 
-async function updatePackageJson(
-  targetDir: string,
-  name: string,
-  description?: string
-) {
+async function updatePackageJson(targetDir: string, name: string, description?: string) {
   const filePath = path.join(targetDir, "package.json");
   const raw = await fs.readFile(filePath, "utf-8");
   const pkg = JSON.parse(raw) as Record<string, unknown>;
@@ -70,19 +70,15 @@ async function updatePackageJson(
   await fs.writeFile(filePath, `${JSON.stringify(pkg, null, 2)}\n`, "utf-8");
 }
 
-async function updateMetadata(
-  targetDir: string,
-  name: string,
-  description?: string
-) {
+async function updateMetadata(targetDir: string, name: string, description?: string) {
   const filePath = path.join(targetDir, "metadata.ts");
   const raw = await fs.readFile(filePath, "utf-8");
   const displayName = toDisplayName(name);
   const resolvedDescription = description || "OpenTool project";
   const updated = raw
-    .replace(/name:\s*\".*?\"/, `name: "${toPackageName(name)}"`)
-    .replace(/displayName:\s*\".*?\"/, `displayName: "${displayName}"`)
-    .replace(/description:\s*\".*?\"/, `description: "${resolvedDescription}"`);
+    .replace(/name:\s*".*?"/, `name: "${toPackageName(name)}"`)
+    .replace(/displayName:\s*".*?"/, `displayName: "${displayName}"`)
+    .replace(/description:\s*".*?"/, `description: "${resolvedDescription}"`);
   await fs.writeFile(filePath, updated, "utf-8");
 }
 
@@ -92,9 +88,7 @@ export async function initCommand(options: InitOptions): Promise<void> {
   const empty = await directoryIsEmpty(targetDir);
 
   if (!empty && !options.force) {
-    throw new Error(
-      `Directory not empty: ${targetDir}. Use --force to overwrite.`
-    );
+    throw new Error(`Directory not empty: ${targetDir}. Use --force to overwrite.`);
   }
 
   await copyDir(templateDir, targetDir);

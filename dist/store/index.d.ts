@@ -3,6 +3,12 @@ declare const STORE_EVENT_LEVELS: readonly ["decision", "execution", "lifecycle"
 declare const CANONICAL_STORE_ACTIONS: readonly ["stake", "unstake", "swap", "bridge", "order", "trade", "lend", "borrow", "repay", "withdraw", "provide_liquidity", "remove_liquidity", "claim", "custom"];
 type StoreAction = (typeof CANONICAL_STORE_ACTIONS)[number] | string;
 type StoreEventLevel = (typeof STORE_EVENT_LEVELS)[number];
+type StoreMode = "live" | "backtest";
+type StoreSimulationConfig = {
+    fillModel?: string;
+    feeModel?: string;
+    slippageBps?: number;
+};
 type ChainScope = {
     chainId: number;
     network?: never;
@@ -23,6 +29,9 @@ type StoreEventInput = ChainScope & {
     notional?: string;
     metadata?: Record<string, unknown>;
     market?: Record<string, unknown>;
+    mode?: StoreMode;
+    backtestRunId?: string;
+    simulation?: StoreSimulationConfig;
 };
 interface StoreOptions {
     baseUrl?: string;
@@ -43,6 +52,8 @@ type StoreRetrieveParams = {
     limit?: number;
     cursor?: string;
     history?: boolean;
+    mode?: StoreMode;
+    backtestRunId?: string;
 };
 type StoreRetrieveResult = {
     items: Array<StoreEventInput & {
@@ -100,4 +111,4 @@ declare function getMyPerformance(options?: StoreOptions): Promise<unknown>;
 declare function postAgentDigest(input: AgentDigestRequest, options?: StoreOptions): Promise<unknown>;
 declare function executeTool(input: ToolExecuteRequest, options?: StoreOptions): Promise<ToolExecuteResponse>;
 
-export { type AgentDigestRequest, type MyToolsResponse, type StoreAction, StoreError, type StoreEventInput, type StoreEventLevel, type StoreOptions, type StoreResponse, type StoreRetrieveParams, type StoreRetrieveResult, type ToolExecuteRequest, type ToolExecuteResponse, executeTool, getMyPerformance, getMyTools, postAgentDigest, retrieve, store };
+export { type AgentDigestRequest, type MyToolsResponse, type StoreAction, StoreError, type StoreEventInput, type StoreEventLevel, type StoreMode, type StoreOptions, type StoreResponse, type StoreRetrieveParams, type StoreRetrieveResult, type StoreSimulationConfig, type ToolExecuteRequest, type ToolExecuteResponse, executeTool, getMyPerformance, getMyTools, postAgentDigest, retrieve, store };

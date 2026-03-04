@@ -18,15 +18,11 @@ export function normalizeSpotTokenName(value?: string | null): string {
   return raw;
 }
 
-export function normalizeHyperliquidBaseSymbol(
-  value?: string | null
-): string | null {
+export function normalizeHyperliquidBaseSymbol(value?: string | null): string | null {
   if (!value) return null;
   const trimmed = value.trim();
   if (!trimmed) return null;
-  const withoutDex = trimmed.includes(":")
-    ? trimmed.split(":").slice(1).join(":")
-    : trimmed;
+  const withoutDex = trimmed.includes(":") ? trimmed.split(":").slice(1).join(":") : trimmed;
   const base = withoutDex.split("-")[0] ?? withoutDex;
   const baseNoPair = base.split("/")[0] ?? base;
   const normalized = baseNoPair.trim().toUpperCase();
@@ -36,9 +32,7 @@ export function normalizeHyperliquidBaseSymbol(
 
 export function normalizeHyperliquidMetaSymbol(symbol: string): string {
   const trimmed = symbol.trim();
-  const noDex = trimmed.includes(":")
-    ? trimmed.split(":").slice(1).join(":")
-    : trimmed;
+  const noDex = trimmed.includes(":") ? trimmed.split(":").slice(1).join(":") : trimmed;
   const noPair = noDex.split("-")[0] ?? noDex;
   return (noPair.split("/")[0] ?? noPair).trim();
 }
@@ -47,9 +41,7 @@ export function resolveHyperliquidPair(value?: string | null): string | null {
   if (!value) return null;
   const trimmed = value.trim();
   if (!trimmed) return null;
-  const withoutDex = trimmed.includes(":")
-    ? trimmed.split(":").slice(1).join(":")
-    : trimmed;
+  const withoutDex = trimmed.includes(":") ? trimmed.split(":").slice(1).join(":") : trimmed;
   if (withoutDex.includes("/")) {
     return withoutDex.toUpperCase();
   }
@@ -81,7 +73,7 @@ export type HyperliquidProfileAsset = {
 };
 
 export function resolveHyperliquidProfileChain(
-  environment: HyperliquidEnvironment
+  environment: HyperliquidEnvironment,
 ): HyperliquidProfileChain {
   return environment === "testnet" ? "hyperliquid-testnet" : "hyperliquid";
 }
@@ -102,9 +94,7 @@ export function buildHyperliquidProfileAssets(params: {
       const explicitPair =
         typeof asset.pair === "string" ? resolveHyperliquidPair(asset.pair) : null;
       const derivedPair =
-        symbols.length === 1
-          ? resolveHyperliquidPair(asset.assetSymbols[0] ?? symbols[0])
-          : null;
+        symbols.length === 1 ? resolveHyperliquidPair(asset.assetSymbols[0] ?? symbols[0]) : null;
       const pair = explicitPair ?? derivedPair ?? undefined;
       const leverage =
         typeof asset.leverage === "number" && Number.isFinite(asset.leverage) && asset.leverage > 0
@@ -127,9 +117,7 @@ export function buildHyperliquidProfileAssets(params: {
     .filter((asset): asset is HyperliquidProfileAsset => asset !== null);
 }
 
-export function parseSpotPairSymbol(
-  symbol: string
-): { base: string; quote: string } | null {
+export function parseSpotPairSymbol(symbol: string): { base: string; quote: string } | null {
   const trimmed = symbol.trim();
   if (!trimmed.includes("/")) return null;
   const [rawBase, rawQuote] = trimmed.split("/");
@@ -163,9 +151,7 @@ export function resolveSpotTokenCandidates(value: string): string[] {
   return Array.from(new Set(candidates));
 }
 
-export function resolveHyperliquidOrderSymbol(
-  value?: string | null
-): string | null {
+export function resolveHyperliquidOrderSymbol(value?: string | null): string | null {
   if (!value) return null;
   const trimmed = value.trim();
   if (!trimmed) return null;
@@ -186,12 +172,8 @@ export function resolveHyperliquidOrderSymbol(
   return normalizeHyperliquidBaseSymbol(trimmed);
 }
 
-export function resolveHyperliquidSymbol(
-  asset: string,
-  override?: string
-): string {
-  const raw =
-    override && override.trim().length > 0 ? override.trim() : asset.trim();
+export function resolveHyperliquidSymbol(asset: string, override?: string): string {
+  const raw = override && override.trim().length > 0 ? override.trim() : asset.trim();
   if (!raw) return raw;
   if (raw.startsWith("@")) return raw;
   if (raw.includes(":")) {

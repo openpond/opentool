@@ -11,15 +11,17 @@
   "scripts": {
     "build": "npm run typecheck && tsup",
     "dev": "tsx src/cli/dev.ts",
-    "lint": "eslint .",
-    "lint:fix": "eslint . --fix",
+    "lint": "oxlint src",
+    "lint:fix": "oxlint --fix src",
     "typecheck": "tsc --noEmit",
     "test": "tsx --test tests/*.test.ts",
     "prepublishOnly": "npm run typecheck && npm run build && tsx scripts/sync-template.ts",
     "changeset": "changeset",
     "changeset:version": "changeset version",
     "changeset:publish": "changeset publish",
-    "release": "npm run build && npm run changeset:publish"
+    "release": "npm run build && npm run changeset:publish",
+    "format": "oxfmt src",
+    "format:check": "oxfmt --check src"
   },
   "files": [
     "dist/**/*",
@@ -49,32 +51,31 @@
   },
   "dependencies": {
     "@alcyone-labs/zod-to-json-schema": "^4.0.10",
-    "@modelcontextprotocol/sdk": "^1.15.1",
+    "@modelcontextprotocol/sdk": "^1.27.1",
     "@msgpack/msgpack": "^3.1.1",
     "@noble/hashes": "^1.4.0",
-    "@turnkey/sdk-server": "4.10.2",
-    "@turnkey/viem": "0.14.5",
+    "@turnkey/sdk-server": "5.1.0",
+    "@turnkey/viem": "0.14.25",
     "commander": "^11.0.0",
-    "dotenv": "^17.2.3",
-    "esbuild": "^0.25.0",
+    "dotenv": "^17.3.1",
+    "esbuild": "^0.25.12",
     "viem": "^2.31.7",
     "zod": "^4.3.6"
   },
   "devDependencies": {
-    "@changesets/cli": "^2.29.5",
+    "@changesets/cli": "^2.30.0",
     "@types/node": "^20.0.0",
-    "@typescript-eslint/eslint-plugin": "^6.0.0",
-    "@typescript-eslint/parser": "^6.0.0",
-    "eslint": "^8.0.0",
-    "tsup": "^8.5.0",
-    "tsx": "^4.0.0",
+    "oxfmt": "^0.36.0",
+    "oxlint": "^1.51.0",
+    "tsup": "^8.5.1",
+    "tsx": "^4.21.0",
     "typescript": "^5.0.0"
   },
   "peerDependencies": {
     "typescript": "^5.0.0"
   },
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=20.19.0"
   },
   "exports": {
     ".": {
@@ -84,6 +85,10 @@
     "./x402": {
       "import": "./dist/x402/index.js",
       "types": "./dist/x402/index.d.ts"
+    },
+    "./viem": {
+      "import": "./dist/viem/index.js",
+      "types": "./dist/viem/index.d.ts"
     },
     "./wallet": {
       "import": "./dist/wallet/index.js",

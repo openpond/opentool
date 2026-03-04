@@ -44,7 +44,7 @@ async function requestJson(url: string, init?: RequestInit) {
   if (!response.ok) {
     throw new PolymarketApiError(
       `Polymarket request failed (${response.status}).`,
-      data ?? { status: response.status }
+      data ?? { status: response.status },
     );
   }
   return data;
@@ -85,10 +85,7 @@ function normalizeGammaMarket(market: GammaMarket, event?: GammaEvent): Polymark
   const mergedTags = Array.from(new Set([...marketTags, ...eventTags]));
 
   const category =
-    getString(market.category) ??
-    getString(event?.category) ??
-    getString(event?.title) ??
-    null;
+    getString(market.category) ?? getString(event?.category) ?? getString(event?.title) ?? null;
 
   const normalized: PolymarketMarket = {
     id: getString(market.id) ?? "",
@@ -112,11 +109,8 @@ function normalizeGammaMarket(market: GammaMarket, event?: GammaEvent): Polymark
       parseOptionalDate(market.createdAt) ??
       parseOptionalDate(event?.createdAt) ??
       parseOptionalDate(event?.creationDate),
-    updatedAt:
-      parseOptionalDate(market.updatedAt) ??
-      parseOptionalDate(event?.updatedAt),
-    closedTime:
-      parseOptionalDate(market.closedTime) ?? parseOptionalDate(event?.closedTime),
+    updatedAt: parseOptionalDate(market.updatedAt) ?? parseOptionalDate(event?.updatedAt),
+    closedTime: parseOptionalDate(market.closedTime) ?? parseOptionalDate(event?.closedTime),
     volume: getString(market.volume),
     liquidity: getString(market.liquidity),
     openInterest: getString(market.openInterest),
@@ -181,7 +175,9 @@ export class PolymarketInfoClient {
   }
 }
 
-export async function fetchPolymarketMarkets(params: FetchParams = {}): Promise<PolymarketMarket[]> {
+export async function fetchPolymarketMarkets(
+  params: FetchParams = {},
+): Promise<PolymarketMarket[]> {
   if (params.active !== undefined && params.active !== true) {
     throw new Error("Polymarket market list requires active=true.");
   }
@@ -210,17 +206,13 @@ export async function fetchPolymarketMarkets(params: FetchParams = {}): Promise<
   const data = (await requestJson(url.toString())) as GammaEvent[];
   const markets = data.flatMap((event) =>
     Array.isArray(event?.markets)
-      ? (event.markets as GammaMarket[]).map((market) =>
-          normalizeGammaMarket(market, event)
-        )
-      : []
+      ? (event.markets as GammaMarket[]).map((market) => normalizeGammaMarket(market, event))
+      : [],
   );
 
   const filtered = params.category
     ? markets.filter((market) =>
-        (market.category ?? "")
-          .toLowerCase()
-          .includes(params.category!.toLowerCase())
+        (market.category ?? "").toLowerCase().includes(params.category!.toLowerCase()),
       )
     : markets;
 
@@ -330,7 +322,7 @@ export async function fetchPolymarketPriceHistory(params: {
     | { history?: Array<{ t: number; p: number }> }
     | Array<{ t: number; p: number }>;
 
-  const points = Array.isArray(data) ? data : data?.history ?? [];
+  const points = Array.isArray(data) ? data : (data?.history ?? []);
   return points
     .map((point) => ({
       t: Number(point.t),

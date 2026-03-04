@@ -9,11 +9,7 @@ type StoreStatus =
   | "settled"
   | "info";
 
-const STORE_EVENT_LEVELS = [
-  "decision",
-  "execution",
-  "lifecycle",
-] as const;
+const STORE_EVENT_LEVELS = ["decision", "execution", "lifecycle"] as const;
 
 const STORE_EVENT_LEVEL_SET = new Set<string>(STORE_EVENT_LEVELS);
 
@@ -53,9 +49,7 @@ const MARKET_REQUIRED_ACTIONS = [
 const MARKET_REQUIRED_ACTIONS_SET = new Set<string>(MARKET_REQUIRED_ACTIONS);
 const EXECUTION_ACTIONS_SET = new Set<string>(MARKET_REQUIRED_ACTIONS);
 
-export type StoreAction =
-  | (typeof CANONICAL_STORE_ACTIONS)[number]
-  | string;
+export type StoreAction = (typeof CANONICAL_STORE_ACTIONS)[number] | string;
 
 export type StoreEventLevel = (typeof STORE_EVENT_LEVELS)[number];
 export type StoreMode = "live" | "backtest";
@@ -159,16 +153,14 @@ export class StoreError extends Error {
   constructor(
     message: string,
     public readonly status?: number,
-    public readonly causeData?: unknown
+    public readonly causeData?: unknown,
   ) {
     super(message);
     this.name = "StoreError";
   }
 }
 
-const normalizeAction = (
-  action: string | null | undefined
-): string | null => {
+const normalizeAction = (action: string | null | undefined): string | null => {
   const normalized = action?.trim().toLowerCase();
   return normalized ? normalized : null;
 };
@@ -222,7 +214,7 @@ const resolveEventLevel = (input: StoreEventInput): StoreEventLevel | null => {
 };
 
 const normalizeStoreInput = (input: StoreEventInput): StoreEventInput => {
-  const metadata = { ...(input.metadata ?? {}) };
+  const metadata = { ...input.metadata };
   const eventLevel = resolveEventLevel({ ...input, metadata });
   if (eventLevel) {
     metadata.eventLevel = eventLevel;
@@ -243,9 +235,7 @@ function resolveConfig(options?: StoreOptions) {
     throw new StoreError("BASE_URL is required to store activity events");
   }
   if (!apiKey) {
-    throw new StoreError(
-      "OPENPOND_API_KEY is required to store activity events"
-    );
+    throw new StoreError("OPENPOND_API_KEY is required to store activity events");
   }
 
   const normalizedBaseUrl = baseUrl.replace(/\/$/, "");
@@ -260,7 +250,7 @@ function resolveConfig(options?: StoreOptions) {
 async function requestJson(
   url: string,
   options: StoreOptions | undefined,
-  init: RequestInit
+  init: RequestInit,
 ): Promise<unknown> {
   const { apiKey, fetchFn } = resolveConfig(options);
   const response = await fetchFn(url, {
@@ -268,7 +258,7 @@ async function requestJson(
     headers: {
       "content-type": "application/json",
       "openpond-api-key": apiKey,
-      ...(init.headers ?? {}),
+      ...init.headers,
     },
   });
 
@@ -279,11 +269,7 @@ async function requestJson(
     } catch {
       body = await response.text().catch(() => undefined);
     }
-    throw new StoreError(
-      `Request failed with status ${response.status}`,
-      response.status,
-      body
-    );
+    throw new StoreError(`Request failed with status ${response.status}`, response.status, body);
   }
 
   if (response.status === 204) {
@@ -302,7 +288,7 @@ async function requestJson(
  */
 export async function store(
   input: StoreEventInput,
-  options?: StoreOptions
+  options?: StoreOptions,
 ): Promise<StoreResponse> {
   const normalizedInput = normalizeStoreInput(input);
   const mode = normalizedInput.mode ?? "live";
@@ -310,32 +296,27 @@ export async function store(
   const normalizedAction = normalizeAction(normalizedInput.action);
 
   if (mode === "backtest" && !normalizedInput.backtestRunId) {
-    throw new StoreError(
-      `backtestRunId is required when mode is "backtest"`
-    );
+    throw new StoreError(`backtestRunId is required when mode is "backtest"`);
   }
 
   if (eventLevel === "execution" || eventLevel === "lifecycle") {
     if (!normalizedAction || !EXECUTION_ACTIONS_SET.has(normalizedAction)) {
-      throw new StoreError(
-        `eventLevel "${eventLevel}" requires an execution action`
-      );
+      throw new StoreError(`eventLevel "${eventLevel}" requires an execution action`);
     }
   }
   if (eventLevel === "execution" && !hasMarketIdentity(normalizedInput.market)) {
     throw new StoreError(
-      `market is required for execution events. market must include market_type, venue, environment, canonical_symbol`
+      `market is required for execution events. market must include market_type, venue, environment, canonical_symbol`,
     );
   }
-  const shouldApplyLegacyMarketRule =
-    eventLevel == null || eventLevel === "execution";
+  const shouldApplyLegacyMarketRule = eventLevel == null || eventLevel === "execution";
   if (
     shouldApplyLegacyMarketRule &&
     requiresMarketIdentity(normalizedInput) &&
     !hasMarketIdentity(normalizedInput.market)
   ) {
     throw new StoreError(
-      `market is required for action "${normalizedInput.action}". market must include market_type, venue, environment, canonical_symbol`
+      `market is required for action "${normalizedInput.action}". market must include market_type, venue, environment, canonical_symbol`,
     );
   }
   const { baseUrl, apiKey, fetchFn } = resolveConfig(options);
@@ -367,7 +348,7 @@ export async function store(
     throw new StoreError(
       `Store request failed with status ${response.status}`,
       response.status,
-      body
+      body,
     );
   }
 
@@ -388,7 +369,7 @@ export async function store(
  */
 export async function retrieve(
   params?: StoreRetrieveParams,
-  options?: StoreOptions
+  options?: StoreOptions,
 ): Promise<StoreRetrieveResult> {
   const { baseUrl, apiKey, fetchFn } = resolveConfig(options);
   const mode = params?.mode ?? "live";
@@ -431,7 +412,7 @@ export async function retrieve(
     throw new StoreError(
       `Store retrieve failed with status ${response.status}`,
       response.status,
-      body
+      body,
     );
   }
 
@@ -457,7 +438,7 @@ export async function getMyPerformance(options?: StoreOptions): Promise<unknown>
 
 export async function postAgentDigest(
   input: AgentDigestRequest,
-  options?: StoreOptions
+  options?: StoreOptions,
 ): Promise<unknown> {
   const { baseUrl } = resolveConfig(options);
   const url = `${baseUrl}/apps/agent/digest`;
@@ -469,7 +450,7 @@ export async function postAgentDigest(
 
 export async function executeTool(
   input: ToolExecuteRequest,
-  options?: StoreOptions
+  options?: StoreOptions,
 ): Promise<ToolExecuteResponse> {
   const { baseUrl } = resolveConfig(options);
   const url = `${baseUrl}/apps/tools/execute`;

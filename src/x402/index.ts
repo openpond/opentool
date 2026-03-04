@@ -80,9 +80,7 @@ function setPaymentContext(request: Request, context: X402PaymentContext): void 
   }
 }
 
-export function getX402PaymentContext(
-  request: Request
-): X402PaymentContext | undefined {
+export function getX402PaymentContext(request: Request): X402PaymentContext | undefined {
   return (request as any)[PAYMENT_CONTEXT_SYMBOL];
 }
 
@@ -99,7 +97,7 @@ export function defineX402Payment(config: DefineX402PaymentConfig): X402Payment 
 
   if (!network || !assetAddress) {
     throw new Error(
-      "x402 payments require a network and assetAddress; supply them or choose a supported currency."
+      "x402 payments require a network and assetAddress; supply them or choose a supported currency.",
     );
   }
 
@@ -141,9 +139,7 @@ export function defineX402Payment(config: DefineX402PaymentConfig): X402Payment 
     network,
   };
 
-  const metadata = config.metadata
-    ? { ...baseMetadata, ...config.metadata }
-    : baseMetadata;
+  const metadata = config.metadata ? { ...baseMetadata, ...config.metadata } : baseMetadata;
 
   return {
     definition,
@@ -154,7 +150,7 @@ export function defineX402Payment(config: DefineX402PaymentConfig): X402Payment 
 export async function requireX402Payment(
   request: Request,
   payment: X402Payment | X402PaymentDefinition,
-  options: RequireX402PaymentOptions = {}
+  options: RequireX402PaymentOptions = {},
 ): Promise<RequireX402PaymentOutcome> {
   const definition = isX402Payment(payment) ? payment.definition : payment;
 
@@ -197,7 +193,7 @@ export async function requireX402Payment(
 export function withX402Payment(
   handler: (request: Request) => Promise<Response> | Response,
   payment: X402Payment | X402PaymentDefinition,
-  options: RequireX402PaymentOptions = {}
+  options: RequireX402PaymentOptions = {},
 ): (request: Request) => Promise<Response> {
   return async (request: Request): Promise<Response> => {
     const verification = await requireX402Payment(request, payment, options);
@@ -212,10 +208,7 @@ export function withX402Payment(
   };
 }
 
-function applyPaymentHeaders(
-  response: Response,
-  headers: Record<string, string>
-): Response {
+function applyPaymentHeaders(response: Response, headers: Record<string, string>): Response {
   const entries = Object.entries(headers ?? {});
   if (entries.length === 0) {
     return response;
@@ -251,7 +244,7 @@ function isX402Payment(value: unknown): value is X402Payment {
 }
 
 function resolveFacilitator(
-  value: string | X402FacilitatorConfig | undefined
+  value: string | X402FacilitatorConfig | undefined,
 ): X402FacilitatorConfig {
   if (!value) {
     return DEFAULT_FACILITATOR;

@@ -1,4 +1,10 @@
-import { createWalletClient, http, type Address, type PrivateKeyAccount, type WalletClient } from "viem";
+import {
+  createWalletClient,
+  http,
+  type Address,
+  type PrivateKeyAccount,
+  type WalletClient,
+} from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { baseSepolia } from "viem/chains";
 
@@ -81,8 +87,10 @@ export class X402Client {
         validAfter: BigInt(Math.floor(Date.now() / 1000)),
         validBefore: BigInt(Math.floor(Date.now() / 1000) + 900), // 15 min
         nonce: `0x${Array.from({ length: 32 }, () =>
-          Math.floor(Math.random() * 256).toString(16).padStart(2, '0')
-        ).join('')}` as `0x${string}`,
+          Math.floor(Math.random() * 256)
+            .toString(16)
+            .padStart(2, "0"),
+        ).join("")}` as `0x${string}`,
         tokenAddress: x402Requirements.asset as Address,
       });
 
@@ -284,13 +292,15 @@ export class X402BrowserClient {
         validAfter: BigInt(Math.floor(Date.now() / 1000)),
         validBefore: BigInt(Math.floor(Date.now() / 1000) + 900),
         nonce: `0x${Array.from({ length: 32 }, () =>
-          Math.floor(Math.random() * 256).toString(16).padStart(2, '0')
-        ).join('')}` as `0x${string}`,
+          Math.floor(Math.random() * 256)
+            .toString(16)
+            .padStart(2, "0"),
+        ).join("")}` as `0x${string}`,
       };
 
       const signature = await this.signTransferAuthorization(
         authorization,
-        x402Requirements.asset as Address
+        x402Requirements.asset as Address,
       );
 
       const paymentProof = {
@@ -343,7 +353,7 @@ export class X402BrowserClient {
 
   private async signTransferAuthorization(
     authorization: EIP3009Authorization,
-    tokenAddress: Address
+    tokenAddress: Address,
   ): Promise<`0x${string}`> {
     const account = this.walletClient.account;
     if (!account) {
@@ -390,7 +400,7 @@ export class X402BrowserClient {
 export async function payX402WithWallet(
   walletClient: WalletClient,
   chainId: number,
-  request: X402PayRequest
+  request: X402PayRequest,
 ): Promise<X402PayResult> {
   const client = new X402BrowserClient({ walletClient, chainId });
   return client.pay(request);

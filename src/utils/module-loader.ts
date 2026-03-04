@@ -3,13 +3,13 @@ import { createRequire } from "module";
 import { pathToFileURL } from "url";
 
 const requireModule = createRequire(
-  typeof __filename !== "undefined" ? __filename : import.meta.url
+  typeof __filename !== "undefined" ? __filename : import.meta.url,
 );
 
 export function resolveCompiledPath(
   outDir: string,
   originalFile: string,
-  extension = ".js"
+  extension = ".js",
 ): string {
   const baseName = path.basename(originalFile).replace(/\.[^.]+$/, "");
   return path.join(outDir, `${baseName}${extension}`);

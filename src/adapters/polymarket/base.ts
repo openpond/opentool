@@ -77,7 +77,10 @@ export interface PolymarketSignedOrderPayload {
 }
 
 export class PolymarketApiError extends Error {
-  constructor(message: string, public readonly response: unknown) {
+  constructor(
+    message: string,
+    public readonly response: unknown,
+  ) {
     super(message);
     this.name = "PolymarketApiError";
   }
@@ -103,10 +106,7 @@ export const POLYMARKET_ENDPOINTS = {
     mainnet: "https://data-api.polymarket.com",
     testnet: "https://data-api.polymarket.com",
   },
-} as const satisfies Record<
-  "gamma" | "clob" | "data",
-  Record<PolymarketEnvironment, string>
->;
+} as const satisfies Record<"gamma" | "clob" | "data", Record<PolymarketEnvironment, string>>;
 
 export const POLYMARKET_CHAIN_ID: Record<PolymarketEnvironment, number> = {
   mainnet: 137,
@@ -137,12 +137,11 @@ export const POLYMARKET_CLOB_AUTH_DOMAIN = {
   version: "1",
 };
 
-export const ZERO_ADDRESS =
-  "0x0000000000000000000000000000000000000000" as const;
+export const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000" as const;
 
 export function resolvePolymarketBaseUrl(
   service: keyof typeof POLYMARKET_ENDPOINTS,
-  environment: PolymarketEnvironment
+  environment: PolymarketEnvironment,
 ): string {
   return POLYMARKET_ENDPOINTS[service][environment];
 }
@@ -165,10 +164,7 @@ export function toDecimalString(value: string | number | bigint): string {
     const exponent = Number(exponentPart);
     const [integerPart, fractionalPart = ""] = mantissa.split(".");
     if (exponent >= 0) {
-      return (
-        integerPart +
-        fractionalPart.padEnd(exponent + fractionalPart.length, "0")
-      );
+      return integerPart + fractionalPart.padEnd(exponent + fractionalPart.length, "0");
     }
     const zeros = "0".repeat(Math.abs(exponent) - 1);
     return `0.${zeros}${integerPart}${fractionalPart}`.replace(/\.0+$/, "");
@@ -202,9 +198,7 @@ export function normalizeStringArrayish(value: unknown): string[] {
 
 export function normalizeNumberArrayish(value: unknown): number[] {
   return normalizeArrayish(value)
-    .map((entry) =>
-      typeof entry === "number" ? entry : Number.parseFloat(String(entry))
-    )
+    .map((entry) => (typeof entry === "number" ? entry : Number.parseFloat(String(entry))))
     .filter((entry) => Number.isFinite(entry));
 }
 
@@ -248,11 +242,7 @@ export function buildHmacSignature(args: {
   const method = args.method.toUpperCase();
   const path = args.path;
   const body =
-    args.body == null
-      ? ""
-      : typeof args.body === "string"
-        ? args.body
-        : JSON.stringify(args.body);
+    args.body == null ? "" : typeof args.body === "string" ? args.body : JSON.stringify(args.body);
   const payload = `${timestamp}${method}${path}${body}`;
   const key = Buffer.from(args.secret, "base64");
   return createHmac("sha256", key).update(payload).digest("hex");

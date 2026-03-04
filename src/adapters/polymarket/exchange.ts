@@ -67,7 +67,7 @@ async function resolveAuthContext(args: {
   }
 
   throw new PolymarketAuthError(
-    "Polymarket auth requires a wallet (preferred) or credentials + walletAddress."
+    "Polymarket auth requires a wallet (preferred) or credentials + walletAddress.",
   );
 }
 
@@ -83,7 +83,7 @@ async function requestJson(url: string, init?: RequestInit) {
   if (!response.ok) {
     throw new PolymarketApiError(
       `Polymarket request failed (${response.status}).`,
-      data ?? { status: response.status }
+      data ?? { status: response.status },
     );
   }
   return data;

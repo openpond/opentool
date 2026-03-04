@@ -134,8 +134,14 @@ async function requestJson(url, options, init) {
 }
 async function store(input, options) {
   const normalizedInput = normalizeStoreInput(input);
+  const mode = normalizedInput.mode ?? "live";
   const eventLevel = normalizedInput.eventLevel;
   const normalizedAction = normalizeAction(normalizedInput.action);
+  if (mode === "backtest" && !normalizedInput.backtestRunId) {
+    throw new StoreError(
+      `backtestRunId is required when mode is "backtest"`
+    );
+  }
   if (eventLevel === "execution" || eventLevel === "lifecycle") {
     if (!normalizedAction || !EXECUTION_ACTIONS_SET.has(normalizedAction)) {
       throw new StoreError(
@@ -155,7 +161,8 @@ async function store(input, options) {
     );
   }
   const { baseUrl, apiKey, fetchFn } = resolveConfig(options);
-  const url = `${baseUrl}/apps/positions/tx`;
+  const path = mode === "backtest" ? "/apps/backtests/tx" : "/apps/positions/tx";
+  const url = `${baseUrl}${path}`;
   let response;
   try {
     response = await fetchFn(url, {
@@ -194,7 +201,9 @@ async function store(input, options) {
 }
 async function retrieve(params, options) {
   const { baseUrl, apiKey, fetchFn } = resolveConfig(options);
-  const url = new URL(`${baseUrl}/apps/positions/tx`);
+  const mode = params?.mode ?? "live";
+  const path = mode === "backtest" ? "/apps/backtests/tx" : "/apps/positions/tx";
+  const url = new URL(`${baseUrl}${path}`);
   if (params?.source) url.searchParams.set("source", params.source);
   if (params?.walletAddress) url.searchParams.set("walletAddress", params.walletAddress);
   if (params?.symbol) url.searchParams.set("symbol", params.symbol);
@@ -204,6 +213,9 @@ async function retrieve(params, options) {
   if (typeof params?.limit === "number") url.searchParams.set("limit", params.limit.toString());
   if (params?.cursor) url.searchParams.set("cursor", params.cursor);
   if (params?.history) url.searchParams.set("history", "true");
+  if (params?.backtestRunId) {
+    url.searchParams.set("backtestRunId", params.backtestRunId);
+  }
   let response;
   try {
     response = await fetchFn(url.toString(), {

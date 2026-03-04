@@ -125,7 +125,7 @@ const StringMath = {
 export function formatHyperliquidPrice(
   price: string | number,
   szDecimals: number,
-  marketType: HyperliquidMarketType = "perp"
+  marketType: HyperliquidMarketType = "perp",
 ): string {
   const normalized = price.toString().trim();
   assertNumberString(normalized);
@@ -142,10 +142,7 @@ export function formatHyperliquidPrice(
   return sigFigTrimmed;
 }
 
-export function formatHyperliquidSize(
-  size: string | number,
-  szDecimals: number
-): string {
+export function formatHyperliquidSize(size: string | number, szDecimals: number): string {
   const normalized = size.toString().trim();
   assertNumberString(normalized);
   const truncated = StringMath.toFixedTruncate(normalized, szDecimals);
@@ -155,10 +152,7 @@ export function formatHyperliquidSize(
   return truncated;
 }
 
-export function formatHyperliquidOrderSize(
-  value: number,
-  szDecimals: number
-): string {
+export function formatHyperliquidOrderSize(value: number, szDecimals: number): string {
   if (!Number.isFinite(value) || value <= 0) return "0";
   try {
     return formatHyperliquidSize(value, szDecimals);
@@ -170,7 +164,7 @@ export function formatHyperliquidOrderSize(
 export function roundHyperliquidPriceToTick(
   price: number,
   tick: HyperliquidTickSize,
-  side: "buy" | "sell"
+  side: "buy" | "sell",
 ): string {
   if (!Number.isFinite(price) || price <= 0) {
     throw new Error("Price must be positive.");
@@ -202,22 +196,18 @@ export function formatHyperliquidMarketablePrice(params: {
   const { mid, side, slippageBps, tick } = params;
   const decimals = countDecimals(mid);
   const factor = 10 ** decimals;
-  const adjusted =
-    mid * (side === "buy" ? 1 + slippageBps / 10_000 : 1 - slippageBps / 10_000);
+  const adjusted = mid * (side === "buy" ? 1 + slippageBps / 10_000 : 1 - slippageBps / 10_000);
 
   if (tick) {
     return roundHyperliquidPriceToTick(adjusted, tick, side);
   }
 
   const scaled = adjusted * factor;
-  const rounded =
-    side === "buy" ? Math.ceil(scaled) / factor : Math.floor(scaled) / factor;
+  const rounded = side === "buy" ? Math.ceil(scaled) / factor : Math.floor(scaled) / factor;
   return clampPriceDecimals(rounded);
 }
 
-export function extractHyperliquidOrderIds(
-  responses: HyperliquidOrderResponseLike[]
-): {
+export function extractHyperliquidOrderIds(responses: HyperliquidOrderResponseLike[]): {
   cloids: string[];
   oids: string[];
 } {
@@ -256,8 +246,7 @@ export function resolveHyperliquidOrderRef(params: {
   prefix?: string;
   index?: number;
 }): string {
-  const { response, fallbackCloid, fallbackOid, prefix = "hl-order", index = 0 } =
-    params;
+  const { response, fallbackCloid, fallbackOid, prefix = "hl-order", index = 0 } = params;
 
   const statuses = response?.response?.data?.statuses ?? [];
   if (Array.isArray(statuses)) {

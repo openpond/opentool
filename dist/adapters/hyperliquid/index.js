@@ -109,8 +109,14 @@ function resolveConfig(options) {
 }
 async function store(input, options) {
   const normalizedInput = normalizeStoreInput(input);
+  const mode = normalizedInput.mode ?? "live";
   const eventLevel = normalizedInput.eventLevel;
   const normalizedAction = normalizeAction(normalizedInput.action);
+  if (mode === "backtest" && !normalizedInput.backtestRunId) {
+    throw new StoreError(
+      `backtestRunId is required when mode is "backtest"`
+    );
+  }
   if (eventLevel === "execution" || eventLevel === "lifecycle") {
     if (!normalizedAction || !EXECUTION_ACTIONS_SET.has(normalizedAction)) {
       throw new StoreError(
@@ -130,7 +136,8 @@ async function store(input, options) {
     );
   }
   const { baseUrl, apiKey, fetchFn } = resolveConfig(options);
-  const url = `${baseUrl}/apps/positions/tx`;
+  const path = mode === "backtest" ? "/apps/backtests/tx" : "/apps/positions/tx";
+  const url = `${baseUrl}${path}`;
   let response;
   try {
     response = await fetchFn(url, {
@@ -2228,6 +2235,28 @@ function readHyperliquidSpotAccountValue(params) {
 // src/adapters/hyperliquid/market-data.ts
 var META_CACHE_TTL_MS = 5 * 60 * 1e3;
 var allMidsCache = /* @__PURE__ */ new Map();
+function resolveGatewayBase(override) {
+  const value = override ?? process.env.OPENPOND_GATEWAY_URL ?? null;
+  if (typeof value !== "string") {
+    return null;
+  }
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+  return trimmed.replace(/\/$/, "");
+}
+function normalizeGatewaySymbol(value) {
+  const trimmed = value.trim();
+  if (!trimmed) return trimmed;
+  const idx = trimmed.indexOf(":");
+  if (idx > 0) {
+    const dex = trimmed.slice(0, idx).toLowerCase();
+    const rest = trimmed.slice(idx + 1);
+    return `${dex}:${rest.toUpperCase()}`;
+  }
+  return trimmed.toUpperCase();
+}
 function gcd(a, b) {
   let left = a < 0n ? -a : a;
   let right = b < 0n ? -b : b;
@@ -2347,6 +2376,37 @@ async function fetchHyperliquidAllMids(environment) {
   }
   allMidsCache.set(cacheKey, { fetchedAt: Date.now(), mids: json });
   return json;
+}
+async function fetchHyperliquidBars(params) {
+  const gatewayBase = resolveGatewayBase(params.gatewayBase);
+  if (!gatewayBase) {
+    throw new Error("OPENPOND_GATEWAY_URL is required.");
+  }
+  const normalizedCountBack = Math.max(1, Math.trunc(params.countBack));
+  if (!Number.isFinite(normalizedCountBack) || normalizedCountBack <= 0) {
+    throw new Error("countBack must be a positive integer.");
+  }
+  const url = new URL(`${gatewayBase}/v1/hyperliquid/bars`);
+  url.searchParams.set("symbol", normalizeGatewaySymbol(params.symbol));
+  url.searchParams.set("resolution", params.resolution);
+  url.searchParams.set("countBack", normalizedCountBack.toString());
+  if (typeof params.fromSeconds === "number" && Number.isFinite(params.fromSeconds)) {
+    url.searchParams.set("from", Math.max(0, Math.trunc(params.fromSeconds)).toString());
+  }
+  if (typeof params.toSeconds === "number" && Number.isFinite(params.toSeconds)) {
+    url.searchParams.set("to", Math.max(0, Math.trunc(params.toSeconds)).toString());
+  }
+  const response = await fetch(url.toString());
+  if (!response.ok) {
+    throw new Error(`Gateway error (${response.status})`);
+  }
+  const data = await response.json().catch(() => null);
+  const bars = Array.isArray(data?.bars) ? data.bars : [];
+  return bars.filter((bar) => {
+    if (!bar || typeof bar !== "object") return false;
+    const record = bar;
+    return typeof record.close === "number" && Number.isFinite(record.close) && typeof record.time === "number" && Number.isFinite(record.time);
+  });
 }
 async function fetchHyperliquidTickSize(params) {
   return fetchHyperliquidTickSizeForCoin(params.environment, params.symbol);
@@ -3002,6 +3062,6 @@ var __hyperliquidInternals = {
   splitSignature
 };
 
-export { DEFAULT_HYPERLIQUID_MARKET_SLIPPAGE_BPS, HyperliquidApiError, HyperliquidBuilderApprovalError, HyperliquidExchangeClient, HyperliquidGuardError, HyperliquidInfoClient, HyperliquidTermsError, __hyperliquidInternals, __hyperliquidMarketDataInternals, approveHyperliquidBuilderFee, batchModifyHyperliquidOrders, buildHyperliquidMarketIdentity, buildHyperliquidProfileAssets, buildHyperliquidSpotUsdPriceMap, cancelAllHyperliquidOrders, cancelHyperliquidOrders, cancelHyperliquidOrdersByCloid, cancelHyperliquidTwapOrder, computeHyperliquidMarketIocLimitPrice, createHyperliquidSubAccount, createMonotonicNonceFactory, depositToHyperliquidBridge, extractHyperliquidDex, extractHyperliquidOrderIds, fetchHyperliquidAllMids, fetchHyperliquidAssetCtxs, fetchHyperliquidClearinghouseState, fetchHyperliquidFrontendOpenOrders, fetchHyperliquidHistoricalOrders, fetchHyperliquidMeta, fetchHyperliquidMetaAndAssetCtxs, fetchHyperliquidOpenOrders, fetchHyperliquidOrderStatus, fetchHyperliquidPerpMarketInfo, fetchHyperliquidPreTransferCheck, fetchHyperliquidSizeDecimals, fetchHyperliquidSpotAccountValue, fetchHyperliquidSpotAssetCtxs, fetchHyperliquidSpotClearinghouseState, fetchHyperliquidSpotMarketInfo, fetchHyperliquidSpotMeta, fetchHyperliquidSpotMetaAndAssetCtxs, fetchHyperliquidSpotTickSize, fetchHyperliquidSpotUsdPriceMap, fetchHyperliquidTickSize, fetchHyperliquidUserFills, fetchHyperliquidUserFillsByTime, fetchHyperliquidUserRateLimit, formatHyperliquidMarketablePrice, formatHyperliquidOrderSize, formatHyperliquidPrice, formatHyperliquidSize, getHyperliquidMaxBuilderFee, isHyperliquidSpotSymbol, modifyHyperliquidOrder, normalizeHyperliquidBaseSymbol, normalizeHyperliquidMetaSymbol, normalizeSpotTokenName2 as normalizeSpotTokenName, parseSpotPairSymbol, placeHyperliquidOrder, placeHyperliquidTwapOrder, readHyperliquidAccountValue, readHyperliquidNumber, readHyperliquidPerpPosition, readHyperliquidPerpPositionSize, readHyperliquidSpotAccountValue, readHyperliquidSpotBalance, readHyperliquidSpotBalanceSize, recordHyperliquidBuilderApproval, recordHyperliquidTermsAcceptance, reserveHyperliquidRequestWeight, resolveHyperliquidAbstractionFromMode, resolveHyperliquidChain, resolveHyperliquidChainConfig, resolveHyperliquidErrorDetail, resolveHyperliquidOrderRef, resolveHyperliquidOrderSymbol, resolveHyperliquidPair, resolveHyperliquidProfileChain, resolveHyperliquidRpcEnvVar, resolveHyperliquidStoreNetwork, resolveHyperliquidSymbol, resolveSpotMidCandidates, resolveSpotTokenCandidates, roundHyperliquidPriceToTick, scheduleHyperliquidCancel, sendHyperliquidSpot, setHyperliquidAccountAbstractionMode, setHyperliquidDexAbstraction, setHyperliquidPortfolioMargin, transferHyperliquidSubAccount, updateHyperliquidIsolatedMargin, updateHyperliquidLeverage, withdrawFromHyperliquid };
+export { DEFAULT_HYPERLIQUID_MARKET_SLIPPAGE_BPS, HyperliquidApiError, HyperliquidBuilderApprovalError, HyperliquidExchangeClient, HyperliquidGuardError, HyperliquidInfoClient, HyperliquidTermsError, __hyperliquidInternals, __hyperliquidMarketDataInternals, approveHyperliquidBuilderFee, batchModifyHyperliquidOrders, buildHyperliquidMarketIdentity, buildHyperliquidProfileAssets, buildHyperliquidSpotUsdPriceMap, cancelAllHyperliquidOrders, cancelHyperliquidOrders, cancelHyperliquidOrdersByCloid, cancelHyperliquidTwapOrder, computeHyperliquidMarketIocLimitPrice, createHyperliquidSubAccount, createMonotonicNonceFactory, depositToHyperliquidBridge, extractHyperliquidDex, extractHyperliquidOrderIds, fetchHyperliquidAllMids, fetchHyperliquidAssetCtxs, fetchHyperliquidBars, fetchHyperliquidClearinghouseState, fetchHyperliquidFrontendOpenOrders, fetchHyperliquidHistoricalOrders, fetchHyperliquidMeta, fetchHyperliquidMetaAndAssetCtxs, fetchHyperliquidOpenOrders, fetchHyperliquidOrderStatus, fetchHyperliquidPerpMarketInfo, fetchHyperliquidPreTransferCheck, fetchHyperliquidSizeDecimals, fetchHyperliquidSpotAccountValue, fetchHyperliquidSpotAssetCtxs, fetchHyperliquidSpotClearinghouseState, fetchHyperliquidSpotMarketInfo, fetchHyperliquidSpotMeta, fetchHyperliquidSpotMetaAndAssetCtxs, fetchHyperliquidSpotTickSize, fetchHyperliquidSpotUsdPriceMap, fetchHyperliquidTickSize, fetchHyperliquidUserFills, fetchHyperliquidUserFillsByTime, fetchHyperliquidUserRateLimit, formatHyperliquidMarketablePrice, formatHyperliquidOrderSize, formatHyperliquidPrice, formatHyperliquidSize, getHyperliquidMaxBuilderFee, isHyperliquidSpotSymbol, modifyHyperliquidOrder, normalizeHyperliquidBaseSymbol, normalizeHyperliquidMetaSymbol, normalizeSpotTokenName2 as normalizeSpotTokenName, parseSpotPairSymbol, placeHyperliquidOrder, placeHyperliquidTwapOrder, readHyperliquidAccountValue, readHyperliquidNumber, readHyperliquidPerpPosition, readHyperliquidPerpPositionSize, readHyperliquidSpotAccountValue, readHyperliquidSpotBalance, readHyperliquidSpotBalanceSize, recordHyperliquidBuilderApproval, recordHyperliquidTermsAcceptance, reserveHyperliquidRequestWeight, resolveHyperliquidAbstractionFromMode, resolveHyperliquidChain, resolveHyperliquidChainConfig, resolveHyperliquidErrorDetail, resolveHyperliquidOrderRef, resolveHyperliquidOrderSymbol, resolveHyperliquidPair, resolveHyperliquidProfileChain, resolveHyperliquidRpcEnvVar, resolveHyperliquidStoreNetwork, resolveHyperliquidSymbol, resolveSpotMidCandidates, resolveSpotTokenCandidates, roundHyperliquidPriceToTick, scheduleHyperliquidCancel, sendHyperliquidSpot, setHyperliquidAccountAbstractionMode, setHyperliquidDexAbstraction, setHyperliquidPortfolioMargin, transferHyperliquidSubAccount, updateHyperliquidIsolatedMargin, updateHyperliquidLeverage, withdrawFromHyperliquid };
 //# sourceMappingURL=index.js.map
 //# sourceMappingURL=index.js.map

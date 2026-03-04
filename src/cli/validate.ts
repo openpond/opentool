@@ -25,14 +25,7 @@ interface LoadToolsOptions {
   projectRoot?: string;
 }
 
-const SUPPORTED_EXTENSIONS = [
-  ".ts",
-  ".tsx",
-  ".js",
-  ".jsx",
-  ".mjs",
-  ".cjs",
-];
+const SUPPORTED_EXTENSIONS = [".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"];
 
 const MIN_TEMPLATE_CONFIG_VERSION = 2;
 const TEMPLATE_PREVIEW_TITLE_MAX = 80;
@@ -71,7 +64,7 @@ function normalizeTemplateConfigVersion(value: unknown): number | null {
 function parseNonEmptyString(
   value: unknown,
   fieldPath: string,
-  opts: { max?: number; required?: boolean } = {}
+  opts: { max?: number; required?: boolean } = {},
 ): string | null {
   const { max, required = false } = opts;
   if (value == null) {
@@ -97,14 +90,14 @@ function normalizeTemplatePreview(
   value: unknown,
   file: string,
   toolName: string,
-  requirePreview: boolean
+  requirePreview: boolean,
 ): Record<string, string> | null {
   const pathPrefix = `${file}: profile.templatePreview`;
 
   if (value == null) {
     if (requirePreview) {
       throw new Error(
-        `${pathPrefix} is required for strategy tools and must define subtitle + description.`
+        `${pathPrefix} is required for strategy tools and must define subtitle + description.`,
       );
     }
     return null;
@@ -123,14 +116,10 @@ function normalizeTemplatePreview(
     required: true,
     max: TEMPLATE_PREVIEW_SUBTITLE_MAX,
   }) as string;
-  const description = parseNonEmptyString(
-    record.description,
-    `${pathPrefix}.description`,
-    {
-      required: true,
-      max: TEMPLATE_PREVIEW_DESCRIPTION_MAX,
-    }
-  ) as string;
+  const description = parseNonEmptyString(record.description, `${pathPrefix}.description`, {
+    required: true,
+    max: TEMPLATE_PREVIEW_DESCRIPTION_MAX,
+  }) as string;
 
   const descriptionLineCount = description
     .split(/\r?\n/)
@@ -142,7 +131,7 @@ function normalizeTemplatePreview(
     descriptionLineCount > TEMPLATE_PREVIEW_MAX_LINES
   ) {
     throw new Error(
-      `${pathPrefix}.description must contain ${TEMPLATE_PREVIEW_MIN_LINES}-${TEMPLATE_PREVIEW_MAX_LINES} non-empty lines (target ~5 lines).`
+      `${pathPrefix}.description must contain ${TEMPLATE_PREVIEW_MIN_LINES}-${TEMPLATE_PREVIEW_MAX_LINES} non-empty lines (target ~5 lines).`,
     );
   }
 
@@ -220,7 +209,7 @@ export async function validateFullCommand(options: ValidateOptions): Promise<voi
 
 export async function loadAndValidateTools(
   toolsDir: string,
-  options: LoadToolsOptions = {}
+  options: LoadToolsOptions = {},
 ): Promise<InternalToolDefinition[]> {
   const files = fs
     .readdirSync(toolsDir)
@@ -268,8 +257,7 @@ export async function loadAndValidateTools(
 
       const schema = ensureZodSchema(toolModule.schema, file);
       const paymentExport = toolModule.payment as X402Payment | undefined;
-      const toolName =
-        toolModule.metadata?.name ?? toolModule.metadata?.title ?? toBaseName(file);
+      const toolName = toolModule.metadata?.name ?? toolModule.metadata?.title ?? toBaseName(file);
       const inputSchemaRaw = schema ? toJsonSchema(toolName, schema) : undefined;
       const inputSchema = normalizeInputSchema(inputSchemaRaw);
 
@@ -278,11 +266,11 @@ export async function loadAndValidateTools(
       const hasGET = typeof (toolModule as any).GET === "function";
       const hasPOST = typeof (toolModule as any).POST === "function";
       const otherMethods = HTTP_METHODS.filter((m) => m !== "GET" && m !== "POST").filter(
-        (m) => typeof (toolModule as any)[m] === "function"
+        (m) => typeof (toolModule as any)[m] === "function",
       );
       if (otherMethods.length > 0) {
         throw new Error(
-          `${file} must not export ${otherMethods.join(", ")}. Only one of GET or POST is allowed.`
+          `${file} must not export ${otherMethods.join(", ")}. Only one of GET or POST is allowed.`,
         );
       }
       if (hasGET === hasPOST) {
@@ -296,27 +284,19 @@ export async function loadAndValidateTools(
           : null;
       const schedule = (profileRaw?.schedule ?? null) as Record<string, unknown> | null;
       const profileNotifyEmail =
-        typeof profileRaw?.notifyEmail === "boolean"
-          ? profileRaw.notifyEmail
-          : undefined;
-      const allowedProfileCategories = [
-        "strategy",
-        "tracker",
-        "orchestrator",
-      ] as const;
+        typeof profileRaw?.notifyEmail === "boolean" ? profileRaw.notifyEmail : undefined;
+      const allowedProfileCategories = ["strategy", "tracker", "orchestrator"] as const;
       type AllowedProfileCategory = (typeof allowedProfileCategories)[number];
       const profileCategoryCandidate =
-        typeof profileRaw?.category === "string"
-          ? profileRaw.category
-          : undefined;
+        typeof profileRaw?.category === "string" ? profileRaw.category : undefined;
       let profileCategoryRaw: AllowedProfileCategory | undefined;
       if (profileCategoryCandidate !== undefined) {
-        const isAllowed = (
-          allowedProfileCategories as readonly string[]
-        ).includes(profileCategoryCandidate);
+        const isAllowed = (allowedProfileCategories as readonly string[]).includes(
+          profileCategoryCandidate,
+        );
         if (!isAllowed) {
           throw new Error(
-            `${file}: profile.category must be one of ${allowedProfileCategories.join(", ")}`
+            `${file}: profile.category must be one of ${allowedProfileCategories.join(", ")}`,
           );
         }
         profileCategoryRaw = profileCategoryCandidate as AllowedProfileCategory;
@@ -328,36 +308,29 @@ export async function loadAndValidateTools(
         }
         profileAssetsRaw.forEach((entry, index) => {
           if (!entry || typeof entry !== "object") {
-            throw new Error(
-              `${file}: profile.assets[${index}] must be an object.`
-            );
+            throw new Error(`${file}: profile.assets[${index}] must be an object.`);
           }
           const record = entry as Record<string, unknown>;
           const venue = typeof record.venue === "string" ? record.venue.trim() : "";
           if (!venue) {
-            throw new Error(
-              `${file}: profile.assets[${index}].venue must be a non-empty string.`
-            );
+            throw new Error(`${file}: profile.assets[${index}].venue must be a non-empty string.`);
           }
           const chain = record.chain;
           if (typeof chain !== "string" && typeof chain !== "number") {
-            throw new Error(
-              `${file}: profile.assets[${index}].chain must be a string or number.`
-            );
+            throw new Error(`${file}: profile.assets[${index}].chain must be a string or number.`);
           }
           const symbols = record.assetSymbols;
           if (!Array.isArray(symbols) || symbols.length === 0) {
             throw new Error(
-              `${file}: profile.assets[${index}].assetSymbols must be a non-empty array.`
+              `${file}: profile.assets[${index}].assetSymbols must be a non-empty array.`,
             );
           }
           const invalidSymbol = symbols.find(
-            (symbol) =>
-              typeof symbol !== "string" || symbol.trim().length === 0
+            (symbol) => typeof symbol !== "string" || symbol.trim().length === 0,
           );
           if (invalidSymbol !== undefined) {
             throw new Error(
-              `${file}: profile.assets[${index}].assetSymbols must be non-empty strings.`
+              `${file}: profile.assets[${index}].assetSymbols must be non-empty strings.`,
             );
           }
           const walletAddress = record.walletAddress;
@@ -366,16 +339,13 @@ export async function loadAndValidateTools(
             (typeof walletAddress !== "string" || walletAddress.trim().length === 0)
           ) {
             throw new Error(
-              `${file}: profile.assets[${index}].walletAddress must be a non-empty string when provided.`
+              `${file}: profile.assets[${index}].walletAddress must be a non-empty string when provided.`,
             );
           }
           const pair = record.pair;
-          if (
-            pair !== undefined &&
-            (typeof pair !== "string" || pair.trim().length === 0)
-          ) {
+          if (pair !== undefined && (typeof pair !== "string" || pair.trim().length === 0)) {
             throw new Error(
-              `${file}: profile.assets[${index}].pair must be a non-empty string when provided.`
+              `${file}: profile.assets[${index}].pair must be a non-empty string when provided.`,
             );
           }
           const leverage = record.leverage;
@@ -384,7 +354,7 @@ export async function loadAndValidateTools(
             (typeof leverage !== "number" || !Number.isFinite(leverage) || leverage <= 0)
           ) {
             throw new Error(
-              `${file}: profile.assets[${index}].leverage must be a positive number when provided.`
+              `${file}: profile.assets[${index}].leverage must be a positive number when provided.`,
             );
           }
         });
@@ -396,16 +366,15 @@ export async function loadAndValidateTools(
         }
         const record = templateConfigRaw as Record<string, unknown>;
         const version = record.version;
-        const normalizedTemplateConfigVersion =
-          normalizeTemplateConfigVersion(version);
+        const normalizedTemplateConfigVersion = normalizeTemplateConfigVersion(version);
         if (normalizedTemplateConfigVersion === null) {
           throw new Error(
-            `${file}: profile.templateConfig.version must be a numeric string or number.`
+            `${file}: profile.templateConfig.version must be a numeric string or number.`,
           );
         }
         if (normalizedTemplateConfigVersion < MIN_TEMPLATE_CONFIG_VERSION) {
           throw new Error(
-            `${file}: profile.templateConfig.version must be >= ${MIN_TEMPLATE_CONFIG_VERSION}.`
+            `${file}: profile.templateConfig.version must be >= ${MIN_TEMPLATE_CONFIG_VERSION}.`,
           );
         }
         const schema = record.schema;
@@ -414,7 +383,7 @@ export async function loadAndValidateTools(
           (!schema || typeof schema !== "object" || Array.isArray(schema))
         ) {
           throw new Error(
-            `${file}: profile.templateConfig.schema must be an object when provided.`
+            `${file}: profile.templateConfig.schema must be an object when provided.`,
           );
         }
         const defaults = record.defaults;
@@ -423,16 +392,13 @@ export async function loadAndValidateTools(
           (!defaults || typeof defaults !== "object" || Array.isArray(defaults))
         ) {
           throw new Error(
-            `${file}: profile.templateConfig.defaults must be an object when provided.`
+            `${file}: profile.templateConfig.defaults must be an object when provided.`,
           );
         }
         const envVar = record.envVar;
-        if (
-          envVar !== undefined &&
-          (typeof envVar !== "string" || envVar.trim().length === 0)
-        ) {
+        if (envVar !== undefined && (typeof envVar !== "string" || envVar.trim().length === 0)) {
           throw new Error(
-            `${file}: profile.templateConfig.envVar must be a non-empty string when provided.`
+            `${file}: profile.templateConfig.envVar must be a non-empty string when provided.`,
           );
         }
       }
@@ -440,7 +406,7 @@ export async function loadAndValidateTools(
         profileRaw?.templatePreview,
         file,
         toolName,
-        profileCategoryRaw === "strategy"
+        profileCategoryRaw === "strategy",
       );
       const normalizedProfile =
         profileRaw && normalizedTemplatePreview
@@ -449,7 +415,12 @@ export async function loadAndValidateTools(
               unknown
             >)
           : profileRaw;
-      if (hasGET && schedule && typeof schedule.cron === "string" && schedule.cron.trim().length > 0) {
+      if (
+        hasGET &&
+        schedule &&
+        typeof schedule.cron === "string" &&
+        schedule.cron.trim().length > 0
+      ) {
         normalizedSchedule = normalizeScheduleExpression(schedule.cron, file);
         if (typeof schedule.enabled === "boolean") {
           normalizedSchedule.authoredEnabled = schedule.enabled;
@@ -463,15 +434,15 @@ export async function loadAndValidateTools(
           throw new Error(`${file}: POST tools must export a Zod schema as 'schema'`);
         }
         if (schedule && typeof schedule.cron === "string") {
-          throw new Error(`${file}: POST tools must not define profile.schedule; use GET + cron for scheduled tasks.`);
+          throw new Error(
+            `${file}: POST tools must not define profile.schedule; use GET + cron for scheduled tasks.`,
+          );
         }
       }
       const httpHandlers = [...httpHandlersRaw];
 
       if (httpHandlers.length === 0) {
-        throw new Error(
-          `${file} must export at least one HTTP handler (e.g. POST)`
-        );
+        throw new Error(`${file} must export at least one HTTP handler (e.g. POST)`);
       }
 
       if (paymentExport) {
@@ -497,8 +468,7 @@ export async function loadAndValidateTools(
         ...(schema ? { schema } : {}),
       });
 
-      let metadataOverrides: ToolMetadataOverrides | null =
-        toolModule.metadata ?? null;
+      let metadataOverrides: ToolMetadataOverrides | null = toolModule.metadata ?? null;
 
       if (paymentExport) {
         if (metadataOverrides) {
@@ -506,9 +476,8 @@ export async function loadAndValidateTools(
             ...metadataOverrides,
             payment: metadataOverrides.payment ?? (paymentExport as any),
             annotations: {
-              ...(metadataOverrides.annotations ?? {}),
-              requiresPayment:
-                metadataOverrides.annotations?.requiresPayment ?? true,
+              ...metadataOverrides.annotations,
+              requiresPayment: metadataOverrides.annotations?.requiresPayment ?? true,
             },
           };
         } else {
@@ -533,9 +502,7 @@ export async function loadAndValidateTools(
         profile: normalizedProfile,
         ...(profileNotifyEmail !== undefined ? { notifyEmail: profileNotifyEmail } : {}),
         profileDescription:
-          typeof profileRaw?.description === "string"
-            ? (profileRaw.description as string)
-            : null,
+          typeof profileRaw?.description === "string" ? (profileRaw.description as string) : null,
         ...(profileCategoryRaw ? { profileCategory: profileCategoryRaw } : {}),
       };
 
@@ -563,7 +530,7 @@ function extractToolModule(exportsObject: any, filename: string): any {
     }
   }
   throw new Error(
-    `${filename} must export a tool definition. Expected a Zod schema plus HTTP handlers (export async function POST).`
+    `${filename} must export a tool definition. Expected a Zod schema plus HTTP handlers (export async function POST).`,
   );
 }
 
@@ -622,24 +589,23 @@ function collectHttpHandlers(module: any, filename: string): HttpHandlerDefiniti
   const duplicates = findDuplicates(handlers.map((h) => h.method));
   if (duplicates.length > 0) {
     throw new Error(
-      `${filename} exports multiple handlers for HTTP method(s): ${duplicates.join(", ")}`
+      `${filename} exports multiple handlers for HTTP method(s): ${duplicates.join(", ")}`,
     );
   }
 
   return handlers;
 }
 
-
-function toHttpHandlerMap(handlers: HttpHandlerDefinition[]): Record<string, HttpHandlerDefinition["handler"]> {
+function toHttpHandlerMap(
+  handlers: HttpHandlerDefinition[],
+): Record<string, HttpHandlerDefinition["handler"]> {
   return handlers.reduce<Record<string, HttpHandlerDefinition["handler"]>>((acc, handler) => {
     acc[handler.method.toUpperCase()] = handler.handler;
     return acc;
   }, {});
 }
 
-function normalizeInputSchema(
-  schema: JsonSchema7Type | undefined
-): JsonSchema7Type | undefined {
+function normalizeInputSchema(schema: JsonSchema7Type | undefined): JsonSchema7Type | undefined {
   if (!schema || typeof schema !== "object") {
     return schema;
   }
@@ -698,7 +664,7 @@ function normalizeMcpConfig(rawConfig: unknown, filename: string): McpConfig | n
       mode = normalized as McpConfig["mode"];
     } else {
       throw new Error(
-        `${filename} mcp.mode must be one of \"stdio\", \"lambda\", or \"dual\" if specified`
+        `${filename} mcp.mode must be one of "stdio", "lambda", or "dual" if specified`,
       );
     }
   }
@@ -751,7 +717,7 @@ function findDuplicates(values: string[]): string[] {
 function logMetadataSummary(
   metadata: Metadata,
   defaultsApplied: string[],
-  sourceMetadataPath: string
+  sourceMetadataPath: string,
 ): void {
   console.log(`📄 metadata loaded from ${sourceMetadataPath}`);
   console.log("\n📊 Metadata Summary:");

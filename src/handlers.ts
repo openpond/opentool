@@ -10,26 +10,22 @@
  */
 import { X402PaymentRequiredError } from "./x402/index";
 
-export function wrapHandler(
-  handler: (request: Request) => Promise<Response>
-) {
+export function wrapHandler(handler: (request: Request) => Promise<Response>) {
   return async (event: any) => {
     try {
       // Convert Lambda event to Web Standard Request
       const url = new URL(
         event.rawPath || event.path || "/",
-        `https://${event.headers?.host || "localhost"}`
+        `https://${event.headers?.host || "localhost"}`,
       );
 
       // Add query parameters
       if (event.rawQueryString) {
         url.search = event.rawQueryString;
       } else if (event.queryStringParameters) {
-        Object.entries(event.queryStringParameters).forEach(
-          ([key, value]) => {
-            url.searchParams.append(key, value as string);
-          }
-        );
+        Object.entries(event.queryStringParameters).forEach(([key, value]) => {
+          url.searchParams.append(key, value as string);
+        });
       }
 
       // Build headers
@@ -40,8 +36,7 @@ export function wrapHandler(
 
       // Create Request object
       const request = new Request(url, {
-        method:
-          event.requestContext?.http?.method || event.httpMethod || "GET",
+        method: event.requestContext?.http?.method || event.httpMethod || "GET",
         headers,
         body: event.body || undefined,
       });
