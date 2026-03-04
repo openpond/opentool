@@ -8,7 +8,7 @@
  * Build system converts to:
  *   export const POST = wrapHandler(userPOST);
  */
-import { X402PaymentRequiredError } from "./x402/index";
+import { X402PaymentRequiredError } from "./x402/payment";
 
 export function wrapHandler(handler: (request: Request) => Promise<Response>) {
   return async (event: any) => {

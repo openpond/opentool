@@ -1,7 +1,7 @@
 import { z } from "zod";
 import type { ToolMetadataOverrides } from "./metadata";
 import type { ToolCategory, ToolProfile } from "./tool";
-import type { X402Payment } from "../x402/index";
+import type { X402Payment } from "../x402/payment";
 
 export interface ToolContent {
   type: "text" | "image" | "resource";

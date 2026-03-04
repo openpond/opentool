@@ -1,55 +1,5 @@
+export { C as CurrencySpec, D as DEFAULT_FACILITATOR, a as DefineX402PaymentConfig, P as PAYMENT_HEADERS, R as RequireX402PaymentOptions, b as RequireX402PaymentOutcome, c as RequireX402PaymentSuccess, S as SUPPORTED_CURRENCIES, d as X402FacilitatorConfig, X as X402Payment, e as X402PaymentContext, f as X402PaymentDefinition, g as X402PaymentRequiredError, h as X402VerificationResult, i as defineX402Payment, j as getX402PaymentContext, r as requireX402Payment, w as withX402Payment } from '../payment-orkZA9se.js';
 import { Address, WalletClient } from 'viem';
-
-interface X402VerificationResult {
-    success: boolean;
-    metadata?: {
-        optionId: string;
-        verifier: string;
-        [key: string]: unknown;
-    };
-    failure?: {
-        reason: string;
-        code: string;
-    };
-    responseHeaders?: Record<string, string>;
-}
-interface X402FacilitatorConfig {
-    url: string;
-    verifyPath?: string;
-    settlePath?: string;
-    apiKeyHeader?: string;
-}
-interface CurrencySpec {
-    decimals: number;
-    symbol: string;
-    network: string;
-    assetAddress: string;
-}
-declare const SUPPORTED_CURRENCIES: Record<string, CurrencySpec>;
-declare const DEFAULT_FACILITATOR: X402FacilitatorConfig;
-
-interface X402PaymentDefinition {
-    amount: string;
-    currency: {
-        code: string;
-        symbol: string;
-        decimals: number;
-    };
-    asset: {
-        symbol: string;
-        network: string;
-        address: string;
-        decimals: number;
-    };
-    payTo: string;
-    resource?: string;
-    description?: string;
-    scheme: string;
-    network: string;
-    facilitator: X402FacilitatorConfig;
-    metadata?: Record<string, unknown>;
-}
-declare const PAYMENT_HEADERS: readonly ["X-PAYMENT", "X-PAYMENT-RESPONSE"];
 
 interface X402ClientConfig {
     privateKey: `0x${string}`;
@@ -107,48 +57,4 @@ declare class X402BrowserClient {
 }
 declare function payX402WithWallet(walletClient: WalletClient, chainId: number, request: X402PayRequest): Promise<X402PayResult>;
 
-interface DefineX402PaymentConfig {
-    amount: string | number;
-    payTo: string;
-    currency?: string;
-    message?: string;
-    resource?: string;
-    network?: string;
-    assetAddress?: string;
-    scheme?: "exact" | "bounded";
-    facilitator?: string | X402FacilitatorConfig;
-    metadata?: Record<string, unknown>;
-}
-interface X402Payment {
-    definition: X402PaymentDefinition;
-    metadata?: Record<string, unknown>;
-}
-interface RequireX402PaymentOptions {
-    settle?: boolean;
-    fetchImpl?: typeof fetch;
-    onFailure?: (result: X402VerificationResult) => Response;
-}
-interface RequireX402PaymentSuccess {
-    payment: {
-        optionId: string;
-        verifier: string;
-        amount: string;
-        currency: string;
-        network: string;
-    };
-    headers: Record<string, string>;
-    result: X402VerificationResult;
-}
-type RequireX402PaymentOutcome = Response | RequireX402PaymentSuccess;
-declare class X402PaymentRequiredError extends Error {
-    readonly response: Response;
-    readonly verification: X402VerificationResult | undefined;
-    constructor(response: Response, verification?: X402VerificationResult);
-}
-type X402PaymentContext = RequireX402PaymentSuccess;
-declare function getX402PaymentContext(request: Request): X402PaymentContext | undefined;
-declare function defineX402Payment(config: DefineX402PaymentConfig): X402Payment;
-declare function requireX402Payment(request: Request, payment: X402Payment | X402PaymentDefinition, options?: RequireX402PaymentOptions): Promise<RequireX402PaymentOutcome>;
-declare function withX402Payment(handler: (request: Request) => Promise<Response> | Response, payment: X402Payment | X402PaymentDefinition, options?: RequireX402PaymentOptions): (request: Request) => Promise<Response>;
-
-export { type CurrencySpec, DEFAULT_FACILITATOR, type DefineX402PaymentConfig, type EIP3009Authorization, PAYMENT_HEADERS, type RequireX402PaymentOptions, type RequireX402PaymentOutcome, type RequireX402PaymentSuccess, SUPPORTED_CURRENCIES, X402BrowserClient, type X402BrowserClientConfig, X402Client, type X402ClientConfig, type X402FacilitatorConfig, type X402PayRequest, type X402PayResult, type X402Payment, type X402PaymentContext, type X402PaymentDefinition, X402PaymentRequiredError, type X402VerificationResult, defineX402Payment, getX402PaymentContext, payX402, payX402WithWallet, requireX402Payment, withX402Payment };
+export { type EIP3009Authorization, X402BrowserClient, type X402BrowserClientConfig, X402Client, type X402ClientConfig, type X402PayRequest, type X402PayResult, payX402, payX402WithWallet };

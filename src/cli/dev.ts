@@ -3,10 +3,10 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import * as fs from "fs";
 import * as http from "http";
-import * as path from "path";
+import * as path from "node:path";
 import { fileURLToPath } from "url";
 import { createMcpAdapter } from "../adapters/mcp";
-import { X402PaymentRequiredError } from "../x402/index";
+import { X402PaymentRequiredError } from "../x402/payment";
 import {
   HTTP_METHODS,
   type HttpHandlerDefinition,

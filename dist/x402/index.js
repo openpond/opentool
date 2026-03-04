@@ -308,6 +308,163 @@ function ensureTrailingSlash(url) {
   return url.endsWith("/") ? url : `${url}/`;
 }
 var PAYMENT_HEADERS = [HEADER_X402, HEADER_PAYMENT_RESPONSE];
+
+// src/x402/payment.ts
+var PAYMENT_CONTEXT_SYMBOL = /* @__PURE__ */ Symbol.for("opentool.x402.context");
+var X402PaymentRequiredError = class extends Error {
+  constructor(response, verification) {
+    super("X402 Payment required");
+    this.name = "X402PaymentRequiredError";
+    this.response = response;
+    this.verification = verification;
+  }
+};
+function setPaymentContext(request, context) {
+  try {
+    Object.defineProperty(request, PAYMENT_CONTEXT_SYMBOL, {
+      value: context,
+      configurable: true,
+      enumerable: false,
+      writable: true
+    });
+  } catch {
+    request[PAYMENT_CONTEXT_SYMBOL] = context;
+  }
+}
+function getX402PaymentContext(request) {
+  return request[PAYMENT_CONTEXT_SYMBOL];
+}
+function defineX402Payment(config) {
+  const currencyCode = normalizeCurrency(config.currency);
+  const currencySpec = SUPPORTED_CURRENCIES[currencyCode];
+  if (!currencySpec) {
+    throw new Error(`Unsupported currency for x402 payments: ${currencyCode}`);
+  }
+  const network = config.network ?? currencySpec.network;
+  const assetAddress = config.assetAddress ?? currencySpec.assetAddress;
+  if (!network || !assetAddress) {
+    throw new Error(
+      "x402 payments require a network and assetAddress; supply them or choose a supported currency."
+    );
+  }
+  const facilitator = resolveFacilitator(config.facilitator);
+  const value = toDecimalString(config.amount);
+  const definition = {
+    amount: value,
+    currency: {
+      code: currencyCode,
+      symbol: currencySpec.symbol,
+      decimals: currencySpec.decimals
+    },
+    asset: {
+      symbol: currencySpec.symbol,
+      network,
+      address: assetAddress,
+      decimals: currencySpec.decimals
+    },
+    payTo: config.payTo,
+    scheme: config.scheme ?? "exact",
+    network,
+    facilitator
+  };
+  if (config.resource) {
+    definition.resource = config.resource;
+  }
+  if (config.message) {
+    definition.description = config.message;
+  }
+  if (config.metadata) {
+    definition.metadata = config.metadata;
+  }
+  const baseMetadata = {
+    amountUSDC: currencyCode === "USDC" ? Number(value) : void 0,
+    facilitator: "x402rs",
+    network
+  };
+  const metadata = config.metadata ? { ...baseMetadata, ...config.metadata } : baseMetadata;
+  return {
+    definition,
+    metadata
+  };
+}
+async function requireX402Payment(request, payment, options = {}) {
+  const definition = isX402Payment(payment) ? payment.definition : payment;
+  const attempt = extractX402Attempt(request);
+  if (!attempt) {
+    const response = createX402PaymentRequired(definition);
+    throw new X402PaymentRequiredError(response);
+  }
+  const verifyOptions = {
+    settle: options.settle !== void 0 ? options.settle : true
+  };
+  if (options.fetchImpl !== void 0) {
+    verifyOptions.fetchImpl = options.fetchImpl;
+  }
+  const verification = await verifyX402Payment(attempt, definition, verifyOptions);
+  if (!verification.success || !verification.metadata) {
+    if (options.onFailure) {
+      return options.onFailure(verification);
+    }
+    const response = createX402PaymentRequired(definition);
+    throw new X402PaymentRequiredError(response, verification);
+  }
+  return {
+    payment: verification.metadata,
+    headers: verification.responseHeaders ?? {},
+    result: verification
+  };
+}
+function withX402Payment(handler, payment, options = {}) {
+  return async (request) => {
+    const verification = await requireX402Payment(request, payment, options);
+    if (verification instanceof Response) {
+      return verification;
+    }
+    setPaymentContext(request, verification);
+    const response = await Promise.resolve(handler(request));
+    return applyPaymentHeaders(response, verification.headers);
+  };
+}
+function applyPaymentHeaders(response, headers) {
+  const entries = Object.entries(headers ?? {});
+  if (entries.length === 0) {
+    return response;
+  }
+  let mutated = false;
+  const merged = new Headers(response.headers);
+  for (const [key, value] of entries) {
+    if (!merged.has(key)) {
+      merged.set(key, value);
+      mutated = true;
+    }
+  }
+  if (!mutated) {
+    return response;
+  }
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers: merged
+  });
+}
+function isX402Payment(value) {
+  return !!value && typeof value === "object" && "definition" in value && value.definition !== void 0;
+}
+function resolveFacilitator(value) {
+  if (!value) {
+    return DEFAULT_FACILITATOR;
+  }
+  if (typeof value === "string") {
+    return { ...DEFAULT_FACILITATOR, url: value };
+  }
+  return value;
+}
+function normalizeCurrency(currency) {
+  return (currency ?? "USDC").toUpperCase();
+}
+function toDecimalString(value) {
+  return typeof value === "number" ? value.toString() : value;
+}
 var X402Client = class {
   constructor(config) {
     this.account = privateKeyToAccount(config.privateKey);
@@ -594,163 +751,6 @@ var X402BrowserClient = class {
 async function payX402WithWallet(walletClient, chainId, request) {
   const client = new X402BrowserClient({ walletClient, chainId });
   return client.pay(request);
-}
-
-// src/x402/index.ts
-var PAYMENT_CONTEXT_SYMBOL = /* @__PURE__ */ Symbol.for("opentool.x402.context");
-var X402PaymentRequiredError = class extends Error {
-  constructor(response, verification) {
-    super("X402 Payment required");
-    this.name = "X402PaymentRequiredError";
-    this.response = response;
-    this.verification = verification;
-  }
-};
-function setPaymentContext(request, context) {
-  try {
-    Object.defineProperty(request, PAYMENT_CONTEXT_SYMBOL, {
-      value: context,
-      configurable: true,
-      enumerable: false,
-      writable: true
-    });
-  } catch {
-    request[PAYMENT_CONTEXT_SYMBOL] = context;
-  }
-}
-function getX402PaymentContext(request) {
-  return request[PAYMENT_CONTEXT_SYMBOL];
-}
-function defineX402Payment(config) {
-  const currencyCode = normalizeCurrency(config.currency);
-  const currencySpec = SUPPORTED_CURRENCIES[currencyCode];
-  if (!currencySpec) {
-    throw new Error(`Unsupported currency for x402 payments: ${currencyCode}`);
-  }
-  const network = config.network ?? currencySpec.network;
-  const assetAddress = config.assetAddress ?? currencySpec.assetAddress;
-  if (!network || !assetAddress) {
-    throw new Error(
-      "x402 payments require a network and assetAddress; supply them or choose a supported currency."
-    );
-  }
-  const facilitator = resolveFacilitator(config.facilitator);
-  const value = toDecimalString(config.amount);
-  const definition = {
-    amount: value,
-    currency: {
-      code: currencyCode,
-      symbol: currencySpec.symbol,
-      decimals: currencySpec.decimals
-    },
-    asset: {
-      symbol: currencySpec.symbol,
-      network,
-      address: assetAddress,
-      decimals: currencySpec.decimals
-    },
-    payTo: config.payTo,
-    scheme: config.scheme ?? "exact",
-    network,
-    facilitator
-  };
-  if (config.resource) {
-    definition.resource = config.resource;
-  }
-  if (config.message) {
-    definition.description = config.message;
-  }
-  if (config.metadata) {
-    definition.metadata = config.metadata;
-  }
-  const baseMetadata = {
-    amountUSDC: currencyCode === "USDC" ? Number(value) : void 0,
-    facilitator: "x402rs",
-    network
-  };
-  const metadata = config.metadata ? { ...baseMetadata, ...config.metadata } : baseMetadata;
-  return {
-    definition,
-    metadata
-  };
-}
-async function requireX402Payment(request, payment, options = {}) {
-  const definition = isX402Payment(payment) ? payment.definition : payment;
-  const attempt = extractX402Attempt(request);
-  if (!attempt) {
-    const response = createX402PaymentRequired(definition);
-    throw new X402PaymentRequiredError(response);
-  }
-  const verifyOptions = {
-    settle: options.settle !== void 0 ? options.settle : true
-  };
-  if (options.fetchImpl !== void 0) {
-    verifyOptions.fetchImpl = options.fetchImpl;
-  }
-  const verification = await verifyX402Payment(attempt, definition, verifyOptions);
-  if (!verification.success || !verification.metadata) {
-    if (options.onFailure) {
-      return options.onFailure(verification);
-    }
-    const response = createX402PaymentRequired(definition);
-    throw new X402PaymentRequiredError(response, verification);
-  }
-  return {
-    payment: verification.metadata,
-    headers: verification.responseHeaders ?? {},
-    result: verification
-  };
-}
-function withX402Payment(handler, payment, options = {}) {
-  return async (request) => {
-    const verification = await requireX402Payment(request, payment, options);
-    if (verification instanceof Response) {
-      return verification;
-    }
-    setPaymentContext(request, verification);
-    const response = await Promise.resolve(handler(request));
-    return applyPaymentHeaders(response, verification.headers);
-  };
-}
-function applyPaymentHeaders(response, headers) {
-  const entries = Object.entries(headers ?? {});
-  if (entries.length === 0) {
-    return response;
-  }
-  let mutated = false;
-  const merged = new Headers(response.headers);
-  for (const [key, value] of entries) {
-    if (!merged.has(key)) {
-      merged.set(key, value);
-      mutated = true;
-    }
-  }
-  if (!mutated) {
-    return response;
-  }
-  return new Response(response.body, {
-    status: response.status,
-    statusText: response.statusText,
-    headers: merged
-  });
-}
-function isX402Payment(value) {
-  return !!value && typeof value === "object" && "definition" in value && value.definition !== void 0;
-}
-function resolveFacilitator(value) {
-  if (!value) {
-    return DEFAULT_FACILITATOR;
-  }
-  if (typeof value === "string") {
-    return { ...DEFAULT_FACILITATOR, url: value };
-  }
-  return value;
-}
-function normalizeCurrency(currency) {
-  return (currency ?? "USDC").toUpperCase();
-}
-function toDecimalString(value) {
-  return typeof value === "number" ? value.toString() : value;
 }
 
 export { DEFAULT_FACILITATOR, PAYMENT_HEADERS, SUPPORTED_CURRENCIES, X402BrowserClient, X402Client, X402PaymentRequiredError, defineX402Payment, getX402PaymentContext, payX402, payX402WithWallet, requireX402Payment, withX402Payment };

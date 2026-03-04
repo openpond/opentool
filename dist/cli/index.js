@@ -1,28 +1,22 @@
 #!/usr/bin/env node
-import * as path6 from 'path';
-import path6__default from 'path';
-import { fileURLToPath, pathToFileURL } from 'url';
 import { program } from 'commander';
 import * as fs4 from 'fs';
 import { promises } from 'fs';
+import * as path5 from 'path';
 import { tmpdir } from 'os';
 import { build } from 'esbuild';
 import { z } from 'zod';
 import { createRequire } from 'module';
+import { fileURLToPath, pathToFileURL } from 'url';
 import { zodToJsonSchema } from '@alcyone-labs/zod-to-json-schema';
-import 'viem';
-import 'viem/accounts';
-import 'viem/chains';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { ListToolsRequestSchema, CallToolRequestSchema } from '@modelcontextprotocol/sdk/types.js';
-import * as http2 from 'http';
+import * as http from 'http';
 import dotenv from 'dotenv';
 
-var getFilename = () => fileURLToPath(import.meta.url);
-var __filename$1 = /* @__PURE__ */ getFilename();
 function resolveTsconfig(projectRoot) {
-  const candidate = path6.join(projectRoot, "tsconfig.json");
+  const candidate = path5.join(projectRoot, "tsconfig.json");
   if (fs4.existsSync(candidate)) {
     return candidate;
   }
@@ -33,7 +27,7 @@ async function transpileWithEsbuild(options) {
     throw new Error("No entry points provided for esbuild transpilation");
   }
   const projectRoot = options.projectRoot;
-  const tempBase = options.outDir ?? fs4.mkdtempSync(path6.join(tmpdir(), "opentool-"));
+  const tempBase = options.outDir ?? fs4.mkdtempSync(path5.join(tmpdir(), "opentool-"));
   if (!fs4.existsSync(tempBase)) {
     fs4.mkdirSync(tempBase, { recursive: true });
   }
@@ -66,6 +60,9 @@ async function transpileWithEsbuild(options) {
   if (options.external && options.external.length > 0) {
     buildOptions.external = options.external;
   }
+  if (options.nodePaths && options.nodePaths.length > 0) {
+    buildOptions.nodePaths = options.nodePaths;
+  }
   if (options.outBase) {
     buildOptions.outbase = options.outBase;
   }
@@ -77,7 +74,7 @@ async function transpileWithEsbuild(options) {
   }
   await build(buildOptions);
   if (options.format === "esm") {
-    const packageJsonPath = path6.join(tempBase, "package.json");
+    const packageJsonPath = path5.join(tempBase, "package.json");
     if (!fs4.existsSync(packageJsonPath)) {
       fs4.writeFileSync(packageJsonPath, JSON.stringify({ type: "module" }), "utf8");
     }
@@ -208,11 +205,11 @@ var BuildMetadataSchema = z.object({
   chains: z.array(z.union([z.string(), z.number()])).optional()
 }).strict();
 createRequire(
-  typeof __filename$1 !== "undefined" ? __filename$1 : import.meta.url
+  typeof __filename !== "undefined" ? __filename : import.meta.url
 );
 function resolveCompiledPath(outDir, originalFile, extension = ".js") {
-  const baseName = path6.basename(originalFile).replace(/\.[^.]+$/, "");
-  return path6.join(outDir, `${baseName}${extension}`);
+  const baseName = path5.basename(originalFile).replace(/\.[^.]+$/, "");
+  return path5.join(outDir, `${baseName}${extension}`);
 }
 async function importFresh(modulePath) {
   const fileUrl = pathToFileURL(modulePath).href;
@@ -224,14 +221,14 @@ async function importFresh(modulePath) {
 // src/cli/shared/metadata.ts
 var METADATA_ENTRY = "metadata.ts";
 async function loadMetadata(projectRoot) {
-  const absPath = path6.join(projectRoot, METADATA_ENTRY);
+  const absPath = path5.join(projectRoot, METADATA_ENTRY);
   if (!fs4.existsSync(absPath)) {
     return {
       metadata: MetadataSchema.parse({}),
       sourcePath: "smart defaults (metadata.ts missing)"
     };
   }
-  const tempDir = path6.join(projectRoot, ".opentool-temp");
+  const tempDir = path5.join(projectRoot, ".opentool-temp");
   if (fs4.existsSync(tempDir)) {
     fs4.rmSync(tempDir, { recursive: true, force: true });
   }
@@ -272,7 +269,7 @@ function extractMetadataExport(moduleExports) {
   return moduleExports;
 }
 function readPackageJson(projectRoot) {
-  const packagePath = path6.join(projectRoot, "package.json");
+  const packagePath = path5.join(projectRoot, "package.json");
   if (!fs4.existsSync(packagePath)) {
     return {};
   }
@@ -288,7 +285,7 @@ async function buildMetadataArtifact(options) {
   const packageInfo = readPackageJson(projectRoot);
   const { metadata: authored, sourcePath } = await loadMetadata(projectRoot);
   const defaultsApplied = [];
-  const folderName = path6.basename(projectRoot);
+  const folderName = path5.basename(projectRoot);
   const name = resolveField(
     "name",
     authored.name,
@@ -751,7 +748,7 @@ function ensureTrailingSlash(url) {
   return url.endsWith("/") ? url : `${url}/`;
 }
 
-// src/x402/index.ts
+// src/x402/payment.ts
 var PAYMENT_CONTEXT_SYMBOL = /* @__PURE__ */ Symbol.for("opentool.x402.context");
 var X402PaymentRequiredError = class extends Error {
   constructor(response, verification) {
@@ -991,6 +988,8 @@ function validateCronTokens(fields, context) {
 
 // src/cli/validate.ts
 var SUPPORTED_EXTENSIONS = [".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"];
+var OPENTOOL_ROOT = path5.resolve(path5.dirname(fileURLToPath(import.meta.url)), "../..");
+var OPENTOOL_NODE_MODULES = path5.join(OPENTOOL_ROOT, "node_modules");
 var MIN_TEMPLATE_CONFIG_VERSION = 2;
 var TEMPLATE_PREVIEW_TITLE_MAX = 80;
 var TEMPLATE_PREVIEW_SUBTITLE_MAX = 120;
@@ -1079,11 +1078,11 @@ function normalizeTemplatePreview(value, file, toolName, requirePreview) {
 async function validateCommand(options) {
   console.log("\u{1F50D} Validating OpenTool project...");
   try {
-    const toolsDir = path6.resolve(options.input);
+    const toolsDir = path5.resolve(options.input);
     if (!fs4.existsSync(toolsDir)) {
       throw new Error(`Tools directory not found: ${toolsDir}`);
     }
-    const projectRoot = path6.dirname(toolsDir);
+    const projectRoot = path5.dirname(toolsDir);
     const tools = await loadAndValidateTools(toolsDir, { projectRoot });
     if (tools.length === 0) {
       throw new Error("No valid tools found - validation aborted");
@@ -1102,11 +1101,11 @@ async function validateCommand(options) {
 async function validateFullCommand(options) {
   console.log("\u{1F50D} Running full OpenTool validation...\n");
   try {
-    const toolsDir = path6.resolve(options.input);
+    const toolsDir = path5.resolve(options.input);
     if (!fs4.existsSync(toolsDir)) {
       throw new Error(`Tools directory not found: ${toolsDir}`);
     }
-    const projectRoot = path6.dirname(toolsDir);
+    const projectRoot = path5.dirname(toolsDir);
     const tools = await loadAndValidateTools(toolsDir, { projectRoot });
     if (tools.length === 0) {
       throw new Error("No tools discovered in the target directory");
@@ -1134,12 +1133,12 @@ async function validateFullCommand(options) {
   }
 }
 async function loadAndValidateTools(toolsDir, options = {}) {
-  const files = fs4.readdirSync(toolsDir).filter((file) => SUPPORTED_EXTENSIONS.includes(path6.extname(file)));
+  const files = fs4.readdirSync(toolsDir).filter((file) => SUPPORTED_EXTENSIONS.includes(path5.extname(file)));
   if (files.length === 0) {
     return [];
   }
-  const projectRoot = options.projectRoot ?? path6.dirname(toolsDir);
-  const tempDir = path6.join(toolsDir, ".opentool-temp");
+  const projectRoot = options.projectRoot ?? path5.dirname(toolsDir);
+  const tempDir = path5.join(toolsDir, ".opentool-temp");
   if (fs4.existsSync(tempDir)) {
     fs4.rmSync(tempDir, { recursive: true, force: true });
   }
@@ -1149,17 +1148,20 @@ async function loadAndValidateTools(toolsDir, options = {}) {
       throw new Error(`Tool filename must be kebab-case: ${f}`);
     }
   }
-  const entryPoints = files.map((file) => path6.join(toolsDir, file));
+  const entryPoints = files.map((file) => path5.join(toolsDir, file));
+  const fallbackNodePaths = [OPENTOOL_NODE_MODULES].filter((dir) => fs4.existsSync(dir));
   const { outDir, cleanup } = await transpileWithEsbuild({
     entryPoints,
     projectRoot,
     format: "esm",
     outDir: tempDir,
     bundle: true,
-    external: ["opentool", "opentool/*"]
+    external: ["opentool", "opentool/*"],
+    ...fallbackNodePaths.length > 0 ? { nodePaths: fallbackNodePaths } : {}
   });
   const tools = [];
   try {
+    ensureLocalRuntimeLinks(tempDir);
     for (const file of files) {
       const compiledPath = resolveCompiledPath(outDir, file);
       if (!fs4.existsSync(compiledPath)) {
@@ -1360,7 +1362,7 @@ async function loadAndValidateTools(toolsDir, options = {}) {
         httpHandlers,
         mcpConfig: normalizeMcpConfig(toolModule.mcp, file),
         filename: toBaseName(file),
-        sourcePath: path6.join(toolsDir, file),
+        sourcePath: path5.join(toolsDir, file),
         handler: async (params) => adapter(params),
         payment: paymentExport ?? null,
         schedule: normalizedSchedule,
@@ -1378,6 +1380,24 @@ async function loadAndValidateTools(toolsDir, options = {}) {
     }
   }
   return tools;
+}
+function ensureLocalRuntimeLinks(tempDir) {
+  const nodeModulesDir = path5.join(tempDir, "node_modules");
+  fs4.mkdirSync(nodeModulesDir, { recursive: true });
+  const packageLinks = [
+    { name: "opentool", target: OPENTOOL_ROOT },
+    { name: "zod", target: path5.join(OPENTOOL_NODE_MODULES, "zod") }
+  ];
+  for (const { name, target } of packageLinks) {
+    if (!fs4.existsSync(target)) {
+      continue;
+    }
+    const linkPath = path5.join(nodeModulesDir, name);
+    if (fs4.existsSync(linkPath)) {
+      continue;
+    }
+    fs4.symlinkSync(target, linkPath, "junction");
+  }
 }
 function extractToolModule(exportsObject, filename) {
   const candidates = [exportsObject, exportsObject?.default];
@@ -1566,12 +1586,12 @@ async function buildCommand(options) {
   }
 }
 async function buildProject(options) {
-  const toolsDir = path6.resolve(options.input);
+  const toolsDir = path5.resolve(options.input);
   if (!fs4.existsSync(toolsDir)) {
     throw new Error(`Tools directory not found: ${toolsDir}`);
   }
-  const projectRoot = path6.dirname(toolsDir);
-  const outputDir = path6.resolve(options.output);
+  const projectRoot = path5.dirname(toolsDir);
+  const outputDir = path5.resolve(options.output);
   fs4.mkdirSync(outputDir, { recursive: true });
   const serverName = options.name ?? "opentool-server";
   const serverVersion = options.version ?? "1.0.0";
@@ -1583,7 +1603,7 @@ async function buildProject(options) {
     projectRoot,
     tools
   });
-  const metadataPath = path6.join(outputDir, "metadata.json");
+  const metadataPath = path5.join(outputDir, "metadata.json");
   fs4.writeFileSync(metadataPath, JSON.stringify(metadata, null, 2));
   const compiledTools = await emitTools(tools, {
     projectRoot,
@@ -1606,7 +1626,7 @@ async function buildProject(options) {
       serverVersion,
       compiledTools});
   } else {
-    const serverPath = path6.join(outputDir, "mcp-server.js");
+    const serverPath = path5.join(outputDir, "mcp-server.js");
     if (fs4.existsSync(serverPath)) {
       fs4.rmSync(serverPath);
     }
@@ -1621,7 +1641,7 @@ async function buildProject(options) {
   };
 }
 async function emitTools(tools, config) {
-  const toolsOutDir = path6.join(config.outputDir, "tools");
+  const toolsOutDir = path5.join(config.outputDir, "tools");
   if (fs4.existsSync(toolsOutDir)) {
     fs4.rmSync(toolsOutDir, { recursive: true, force: true });
   }
@@ -1643,9 +1663,9 @@ async function emitTools(tools, config) {
     if (!tool.sourcePath) {
       throw new Error(`Missing sourcePath for tool ${tool.filename}`);
     }
-    const base = path6.basename(tool.sourcePath).replace(/\.[^.]+$/, "");
-    const modulePath = path6.join("tools", `${base}.js`);
-    if (!fs4.existsSync(path6.join(config.outputDir, modulePath))) {
+    const base = path5.basename(tool.sourcePath).replace(/\.[^.]+$/, "");
+    const modulePath = path5.join("tools", `${base}.js`);
+    if (!fs4.existsSync(path5.join(config.outputDir, modulePath))) {
       throw new Error(`Expected compiled output missing: ${modulePath}`);
     }
     const defaultMcpMethod = tool.mcpConfig?.defaultMethod;
@@ -1662,7 +1682,7 @@ async function emitTools(tools, config) {
   return compiled;
 }
 async function emitSharedModules(config) {
-  const srcDir = path6.join(config.projectRoot, "src");
+  const srcDir = path5.join(config.projectRoot, "src");
   if (!fs4.existsSync(srcDir)) {
     return null;
   }
@@ -1670,7 +1690,7 @@ async function emitSharedModules(config) {
   if (sharedFiles.length === 0) {
     return null;
   }
-  const sharedOutDir = path6.join(config.outputDir, "src");
+  const sharedOutDir = path5.join(config.outputDir, "src");
   await transpileWithEsbuild({
     entryPoints: sharedFiles,
     projectRoot: config.projectRoot,
@@ -1688,7 +1708,7 @@ function collectSourceFiles(dir) {
   const ignoreDirs = /* @__PURE__ */ new Set(["node_modules", ".git", "dist", ".opentool-temp"]);
   const entries = fs4.readdirSync(dir, { withFileTypes: true });
   for (const entry of entries) {
-    const fullPath = path6.join(dir, entry.name);
+    const fullPath = path5.join(dir, entry.name);
     if (entry.isDirectory()) {
       if (ignoreDirs.has(entry.name)) {
         continue;
@@ -1696,7 +1716,7 @@ function collectSourceFiles(dir) {
       results.push(...collectSourceFiles(fullPath));
       continue;
     }
-    const ext = path6.extname(entry.name);
+    const ext = path5.extname(entry.name);
     if (supported.has(ext) && !entry.name.endsWith(".d.ts")) {
       results.push(fullPath);
     }
@@ -1798,13 +1818,13 @@ module.exports = { server };
 }
 async function writeMcpServer(options) {
   const serverCode = renderMcpServer(options);
-  const serverPath = path6.join(options.outputDir, "mcp-server.js");
+  const serverPath = path5.join(options.outputDir, "mcp-server.js");
   fs4.writeFileSync(serverPath, serverCode);
   fs4.chmodSync(serverPath, 493);
 }
 function writeToolsManifest(options) {
-  const manifestPath = path6.join(options.outputDir, "tools.json");
-  const legacyManifestPath = path6.join(options.outputDir, ".well-known", "opentool", "cron.json");
+  const manifestPath = path5.join(options.outputDir, "tools.json");
+  const legacyManifestPath = path5.join(options.outputDir, ".well-known", "opentool", "cron.json");
   if (fs4.existsSync(legacyManifestPath)) {
     fs4.rmSync(legacyManifestPath, { force: true });
   }
@@ -1838,7 +1858,7 @@ function writeToolsManifest(options) {
 function logBuildSummary(artifacts, options) {
   const end = timestamp();
   console.log(`[${end}] Build completed successfully!`);
-  console.log(`Output directory: ${path6.resolve(options.output)}`);
+  console.log(`Output directory: ${path5.resolve(options.output)}`);
   console.log("Generated files:");
   const hasMcp = artifacts.compiledTools.some((tool) => tool.mcpEnabled);
   if (hasMcp) {
@@ -1873,9 +1893,9 @@ function timestamp() {
 function escapeForJs(value) {
   return value.replace(/'/g, "\\'");
 }
-var __dirname2 = path6.dirname(fileURLToPath(import.meta.url));
+var __dirname$1 = path5.dirname(fileURLToPath(import.meta.url));
 var packageJson = JSON.parse(
-  fs4.readFileSync(path6.resolve(__dirname2, "../../package.json"), "utf-8")
+  fs4.readFileSync(path5.resolve(__dirname$1, "../../package.json"), "utf-8")
 );
 var cyan = "\x1B[36m";
 var bold = "\x1B[1m";
@@ -1888,11 +1908,11 @@ async function devCommand(options) {
   const log = enableStdio ? (_message) => {
   } : (message) => console.log(message);
   try {
-    const toolsDir = path6.resolve(options.input);
+    const toolsDir = path5.resolve(options.input);
     if (!fs4.existsSync(toolsDir)) {
       throw new Error(`Tools directory not found: ${toolsDir}`);
     }
-    const projectRoot = path6.dirname(toolsDir);
+    const projectRoot = path5.dirname(toolsDir);
     loadEnvFiles(projectRoot);
     let toolDefinitions = await loadToolDefinitions(toolsDir, projectRoot);
     if (toolDefinitions.length === 0) {
@@ -1902,7 +1922,7 @@ async function devCommand(options) {
     const stdioController = enableStdio ? await startMcpServer(() => toolDefinitions) : null;
     if (watch2) {
       const reloadableExtensions = /\.(ts|js|mjs|cjs|tsx|jsx)$/i;
-      const tempDir = path6.join(toolsDir, ".opentool-temp");
+      const tempDir = path5.join(toolsDir, ".opentool-temp");
       const watchTargets = /* @__PURE__ */ new Set([toolsDir]);
       if (projectRoot !== toolsDir) {
         watchTargets.add(projectRoot);
@@ -1931,16 +1951,16 @@ Detected change in ${changedPath ?? "tools directory"}, reloading...${reset}`);
           if (filename && !reloadableExtensions.test(filename)) {
             return;
           }
-          const fullPath = filename ? path6.join(target, filename) : void 0;
+          const fullPath = filename ? path5.join(target, filename) : void 0;
           if (fullPath && fullPath.startsWith(tempDir)) {
             return;
           }
-          const displayPath = fullPath ? path6.relative(projectRoot, fullPath) || path6.basename(fullPath) : path6.relative(projectRoot, target) || path6.basename(target);
+          const displayPath = fullPath ? path5.relative(projectRoot, fullPath) || path5.basename(fullPath) : path5.relative(projectRoot, target) || path5.basename(target);
           await scheduleReload(displayPath);
         });
       }
     }
-    const server = http2.createServer(async (req, res) => {
+    const server = http.createServer(async (req, res) => {
       const method = (req.method || "GET").toUpperCase();
       const url = new URL(req.url || "/", `http://localhost:${port}`);
       const routePath = url.pathname;
@@ -2157,7 +2177,7 @@ function routeName(tool) {
 function loadEnvFiles(projectRoot) {
   const envFiles = [".env.local", ".env"];
   for (const file of envFiles) {
-    const candidate = path6.join(projectRoot, file);
+    const candidate = path5.join(projectRoot, file);
     if (fs4.existsSync(candidate)) {
       dotenv.config({ path: candidate, override: false });
     }
@@ -2225,17 +2245,17 @@ async function generateMetadataCommand(options) {
   }
 }
 async function generateMetadata(options) {
-  const toolsDir = path6.resolve(options.input);
+  const toolsDir = path5.resolve(options.input);
   if (!fs4.existsSync(toolsDir)) {
     throw new Error(`Tools directory not found: ${toolsDir}`);
   }
-  const projectRoot = path6.dirname(toolsDir);
+  const projectRoot = path5.dirname(toolsDir);
   const tools = await loadAndValidateTools(toolsDir, { projectRoot });
   const { metadata, defaultsApplied } = await buildMetadataArtifact({
     projectRoot,
     tools
   });
-  const outputPath = options.output ? path6.resolve(options.output) : path6.join(projectRoot, "metadata.json");
+  const outputPath = options.output ? path5.resolve(options.output) : path5.join(projectRoot, "metadata.json");
   fs4.writeFileSync(outputPath, JSON.stringify(metadata, null, 2));
   return {
     metadata,
@@ -2248,8 +2268,8 @@ function timestamp2() {
   return (/* @__PURE__ */ new Date()).toISOString().replace("T", " ").slice(0, 19);
 }
 function resolveTemplateDir() {
-  const here = path6__default.dirname(fileURLToPath(import.meta.url));
-  return path6__default.resolve(here, "../../templates/base");
+  const here = path5.dirname(fileURLToPath(import.meta.url));
+  return path5.resolve(here, "../../templates/base");
 }
 async function directoryIsEmpty(targetDir) {
   try {
@@ -2266,8 +2286,8 @@ async function copyDir(src, dest) {
   await promises.mkdir(dest, { recursive: true });
   const entries = await promises.readdir(src, { withFileTypes: true });
   for (const entry of entries) {
-    const srcPath = path6__default.join(src, entry.name);
-    const destPath = path6__default.join(dest, entry.name);
+    const srcPath = path5.join(src, entry.name);
+    const destPath = path5.join(dest, entry.name);
     if (entry.isDirectory()) {
       await copyDir(srcPath, destPath);
     } else if (entry.isFile()) {
@@ -2282,7 +2302,7 @@ function toDisplayName(value) {
   return value.trim().replace(/[-_]+/g, " ").replace(/\b\w/g, (ch) => ch.toUpperCase()) || "OpenTool Project";
 }
 async function updatePackageJson(targetDir, name, description) {
-  const filePath = path6__default.join(targetDir, "package.json");
+  const filePath = path5.join(targetDir, "package.json");
   const raw = await promises.readFile(filePath, "utf-8");
   const pkg = JSON.parse(raw);
   pkg.name = toPackageName(name);
@@ -2293,7 +2313,7 @@ async function updatePackageJson(targetDir, name, description) {
 `, "utf-8");
 }
 async function updateMetadata(targetDir, name, description) {
-  const filePath = path6__default.join(targetDir, "metadata.ts");
+  const filePath = path5.join(targetDir, "metadata.ts");
   const raw = await promises.readFile(filePath, "utf-8");
   const displayName = toDisplayName(name);
   const resolvedDescription = description || "OpenTool project";
@@ -2301,14 +2321,14 @@ async function updateMetadata(targetDir, name, description) {
   await promises.writeFile(filePath, updated, "utf-8");
 }
 async function initCommand(options) {
-  const targetDir = path6__default.resolve(process.cwd(), options.dir || ".");
+  const targetDir = path5.resolve(process.cwd(), options.dir || ".");
   const templateDir = resolveTemplateDir();
   const empty = await directoryIsEmpty(targetDir);
   if (!empty && !options.force) {
     throw new Error(`Directory not empty: ${targetDir}. Use --force to overwrite.`);
   }
   await copyDir(templateDir, targetDir);
-  const projectName = options.name || path6__default.basename(targetDir);
+  const projectName = options.name || path5.basename(targetDir);
   const description = options.description;
   await updatePackageJson(targetDir, projectName, description);
   await updateMetadata(targetDir, projectName, description);

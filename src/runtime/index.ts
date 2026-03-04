@@ -2,11 +2,11 @@ import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import * as fs from "fs";
-import * as path from "path";
+import * as path from "node:path";
 import { fileURLToPath } from "url";
 import { zodToJsonSchema } from "@alcyone-labs/zod-to-json-schema";
 import { createMcpAdapter, HTTP_METHODS } from "../adapters/mcp";
-import { withX402Payment } from "../x402/index";
+import { withX402Payment } from "../x402/payment";
 import {
   type HttpHandlerDefinition,
   type InternalToolDefinition,

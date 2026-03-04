@@ -1,5 +1,5 @@
 import { z, type ZodSchema } from "zod";
-import { X402PaymentRequiredError } from "../x402/index";
+import { X402PaymentRequiredError } from "../x402/payment";
 import type { ToolResponse } from "../types/index";
 
 export const HTTP_METHODS = ["GET", "HEAD", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"] as const;
