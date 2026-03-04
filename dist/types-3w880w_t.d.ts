@@ -1,4 +1,4 @@
-import { Chain, WalletClient, Transport, PublicClient } from 'viem';
+import { Chain, PublicClient, WalletClient, Transport } from 'viem';
 import { Account } from 'viem/accounts';
 
 type Hex = `0x${string}`;
@@ -97,4 +97,4 @@ type WalletReadonlyContext = WalletBaseContext;
 type WalletFullContext = WalletBaseContext & WalletSignerContext;
 type WalletContext = WalletReadonlyContext | WalletFullContext;
 
-export type { ChainMetadata as C, Hex as H, RpcProviderOptions as R, TokenMetadata as T, WalletRegistry as W, ChainTokenMap as a, WalletPrivateKeyOptions as b, WalletFullContext as c, WalletTurnkeyOptions as d, WalletReadonlyOptions as e, WalletReadonlyContext as f, HexAddress as g, RpcUrlResolver as h, ChainReference as i, WalletProviderType as j, TurnkeySignWith as k, TurnkeyOptions as l, WalletOptionsBase as m, WalletOptions as n, WalletSendTransactionParams as o, WalletTransferParams as p, WalletSignerContext as q, WalletBaseContext as r, WalletContext as s };
+export type { ChainMetadata as C, Hex as H, RpcProviderOptions as R, TokenMetadata as T, WalletRegistry as W, ChainTokenMap as a, WalletPrivateKeyOptions as b, WalletFullContext as c, WalletTurnkeyOptions as d, WalletReadonlyOptions as e, WalletReadonlyContext as f, ChainReference as g, HexAddress as h, RpcUrlResolver as i, TurnkeyOptions as j, TurnkeySignWith as k, WalletBaseContext as l, WalletContext as m, WalletOptions as n, WalletOptionsBase as o, WalletProviderType as p, WalletSendTransactionParams as q, WalletSignerContext as r, WalletTransferParams as s };

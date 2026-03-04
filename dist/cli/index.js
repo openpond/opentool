@@ -20,7 +20,7 @@ import * as http2 from 'http';
 import dotenv from 'dotenv';
 
 var getFilename = () => fileURLToPath(import.meta.url);
-var __filename = /* @__PURE__ */ getFilename();
+var __filename$1 = /* @__PURE__ */ getFilename();
 function resolveTsconfig(projectRoot) {
   const candidate = path6.join(projectRoot, "tsconfig.json");
   if (fs4.existsSync(candidate)) {
@@ -208,7 +208,7 @@ var BuildMetadataSchema = z.object({
   chains: z.array(z.union([z.string(), z.number()])).optional()
 }).strict();
 createRequire(
-  typeof __filename !== "undefined" ? __filename : import.meta.url
+  typeof __filename$1 !== "undefined" ? __filename$1 : import.meta.url
 );
 function resolveCompiledPath(outDir, originalFile, extension = ".js") {
   const baseName = path6.basename(originalFile).replace(/\.[^.]+$/, "");

@@ -26,7 +26,7 @@ var __require = /* @__PURE__ */ ((x) => typeof require !== "undefined" ? require
   throw Error('Dynamic require of "' + x + '" is not supported');
 });
 var getFilename = () => fileURLToPath(import.meta.url);
-var __filename = /* @__PURE__ */ getFilename();
+var __filename$1 = /* @__PURE__ */ getFilename();
 var X402_VERSION = 1;
 var HEADER_X402 = "X-PAYMENT";
 var HEADER_PAYMENT_RESPONSE = "X-PAYMENT-RESPONSE";
@@ -6499,7 +6499,7 @@ async function transpileWithEsbuild(options) {
   return { outDir: tempBase, cleanup };
 }
 createRequire(
-  typeof __filename !== "undefined" ? __filename : import.meta.url
+  typeof __filename$1 !== "undefined" ? __filename$1 : import.meta.url
 );
 function resolveCompiledPath(outDir, originalFile, extension = ".js") {
   const baseName = path6.basename(originalFile).replace(/\.[^.]+$/, "");
