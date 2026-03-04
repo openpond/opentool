@@ -1077,7 +1077,7 @@ function normalizeTemplatePreview(value, file, toolName, requirePreview) {
   };
 }
 async function validateCommand(options) {
-  console.log("\u{1F50D} Validating OpenTool metadata...");
+  console.log("\u{1F50D} Validating OpenTool project...");
   try {
     const toolsDir = path6.resolve(options.input);
     if (!fs4.existsSync(toolsDir)) {
@@ -1086,16 +1086,16 @@ async function validateCommand(options) {
     const projectRoot = path6.dirname(toolsDir);
     const tools = await loadAndValidateTools(toolsDir, { projectRoot });
     if (tools.length === 0) {
-      throw new Error("No valid tools found - metadata validation aborted");
+      throw new Error("No valid tools found - validation aborted");
     }
     const { metadata, defaultsApplied, sourceMetadataPath } = await buildMetadataArtifact({
       projectRoot,
       tools
     });
     logMetadataSummary(metadata, defaultsApplied, sourceMetadataPath);
-    console.log("\n\u2705 Metadata validation passed!\n");
+    console.log("\n\u2705 OpenTool validation passed!\n");
   } catch (error) {
-    console.error("\u274C Metadata validation failed:", error);
+    console.error("\u274C OpenTool validation failed:", error);
     process.exit(1);
   }
 }
@@ -1312,11 +1312,6 @@ async function loadAndValidateTools(toolsDir, options = {}) {
       if (hasPOST) {
         if (!schema) {
           throw new Error(`${file}: POST tools must export a Zod schema as 'schema'`);
-        }
-        if (schedule && typeof schedule.cron === "string") {
-          throw new Error(
-            `${file}: POST tools must not define profile.schedule; use GET + cron for scheduled tasks.`
-          );
         }
       }
       const httpHandlers = [...httpHandlersRaw];
@@ -2330,8 +2325,8 @@ program.command("dev").description("Start HTTP dev server (optional MCP stdio)")
   });
 });
 program.command("build").description("Build tools for deployment").option("-i, --input <dir>", "Input directory containing tools", "tools").option("-o, --output <dir>", "Output directory for built tools", "dist").option("--name <name>", "Server name", "opentool-server").option("--version <version>", "Server version", "1.0.0").action(buildCommand);
-program.command("validate").description("Validate metadata for registry submission").option("-i, --input <dir>", "Input directory containing tools", "tools").action(validateCommand);
-program.command("validate-full").description("Full validation of tools and metadata").option("-i, --input <dir>", "Input directory containing tools", "tools").action(validateFullCommand);
+program.command("validate").description("Validate OpenTool project (tool handlers, profile/schema rules, metadata synthesis)").option("-i, --input <dir>", "Input directory containing tools", "tools").action(validateCommand);
+program.command("validate-full").description("Full OpenTool validation with detailed tool summary").option("-i, --input <dir>", "Input directory containing tools", "tools").action(validateFullCommand);
 program.command("metadata").description("Generate OpenTool metadata JSON without building").option("-i, --input <dir>", "Input directory containing tools", "tools").option("-o, --output <file>", "Output file path for metadata.json", "metadata.json").option("--name <name>", "Server name", "opentool-server").option("--version <version>", "Server version", "1.0.0").action(generateMetadataCommand);
 program.command("init").description("Create a new OpenTool project in the target directory").option("-d, --dir <dir>", "Target directory", ".").option("-n, --name <name>", "Project name").option("--description <description>", "Project description").option("--force", "Overwrite existing files", false).action(async (cmdOptions) => {
   await initCommand({
