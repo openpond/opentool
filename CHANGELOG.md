@@ -1,5 +1,11 @@
 # opentool
 
+## 0.10.4
+
+### Patch Changes
+
+- 48eae2d: added more hyperliquid utils
+
 ## 0.10.3
 
 ### Patch Changes
