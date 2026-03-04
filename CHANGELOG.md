@@ -1,5 +1,11 @@
 # opentool
 
+## 0.9.0
+
+### Minor Changes
+
+- 440a239: adding additional hyperliquid common utils and cleaned up repo
+
 ## 0.8.29
 
 ### Patch Changes
