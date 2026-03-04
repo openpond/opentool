@@ -1,5 +1,11 @@
 # opentool
 
+## 0.10.1
+
+### Patch Changes
+
+- e836b60: updated dependabot
+
 ## 0.10.0
 
 ### Minor Changes
