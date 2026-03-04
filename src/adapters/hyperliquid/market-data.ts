@@ -54,6 +54,26 @@ type SpotMetaResponse = {
   tokens?: SpotToken[];
 };
 
+export type HyperliquidBarResolution =
+  | "1"
+  | "5"
+  | "15"
+  | "30"
+  | "60"
+  | "240"
+  | "1D"
+  | "1W";
+
+export type HyperliquidBar = {
+  time: number;
+  open?: number;
+  high?: number;
+  low?: number;
+  close: number;
+  volume?: number;
+  [key: string]: unknown;
+};
+
 export type HyperliquidPerpMarketInfo = {
   symbol: string;
   price: number;
@@ -76,6 +96,30 @@ const allMidsCache = new Map<
   string,
   { fetchedAt: number; mids: Record<string, string | number> }
 >();
+
+function resolveGatewayBase(override?: string | null): string | null {
+  const value = override ?? process.env.OPENPOND_GATEWAY_URL ?? null;
+  if (typeof value !== "string") {
+    return null;
+  }
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+  return trimmed.replace(/\/$/, "");
+}
+
+function normalizeGatewaySymbol(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) return trimmed;
+  const idx = trimmed.indexOf(":");
+  if (idx > 0) {
+    const dex = trimmed.slice(0, idx).toLowerCase();
+    const rest = trimmed.slice(idx + 1);
+    return `${dex}:${rest.toUpperCase()}`;
+  }
+  return trimmed.toUpperCase();
+}
 
 function gcd(a: bigint, b: bigint): bigint {
   let left = a < 0n ? -a : a;
@@ -219,6 +263,54 @@ export async function fetchHyperliquidAllMids(
 
   allMidsCache.set(cacheKey, { fetchedAt: Date.now(), mids: json });
   return json;
+}
+
+export async function fetchHyperliquidBars(params: {
+  symbol: string;
+  resolution: HyperliquidBarResolution;
+  countBack: number;
+  fromSeconds?: number;
+  toSeconds?: number;
+  gatewayBase?: string | null;
+}): Promise<HyperliquidBar[]> {
+  const gatewayBase = resolveGatewayBase(params.gatewayBase);
+  if (!gatewayBase) {
+    throw new Error("OPENPOND_GATEWAY_URL is required.");
+  }
+
+  const normalizedCountBack = Math.max(1, Math.trunc(params.countBack));
+  if (!Number.isFinite(normalizedCountBack) || normalizedCountBack <= 0) {
+    throw new Error("countBack must be a positive integer.");
+  }
+
+  const url = new URL(`${gatewayBase}/v1/hyperliquid/bars`);
+  url.searchParams.set("symbol", normalizeGatewaySymbol(params.symbol));
+  url.searchParams.set("resolution", params.resolution);
+  url.searchParams.set("countBack", normalizedCountBack.toString());
+  if (typeof params.fromSeconds === "number" && Number.isFinite(params.fromSeconds)) {
+    url.searchParams.set("from", Math.max(0, Math.trunc(params.fromSeconds)).toString());
+  }
+  if (typeof params.toSeconds === "number" && Number.isFinite(params.toSeconds)) {
+    url.searchParams.set("to", Math.max(0, Math.trunc(params.toSeconds)).toString());
+  }
+
+  const response = await fetch(url.toString());
+  if (!response.ok) {
+    throw new Error(`Gateway error (${response.status})`);
+  }
+
+  const data = (await response.json().catch(() => null)) as { bars?: unknown[] } | null;
+  const bars = Array.isArray(data?.bars) ? data.bars : [];
+  return bars.filter((bar): bar is HyperliquidBar => {
+    if (!bar || typeof bar !== "object") return false;
+    const record = bar as { close?: unknown; time?: unknown };
+    return (
+      typeof record.close === "number" &&
+      Number.isFinite(record.close) &&
+      typeof record.time === "number" &&
+      Number.isFinite(record.time)
+    );
+  });
 }
 
 export async function fetchHyperliquidTickSize(params: {

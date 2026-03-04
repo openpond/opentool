@@ -329,4 +329,4 @@ The generated `metadata.json` enables decentralized discovery:
 
 ## Example Projects
 
-See `examples/full-metadata` for a full configuration that demonstrates agent metadata, tool-level overrides, and the dual-module build outputs.
+Use your own local tool project as the reference implementation for metadata, tool-level overrides, and dual-module outputs.

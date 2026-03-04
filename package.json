@@ -15,10 +15,7 @@
     "lint:fix": "eslint . --fix",
     "typecheck": "tsc --noEmit",
     "test": "tsx --test tests/*.test.ts",
-    "prepublishOnly": "npm run typecheck && npm run build && node scripts/sync-template.ts",
-    "examples:build": "node dist/cli/index.js build --input examples/full-metadata/tools --output examples/full-metadata/dist",
-    "examples:metadata": "node dist/cli/index.js metadata --input examples/full-metadata/tools --output examples/full-metadata/metadata.json",
-    "examples:validate": "node dist/cli/index.js validate --input examples/full-metadata/tools",
+    "prepublishOnly": "npm run typecheck && npm run build && tsx scripts/sync-template.ts",
     "changeset": "changeset",
     "changeset:version": "changeset version",
     "changeset:publish": "changeset publish",
@@ -51,19 +48,17 @@
     "access": "public"
   },
   "dependencies": {
-    "@aws/run-mcp-servers-with-aws-lambda": "^0.2.2",
+    "@alcyone-labs/zod-to-json-schema": "^4.0.10",
     "@modelcontextprotocol/sdk": "^1.15.1",
-    "@turnkey/sdk-server": "4.10.2",
-    "@turnkey/viem": "0.14.5",
     "@msgpack/msgpack": "^3.1.1",
     "@noble/hashes": "^1.4.0",
+    "@turnkey/sdk-server": "4.10.2",
+    "@turnkey/viem": "0.14.5",
     "commander": "^11.0.0",
+    "dotenv": "^17.2.3",
     "esbuild": "^0.25.0",
-    "tsx": "^4.0.0",
     "viem": "^2.31.7",
-    "zod": "^4.1.11",
-    "@alcyone-labs/zod-to-json-schema": "^4.0.10",
-    "dotenv": "^17.2.3"
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@changesets/cli": "^2.29.5",
@@ -71,24 +66,12 @@
     "@typescript-eslint/eslint-plugin": "^6.0.0",
     "@typescript-eslint/parser": "^6.0.0",
     "eslint": "^8.0.0",
-    "ts-node": "^10.9.2",
     "tsup": "^8.5.0",
     "tsx": "^4.0.0",
-    "typescript": "^5.0.0",
-    "workflow": "^4.0.1-beta.6"
+    "typescript": "^5.0.0"
   },
   "peerDependencies": {
-    "typescript": "^5.0.0",
-    "@workflow/cli": "^4.0.1-beta.6",
-    "workflow": "^4.0.1-beta.6"
-  },
-  "peerDependenciesMeta": {
-    "@workflow/cli": {
-      "optional": true
-    },
-    "workflow": {
-      "optional": true
-    }
+    "typescript": "^5.0.0"
   },
   "engines": {
     "node": ">=20.0.0"

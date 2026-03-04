@@ -179,8 +179,7 @@ Test the payment flow:
 # Start dev server
 WALLET_ADDRESS=0x... npx opentool dev --input tools
 
-# Test with the x402 client
-PRIVATE_KEY=0x... bun examples/full-metadata/test-x402.ts
+# Test with your x402 client/facilitator implementation
 ```
 
 Or test manually:
@@ -213,21 +212,20 @@ Tools without this export stay HTTP-only, which is useful when you want selectiv
 
 ### Testing with MCP Inspector
 
-The `examples/full-metadata` project has an `inspector.json` config ready to go:
+You can run MCP Inspector against your local tool set:
 
 ```bash
-cd examples/full-metadata
-npx mcp-inspector --config inspector.json --server opentool-dev
+npx mcp-inspector --server "npx opentool dev --input tools"
 ```
 
-Copy `.env.example` to `.env` and add your credentials if you're using wallet/payment features. The inspector starts `opentool dev` automatically, so you only need one terminal. Only tools with `mcp = { enabled: true }` show up in the inspector - HTTP-only tools keep running on localhost.
+Only tools with `mcp = { enabled: true }` show up in the inspector - HTTP-only tools keep running on localhost.
 
 ### Quick x402 test with curl
 
-1. Start the dev server against the example tools:
+1. Start the dev server:
 
    ```bash
-   npx opentool dev --input examples/full-metadata/tools
+   npx opentool dev --input tools
    ```
 
 2. Trigger the paywall and inspect the returned payment requirements:
@@ -392,32 +390,14 @@ Push your repo to GitHub and connect it to [OpenPond](https://openpond.ai):
 3. Deploys to AWS Lambda with Function URLs
 4. Done - your tools are live
 
-## Examples
+## Example Usage
 
-Check `examples/full-metadata/` for a complete example with payment and discovery features.
-
-### Testing Examples Locally
+Build your own tool folder (for example `tools/`) and run:
 
 ```bash
-# Build and link the OpenTool package
-npm run build
-npm link
-
-# Test the example
-cd examples/full-metadata
-npm link opentool
-npm run build
-
-# Check the output
-cat dist/metadata.json
-
-# Test the MCP server
-echo '{"jsonrpc": "2.0", "id": 1, "method": "tools/list"}' | node dist/mcp-server.js
-
-# Or from repo root:
-npm run examples:build      # Build example (CJS+ESM)
-npm run examples:validate   # Validate metadata and tools
-npm run examples:metadata   # Regenerate metadata.json
+npx opentool validate --input tools
+npx opentool metadata --input tools --output metadata.json
+npx opentool build --input tools --output dist
 ```
 
 ## Metadata System
