@@ -1,9 +1,9 @@
-import * as path6 from 'path';
-import { fileURLToPath, pathToFileURL } from 'url';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { ListToolsRequestSchema, CallToolRequestSchema } from '@modelcontextprotocol/sdk/types.js';
-import * as fs2 from 'fs';
+import * as fs4 from 'fs';
+import * as path5 from 'path';
+import { fileURLToPath, pathToFileURL } from 'url';
 import { zodToJsonSchema } from '@alcyone-labs/zod-to-json-schema';
 import { z } from 'zod';
 import { zeroAddress, createWalletClient, http, createPublicClient, parseUnits, encodeFunctionData, erc20Abi } from 'viem';
@@ -25,8 +25,6 @@ var __require = /* @__PURE__ */ ((x) => typeof require !== "undefined" ? require
   if (typeof require !== "undefined") return require.apply(this, arguments);
   throw Error('Dynamic require of "' + x + '" is not supported');
 });
-var getFilename = () => fileURLToPath(import.meta.url);
-var __filename$1 = /* @__PURE__ */ getFilename();
 var X402_VERSION = 1;
 var HEADER_X402 = "X-PAYMENT";
 var HEADER_PAYMENT_RESPONSE = "X-PAYMENT-RESPONSE";
@@ -331,295 +329,8 @@ function ensureTrailingSlash(url) {
   return url.endsWith("/") ? url : `${url}/`;
 }
 var PAYMENT_HEADERS = [HEADER_X402, HEADER_PAYMENT_RESPONSE];
-var X402Client = class {
-  constructor(config) {
-    this.account = privateKeyToAccount(config.privateKey);
-    const chain = baseSepolia;
-    this.walletClient = createWalletClient({
-      account: this.account,
-      chain,
-      transport: http(config.rpcUrl)
-    });
-  }
-  async pay(request) {
-    try {
-      const initialResponse = await fetch(request.url, {
-        method: request.method ?? "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...request.headers
-        },
-        ...request.body ? { body: JSON.stringify(request.body) } : {}
-      });
-      if (initialResponse.status !== 402) {
-        return {
-          success: initialResponse.ok,
-          response: initialResponse
-        };
-      }
-      const paymentRequirements = await initialResponse.json();
-      const x402Requirements = paymentRequirements.x402?.accepts?.[0];
-      if (!x402Requirements) {
-        return {
-          success: false,
-          error: "No x402 payment requirements found in 402 response"
-        };
-      }
-      const authorization = await this.signTransferAuthorization({
-        from: this.account.address,
-        to: x402Requirements.payTo,
-        value: BigInt(x402Requirements.maxAmountRequired),
-        validAfter: BigInt(Math.floor(Date.now() / 1e3)),
-        validBefore: BigInt(Math.floor(Date.now() / 1e3) + 900),
-        // 15 min
-        nonce: `0x${Array.from(
-          { length: 32 },
-          () => Math.floor(Math.random() * 256).toString(16).padStart(2, "0")
-        ).join("")}`,
-        tokenAddress: x402Requirements.asset
-      });
-      const paymentProof = {
-        x402Version: 1,
-        scheme: x402Requirements.scheme,
-        network: x402Requirements.network,
-        correlationId: "",
-        payload: {
-          signature: authorization.signature,
-          authorization: {
-            from: authorization.from,
-            to: authorization.to,
-            value: authorization.value.toString(),
-            validAfter: authorization.validAfter.toString(),
-            validBefore: authorization.validBefore.toString(),
-            nonce: authorization.nonce
-          }
-        }
-      };
-      const paymentHeader = Buffer.from(JSON.stringify(paymentProof)).toString("base64");
-      const paidResponse = await fetch(request.url, {
-        method: request.method ?? "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-PAYMENT": paymentHeader,
-          ...request.headers
-        },
-        ...request.body ? { body: JSON.stringify(request.body) } : {}
-      });
-      return {
-        success: paidResponse.ok,
-        response: paidResponse,
-        paymentDetails: {
-          amount: x402Requirements.maxAmountRequired,
-          currency: x402Requirements.extra?.currencyCode ?? "USDC",
-          network: x402Requirements.network,
-          signature: authorization.signature
-        }
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : String(error)
-      };
-    }
-  }
-  async signTransferAuthorization(params) {
-    if (!this.walletClient.chain) {
-      throw new Error("Wallet client chain not configured");
-    }
-    const domain = {
-      name: "USD Coin",
-      version: "2",
-      chainId: this.walletClient.chain.id,
-      verifyingContract: params.tokenAddress
-    };
-    const types = {
-      TransferWithAuthorization: [
-        { name: "from", type: "address" },
-        { name: "to", type: "address" },
-        { name: "value", type: "uint256" },
-        { name: "validAfter", type: "uint256" },
-        { name: "validBefore", type: "uint256" },
-        { name: "nonce", type: "bytes32" }
-      ]
-    };
-    const message = {
-      from: params.from,
-      to: params.to,
-      value: params.value,
-      validAfter: params.validAfter,
-      validBefore: params.validBefore,
-      nonce: params.nonce
-    };
-    const signature = await this.walletClient.signTypedData({
-      account: this.account,
-      domain,
-      types,
-      primaryType: "TransferWithAuthorization",
-      message
-    });
-    return {
-      signature,
-      from: params.from,
-      to: params.to,
-      value: params.value,
-      validAfter: params.validAfter,
-      validBefore: params.validBefore,
-      nonce: params.nonce
-    };
-  }
-  getAddress() {
-    return this.account.address;
-  }
-};
-async function payX402(config) {
-  const client = new X402Client({
-    privateKey: config.privateKey,
-    ...config.rpcUrl ? { rpcUrl: config.rpcUrl } : {}
-  });
-  return client.pay({
-    url: config.url,
-    body: config.body
-  });
-}
-var X402BrowserClient = class {
-  constructor(config) {
-    this.walletClient = config.walletClient;
-    this.chainId = config.chainId;
-  }
-  async pay(request) {
-    try {
-      const initialResponse = await fetch(request.url, {
-        method: request.method ?? "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...request.headers
-        },
-        ...request.body ? { body: JSON.stringify(request.body) } : {}
-      });
-      if (initialResponse.status !== 402) {
-        return {
-          success: initialResponse.ok,
-          response: initialResponse
-        };
-      }
-      const paymentRequirements = await initialResponse.json();
-      const x402Requirements = paymentRequirements.x402?.accepts?.[0];
-      if (!x402Requirements) {
-        return {
-          success: false,
-          error: "No x402 payment requirements found in 402 response"
-        };
-      }
-      const account = this.walletClient.account;
-      if (!account) {
-        return {
-          success: false,
-          error: "No account connected to wallet"
-        };
-      }
-      const authorization = {
-        from: account.address,
-        to: x402Requirements.payTo,
-        value: BigInt(x402Requirements.maxAmountRequired),
-        validAfter: BigInt(Math.floor(Date.now() / 1e3)),
-        validBefore: BigInt(Math.floor(Date.now() / 1e3) + 900),
-        nonce: `0x${Array.from(
-          { length: 32 },
-          () => Math.floor(Math.random() * 256).toString(16).padStart(2, "0")
-        ).join("")}`
-      };
-      const signature = await this.signTransferAuthorization(
-        authorization,
-        x402Requirements.asset
-      );
-      const paymentProof = {
-        x402Version: 1,
-        scheme: x402Requirements.scheme,
-        network: x402Requirements.network,
-        correlationId: "",
-        payload: {
-          signature,
-          authorization: {
-            from: authorization.from,
-            to: authorization.to,
-            value: authorization.value.toString(),
-            validAfter: authorization.validAfter.toString(),
-            validBefore: authorization.validBefore.toString(),
-            nonce: authorization.nonce
-          }
-        }
-      };
-      const paymentHeader = btoa(JSON.stringify(paymentProof));
-      const paidResponse = await fetch(request.url, {
-        method: request.method ?? "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-PAYMENT": paymentHeader,
-          ...request.headers
-        },
-        ...request.body ? { body: JSON.stringify(request.body) } : {}
-      });
-      return {
-        success: paidResponse.ok,
-        response: paidResponse,
-        paymentDetails: {
-          amount: x402Requirements.maxAmountRequired,
-          currency: x402Requirements.extra?.currencyCode ?? "USDC",
-          network: x402Requirements.network,
-          signature
-        }
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : String(error)
-      };
-    }
-  }
-  async signTransferAuthorization(authorization, tokenAddress) {
-    const account = this.walletClient.account;
-    if (!account) {
-      throw new Error("No account connected to wallet");
-    }
-    const domain = {
-      name: "USD Coin",
-      version: "2",
-      chainId: this.chainId,
-      verifyingContract: tokenAddress
-    };
-    const types = {
-      TransferWithAuthorization: [
-        { name: "from", type: "address" },
-        { name: "to", type: "address" },
-        { name: "value", type: "uint256" },
-        { name: "validAfter", type: "uint256" },
-        { name: "validBefore", type: "uint256" },
-        { name: "nonce", type: "bytes32" }
-      ]
-    };
-    const message = {
-      from: authorization.from,
-      to: authorization.to,
-      value: authorization.value,
-      validAfter: authorization.validAfter,
-      validBefore: authorization.validBefore,
-      nonce: authorization.nonce
-    };
-    return await this.walletClient.signTypedData({
-      account,
-      domain,
-      types,
-      primaryType: "TransferWithAuthorization",
-      message
-    });
-  }
-};
-async function payX402WithWallet(walletClient, chainId, request) {
-  const client = new X402BrowserClient({ walletClient, chainId });
-  return client.pay(request);
-}
 
-// src/x402/index.ts
+// src/x402/payment.ts
 var PAYMENT_CONTEXT_SYMBOL = /* @__PURE__ */ Symbol.for("opentool.x402.context");
 var X402PaymentRequiredError = class extends Error {
   constructor(response, verification) {
@@ -988,16 +699,16 @@ function buildAdapters(tools) {
 }
 async function loadToolsFromDirectory(metadataMap) {
   const tools = [];
-  const toolsDir = path6.join(process.cwd(), "tools");
-  if (!fs2.existsSync(toolsDir)) {
+  const toolsDir = path5.join(process.cwd(), "tools");
+  if (!fs4.existsSync(toolsDir)) {
     return tools;
   }
-  const files = fs2.readdirSync(toolsDir);
+  const files = fs4.readdirSync(toolsDir);
   for (const file of files) {
     if (!isSupportedToolFile(file)) {
       continue;
     }
-    const toolPath = path6.join(toolsDir, file);
+    const toolPath = path5.join(toolsDir, file);
     try {
       const exportsObject = __require(toolPath);
       const candidate = resolveModuleCandidate(exportsObject);
@@ -1061,12 +772,12 @@ async function loadToolsFromDirectory(metadataMap) {
   return tools;
 }
 function loadMetadata() {
-  const metadataPath = path6.join(process.cwd(), "metadata.json");
-  if (!fs2.existsSync(metadataPath)) {
+  const metadataPath = path5.join(process.cwd(), "metadata.json");
+  if (!fs4.existsSync(metadataPath)) {
     return null;
   }
   try {
-    const contents = fs2.readFileSync(metadataPath, "utf8");
+    const contents = fs4.readFileSync(metadataPath, "utf8");
     return JSON.parse(contents);
   } catch (error) {
     console.warn(`Failed to parse metadata.json: ${error}`);
@@ -1183,11 +894,298 @@ function resolveRuntimePath(value) {
   if (value.startsWith("file://")) {
     return fileURLToPath(value);
   }
-  return path6.resolve(value);
+  return path5.resolve(value);
 }
 
 // src/types/index.ts
 var HTTP_METHODS2 = ["GET", "HEAD", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"];
+var X402Client = class {
+  constructor(config) {
+    this.account = privateKeyToAccount(config.privateKey);
+    const chain = baseSepolia;
+    this.walletClient = createWalletClient({
+      account: this.account,
+      chain,
+      transport: http(config.rpcUrl)
+    });
+  }
+  async pay(request) {
+    try {
+      const initialResponse = await fetch(request.url, {
+        method: request.method ?? "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...request.headers
+        },
+        ...request.body ? { body: JSON.stringify(request.body) } : {}
+      });
+      if (initialResponse.status !== 402) {
+        return {
+          success: initialResponse.ok,
+          response: initialResponse
+        };
+      }
+      const paymentRequirements = await initialResponse.json();
+      const x402Requirements = paymentRequirements.x402?.accepts?.[0];
+      if (!x402Requirements) {
+        return {
+          success: false,
+          error: "No x402 payment requirements found in 402 response"
+        };
+      }
+      const authorization = await this.signTransferAuthorization({
+        from: this.account.address,
+        to: x402Requirements.payTo,
+        value: BigInt(x402Requirements.maxAmountRequired),
+        validAfter: BigInt(Math.floor(Date.now() / 1e3)),
+        validBefore: BigInt(Math.floor(Date.now() / 1e3) + 900),
+        // 15 min
+        nonce: `0x${Array.from(
+          { length: 32 },
+          () => Math.floor(Math.random() * 256).toString(16).padStart(2, "0")
+        ).join("")}`,
+        tokenAddress: x402Requirements.asset
+      });
+      const paymentProof = {
+        x402Version: 1,
+        scheme: x402Requirements.scheme,
+        network: x402Requirements.network,
+        correlationId: "",
+        payload: {
+          signature: authorization.signature,
+          authorization: {
+            from: authorization.from,
+            to: authorization.to,
+            value: authorization.value.toString(),
+            validAfter: authorization.validAfter.toString(),
+            validBefore: authorization.validBefore.toString(),
+            nonce: authorization.nonce
+          }
+        }
+      };
+      const paymentHeader = Buffer.from(JSON.stringify(paymentProof)).toString("base64");
+      const paidResponse = await fetch(request.url, {
+        method: request.method ?? "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-PAYMENT": paymentHeader,
+          ...request.headers
+        },
+        ...request.body ? { body: JSON.stringify(request.body) } : {}
+      });
+      return {
+        success: paidResponse.ok,
+        response: paidResponse,
+        paymentDetails: {
+          amount: x402Requirements.maxAmountRequired,
+          currency: x402Requirements.extra?.currencyCode ?? "USDC",
+          network: x402Requirements.network,
+          signature: authorization.signature
+        }
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error)
+      };
+    }
+  }
+  async signTransferAuthorization(params) {
+    if (!this.walletClient.chain) {
+      throw new Error("Wallet client chain not configured");
+    }
+    const domain = {
+      name: "USD Coin",
+      version: "2",
+      chainId: this.walletClient.chain.id,
+      verifyingContract: params.tokenAddress
+    };
+    const types = {
+      TransferWithAuthorization: [
+        { name: "from", type: "address" },
+        { name: "to", type: "address" },
+        { name: "value", type: "uint256" },
+        { name: "validAfter", type: "uint256" },
+        { name: "validBefore", type: "uint256" },
+        { name: "nonce", type: "bytes32" }
+      ]
+    };
+    const message = {
+      from: params.from,
+      to: params.to,
+      value: params.value,
+      validAfter: params.validAfter,
+      validBefore: params.validBefore,
+      nonce: params.nonce
+    };
+    const signature = await this.walletClient.signTypedData({
+      account: this.account,
+      domain,
+      types,
+      primaryType: "TransferWithAuthorization",
+      message
+    });
+    return {
+      signature,
+      from: params.from,
+      to: params.to,
+      value: params.value,
+      validAfter: params.validAfter,
+      validBefore: params.validBefore,
+      nonce: params.nonce
+    };
+  }
+  getAddress() {
+    return this.account.address;
+  }
+};
+async function payX402(config) {
+  const client = new X402Client({
+    privateKey: config.privateKey,
+    ...config.rpcUrl ? { rpcUrl: config.rpcUrl } : {}
+  });
+  return client.pay({
+    url: config.url,
+    body: config.body
+  });
+}
+var X402BrowserClient = class {
+  constructor(config) {
+    this.walletClient = config.walletClient;
+    this.chainId = config.chainId;
+  }
+  async pay(request) {
+    try {
+      const initialResponse = await fetch(request.url, {
+        method: request.method ?? "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...request.headers
+        },
+        ...request.body ? { body: JSON.stringify(request.body) } : {}
+      });
+      if (initialResponse.status !== 402) {
+        return {
+          success: initialResponse.ok,
+          response: initialResponse
+        };
+      }
+      const paymentRequirements = await initialResponse.json();
+      const x402Requirements = paymentRequirements.x402?.accepts?.[0];
+      if (!x402Requirements) {
+        return {
+          success: false,
+          error: "No x402 payment requirements found in 402 response"
+        };
+      }
+      const account = this.walletClient.account;
+      if (!account) {
+        return {
+          success: false,
+          error: "No account connected to wallet"
+        };
+      }
+      const authorization = {
+        from: account.address,
+        to: x402Requirements.payTo,
+        value: BigInt(x402Requirements.maxAmountRequired),
+        validAfter: BigInt(Math.floor(Date.now() / 1e3)),
+        validBefore: BigInt(Math.floor(Date.now() / 1e3) + 900),
+        nonce: `0x${Array.from(
+          { length: 32 },
+          () => Math.floor(Math.random() * 256).toString(16).padStart(2, "0")
+        ).join("")}`
+      };
+      const signature = await this.signTransferAuthorization(
+        authorization,
+        x402Requirements.asset
+      );
+      const paymentProof = {
+        x402Version: 1,
+        scheme: x402Requirements.scheme,
+        network: x402Requirements.network,
+        correlationId: "",
+        payload: {
+          signature,
+          authorization: {
+            from: authorization.from,
+            to: authorization.to,
+            value: authorization.value.toString(),
+            validAfter: authorization.validAfter.toString(),
+            validBefore: authorization.validBefore.toString(),
+            nonce: authorization.nonce
+          }
+        }
+      };
+      const paymentHeader = btoa(JSON.stringify(paymentProof));
+      const paidResponse = await fetch(request.url, {
+        method: request.method ?? "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-PAYMENT": paymentHeader,
+          ...request.headers
+        },
+        ...request.body ? { body: JSON.stringify(request.body) } : {}
+      });
+      return {
+        success: paidResponse.ok,
+        response: paidResponse,
+        paymentDetails: {
+          amount: x402Requirements.maxAmountRequired,
+          currency: x402Requirements.extra?.currencyCode ?? "USDC",
+          network: x402Requirements.network,
+          signature
+        }
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error)
+      };
+    }
+  }
+  async signTransferAuthorization(authorization, tokenAddress) {
+    const account = this.walletClient.account;
+    if (!account) {
+      throw new Error("No account connected to wallet");
+    }
+    const domain = {
+      name: "USD Coin",
+      version: "2",
+      chainId: this.chainId,
+      verifyingContract: tokenAddress
+    };
+    const types = {
+      TransferWithAuthorization: [
+        { name: "from", type: "address" },
+        { name: "to", type: "address" },
+        { name: "value", type: "uint256" },
+        { name: "validAfter", type: "uint256" },
+        { name: "validBefore", type: "uint256" },
+        { name: "nonce", type: "bytes32" }
+      ]
+    };
+    const message = {
+      from: authorization.from,
+      to: authorization.to,
+      value: authorization.value,
+      validAfter: authorization.validAfter,
+      validBefore: authorization.validBefore,
+      nonce: authorization.nonce
+    };
+    return await this.walletClient.signTypedData({
+      account,
+      domain,
+      types,
+      primaryType: "TransferWithAuthorization",
+      message
+    });
+  }
+};
+async function payX402WithWallet(walletClient, chainId, request) {
+  const client = new X402BrowserClient({ walletClient, chainId });
+  return client.pay(request);
+}
 var BASE_ALCHEMY_HOST = "https://base-mainnet.g.alchemy.com/v2/";
 var ETHEREUM_ALCHEMY_HOST = "https://eth-mainnet.g.alchemy.com/v2/";
 var BASE_SEPOLIA_ALCHEMY_HOST = "https://base-sepolia.g.alchemy.com/v2/";
@@ -1734,8 +1732,8 @@ async function store(input, options) {
     );
   }
   const { baseUrl, apiKey, fetchFn } = resolveConfig(options);
-  const path8 = mode === "backtest" ? "/apps/backtests/tx" : "/apps/positions/tx";
-  const url = `${baseUrl}${path8}`;
+  const path7 = mode === "backtest" ? "/apps/backtests/tx" : "/apps/positions/tx";
+  const url = `${baseUrl}${path7}`;
   let response;
   try {
     response = await fetchFn(url, {
@@ -1775,8 +1773,8 @@ async function store(input, options) {
 async function retrieve(params, options) {
   const { baseUrl, apiKey, fetchFn } = resolveConfig(options);
   const mode = params?.mode ?? "live";
-  const path8 = mode === "backtest" ? "/apps/backtests/tx" : "/apps/positions/tx";
-  const url = new URL(`${baseUrl}${path8}`);
+  const path7 = mode === "backtest" ? "/apps/backtests/tx" : "/apps/positions/tx";
+  const url = new URL(`${baseUrl}${path7}`);
   if (params?.source) url.searchParams.set("source", params.source);
   if (params?.walletAddress) url.searchParams.set("walletAddress", params.walletAddress);
   if (params?.symbol) url.searchParams.set("symbol", params.symbol);
@@ -4803,9 +4801,9 @@ function parseOptionalDate(value) {
 function buildHmacSignature(args) {
   const timestamp2 = args.timestamp.toString();
   const method = args.method.toUpperCase();
-  const path8 = args.path;
+  const path7 = args.path;
   const body = args.body == null ? "" : typeof args.body === "string" ? args.body : JSON.stringify(args.body);
-  const payload = `${timestamp2}${method}${path8}${body}`;
+  const payload = `${timestamp2}${method}${path7}${body}`;
   const key = Buffer.from(args.secret, "base64");
   return createHmac("sha256", key).update(payload).digest("hex");
 }
@@ -6158,9 +6156,9 @@ function assignIfDefined(target, key, value) {
     target[key] = value;
   }
 }
-function buildUrl(baseUrl, path8) {
+function buildUrl(baseUrl, path7) {
   const sanitizedBase = baseUrl.endsWith("/") ? baseUrl.slice(0, -1) : baseUrl;
-  return `${sanitizedBase}${path8}`;
+  return `${sanitizedBase}${path7}`;
 }
 function createAbortBundle(upstreamSignal, timeoutMs) {
   const controller = new AbortController();
@@ -6430,8 +6428,8 @@ var BuildMetadataSchema = z.object({
   chains: z.array(z.union([z.string(), z.number()])).optional()
 }).strict();
 function resolveTsconfig(projectRoot) {
-  const candidate = path6.join(projectRoot, "tsconfig.json");
-  if (fs2.existsSync(candidate)) {
+  const candidate = path5.join(projectRoot, "tsconfig.json");
+  if (fs4.existsSync(candidate)) {
     return candidate;
   }
   return void 0;
@@ -6441,9 +6439,9 @@ async function transpileWithEsbuild(options) {
     throw new Error("No entry points provided for esbuild transpilation");
   }
   const projectRoot = options.projectRoot;
-  const tempBase = options.outDir ?? fs2.mkdtempSync(path6.join(tmpdir(), "opentool-"));
-  if (!fs2.existsSync(tempBase)) {
-    fs2.mkdirSync(tempBase, { recursive: true });
+  const tempBase = options.outDir ?? fs4.mkdtempSync(path5.join(tmpdir(), "opentool-"));
+  if (!fs4.existsSync(tempBase)) {
+    fs4.mkdirSync(tempBase, { recursive: true });
   }
   const tsconfig = resolveTsconfig(projectRoot);
   const buildOptions = {
@@ -6474,6 +6472,9 @@ async function transpileWithEsbuild(options) {
   if (options.external && options.external.length > 0) {
     buildOptions.external = options.external;
   }
+  if (options.nodePaths && options.nodePaths.length > 0) {
+    buildOptions.nodePaths = options.nodePaths;
+  }
   if (options.outBase) {
     buildOptions.outbase = options.outBase;
   }
@@ -6485,25 +6486,25 @@ async function transpileWithEsbuild(options) {
   }
   await build(buildOptions);
   if (options.format === "esm") {
-    const packageJsonPath = path6.join(tempBase, "package.json");
-    if (!fs2.existsSync(packageJsonPath)) {
-      fs2.writeFileSync(packageJsonPath, JSON.stringify({ type: "module" }), "utf8");
+    const packageJsonPath = path5.join(tempBase, "package.json");
+    if (!fs4.existsSync(packageJsonPath)) {
+      fs4.writeFileSync(packageJsonPath, JSON.stringify({ type: "module" }), "utf8");
     }
   }
   const cleanup = () => {
     if (options.outDir) {
       return;
     }
-    fs2.rmSync(tempBase, { recursive: true, force: true });
+    fs4.rmSync(tempBase, { recursive: true, force: true });
   };
   return { outDir: tempBase, cleanup };
 }
 createRequire(
-  typeof __filename$1 !== "undefined" ? __filename$1 : import.meta.url
+  typeof __filename !== "undefined" ? __filename : import.meta.url
 );
 function resolveCompiledPath(outDir, originalFile, extension = ".js") {
-  const baseName = path6.basename(originalFile).replace(/\.[^.]+$/, "");
-  return path6.join(outDir, `${baseName}${extension}`);
+  const baseName = path5.basename(originalFile).replace(/\.[^.]+$/, "");
+  return path5.join(outDir, `${baseName}${extension}`);
 }
 async function importFresh(modulePath) {
   const fileUrl = pathToFileURL(modulePath).href;
@@ -6515,16 +6516,16 @@ async function importFresh(modulePath) {
 // src/cli/shared/metadata.ts
 var METADATA_ENTRY = "metadata.ts";
 async function loadMetadata2(projectRoot) {
-  const absPath = path6.join(projectRoot, METADATA_ENTRY);
-  if (!fs2.existsSync(absPath)) {
+  const absPath = path5.join(projectRoot, METADATA_ENTRY);
+  if (!fs4.existsSync(absPath)) {
     return {
       metadata: MetadataSchema.parse({}),
       sourcePath: "smart defaults (metadata.ts missing)"
     };
   }
-  const tempDir = path6.join(projectRoot, ".opentool-temp");
-  if (fs2.existsSync(tempDir)) {
-    fs2.rmSync(tempDir, { recursive: true, force: true });
+  const tempDir = path5.join(projectRoot, ".opentool-temp");
+  if (fs4.existsSync(tempDir)) {
+    fs4.rmSync(tempDir, { recursive: true, force: true });
   }
   const { outDir, cleanup } = await transpileWithEsbuild({
     entryPoints: [absPath],
@@ -6540,8 +6541,8 @@ async function loadMetadata2(projectRoot) {
     return { metadata: parsed, sourcePath: absPath };
   } finally {
     cleanup();
-    if (fs2.existsSync(tempDir)) {
-      fs2.rmSync(tempDir, { recursive: true, force: true });
+    if (fs4.existsSync(tempDir)) {
+      fs4.rmSync(tempDir, { recursive: true, force: true });
     }
   }
 }
@@ -6563,12 +6564,12 @@ function extractMetadataExport(moduleExports) {
   return moduleExports;
 }
 function readPackageJson(projectRoot) {
-  const packagePath = path6.join(projectRoot, "package.json");
-  if (!fs2.existsSync(packagePath)) {
+  const packagePath = path5.join(projectRoot, "package.json");
+  if (!fs4.existsSync(packagePath)) {
     return {};
   }
   try {
-    const content = fs2.readFileSync(packagePath, "utf8");
+    const content = fs4.readFileSync(packagePath, "utf8");
     return JSON.parse(content);
   } catch (error) {
     throw new Error(`Failed to read package.json: ${error}`);
@@ -6579,7 +6580,7 @@ async function buildMetadataArtifact(options) {
   const packageInfo = readPackageJson(projectRoot);
   const { metadata: authored, sourcePath } = await loadMetadata2(projectRoot);
   const defaultsApplied = [];
-  const folderName = path6.basename(projectRoot);
+  const folderName = path5.basename(projectRoot);
   const name = resolveField(
     "name",
     authored.name,
@@ -6791,6 +6792,8 @@ function validateCronTokens(fields, context) {
 
 // src/cli/validate.ts
 var SUPPORTED_EXTENSIONS = [".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"];
+var OPENTOOL_ROOT = path5.resolve(path5.dirname(fileURLToPath(import.meta.url)), "../..");
+var OPENTOOL_NODE_MODULES = path5.join(OPENTOOL_ROOT, "node_modules");
 var MIN_TEMPLATE_CONFIG_VERSION = 2;
 var TEMPLATE_PREVIEW_TITLE_MAX = 80;
 var TEMPLATE_PREVIEW_SUBTITLE_MAX = 120;
@@ -6879,11 +6882,11 @@ function normalizeTemplatePreview(value, file, toolName, requirePreview) {
 async function validateCommand(options) {
   console.log("\u{1F50D} Validating OpenTool project...");
   try {
-    const toolsDir = path6.resolve(options.input);
-    if (!fs2.existsSync(toolsDir)) {
+    const toolsDir = path5.resolve(options.input);
+    if (!fs4.existsSync(toolsDir)) {
       throw new Error(`Tools directory not found: ${toolsDir}`);
     }
-    const projectRoot = path6.dirname(toolsDir);
+    const projectRoot = path5.dirname(toolsDir);
     const tools = await loadAndValidateTools(toolsDir, { projectRoot });
     if (tools.length === 0) {
       throw new Error("No valid tools found - validation aborted");
@@ -6900,14 +6903,14 @@ async function validateCommand(options) {
   }
 }
 async function loadAndValidateTools(toolsDir, options = {}) {
-  const files = fs2.readdirSync(toolsDir).filter((file) => SUPPORTED_EXTENSIONS.includes(path6.extname(file)));
+  const files = fs4.readdirSync(toolsDir).filter((file) => SUPPORTED_EXTENSIONS.includes(path5.extname(file)));
   if (files.length === 0) {
     return [];
   }
-  const projectRoot = options.projectRoot ?? path6.dirname(toolsDir);
-  const tempDir = path6.join(toolsDir, ".opentool-temp");
-  if (fs2.existsSync(tempDir)) {
-    fs2.rmSync(tempDir, { recursive: true, force: true });
+  const projectRoot = options.projectRoot ?? path5.dirname(toolsDir);
+  const tempDir = path5.join(toolsDir, ".opentool-temp");
+  if (fs4.existsSync(tempDir)) {
+    fs4.rmSync(tempDir, { recursive: true, force: true });
   }
   const kebabCase = /^[a-z0-9]+(?:-[a-z0-9]+)*\.[a-z]+$/;
   for (const f of files) {
@@ -6915,20 +6918,23 @@ async function loadAndValidateTools(toolsDir, options = {}) {
       throw new Error(`Tool filename must be kebab-case: ${f}`);
     }
   }
-  const entryPoints = files.map((file) => path6.join(toolsDir, file));
+  const entryPoints = files.map((file) => path5.join(toolsDir, file));
+  const fallbackNodePaths = [OPENTOOL_NODE_MODULES].filter((dir) => fs4.existsSync(dir));
   const { outDir, cleanup } = await transpileWithEsbuild({
     entryPoints,
     projectRoot,
     format: "esm",
     outDir: tempDir,
     bundle: true,
-    external: ["opentool", "opentool/*"]
+    external: ["opentool", "opentool/*"],
+    ...fallbackNodePaths.length > 0 ? { nodePaths: fallbackNodePaths } : {}
   });
   const tools = [];
   try {
+    ensureLocalRuntimeLinks(tempDir);
     for (const file of files) {
       const compiledPath = resolveCompiledPath(outDir, file);
-      if (!fs2.existsSync(compiledPath)) {
+      if (!fs4.existsSync(compiledPath)) {
         throw new Error(`Failed to compile ${file}`);
       }
       const moduleExports = await importFresh(compiledPath);
@@ -7126,7 +7132,7 @@ async function loadAndValidateTools(toolsDir, options = {}) {
         httpHandlers,
         mcpConfig: normalizeMcpConfig(toolModule.mcp, file),
         filename: toBaseName(file),
-        sourcePath: path6.join(toolsDir, file),
+        sourcePath: path5.join(toolsDir, file),
         handler: async (params) => adapter(params),
         payment: paymentExport ?? null,
         schedule: normalizedSchedule,
@@ -7139,11 +7145,29 @@ async function loadAndValidateTools(toolsDir, options = {}) {
     }
   } finally {
     cleanup();
-    if (fs2.existsSync(tempDir)) {
-      fs2.rmSync(tempDir, { recursive: true, force: true });
+    if (fs4.existsSync(tempDir)) {
+      fs4.rmSync(tempDir, { recursive: true, force: true });
     }
   }
   return tools;
+}
+function ensureLocalRuntimeLinks(tempDir) {
+  const nodeModulesDir = path5.join(tempDir, "node_modules");
+  fs4.mkdirSync(nodeModulesDir, { recursive: true });
+  const packageLinks = [
+    { name: "opentool", target: OPENTOOL_ROOT },
+    { name: "zod", target: path5.join(OPENTOOL_NODE_MODULES, "zod") }
+  ];
+  for (const { name, target } of packageLinks) {
+    if (!fs4.existsSync(target)) {
+      continue;
+    }
+    const linkPath = path5.join(nodeModulesDir, name);
+    if (fs4.existsSync(linkPath)) {
+      continue;
+    }
+    fs4.symlinkSync(target, linkPath, "junction");
+  }
 }
 function extractToolModule(exportsObject, filename) {
   const candidates = [exportsObject, exportsObject?.default];
@@ -7342,18 +7366,18 @@ async function generateMetadataCommand(options) {
   }
 }
 async function generateMetadata(options) {
-  const toolsDir = path6.resolve(options.input);
-  if (!fs2.existsSync(toolsDir)) {
+  const toolsDir = path5.resolve(options.input);
+  if (!fs4.existsSync(toolsDir)) {
     throw new Error(`Tools directory not found: ${toolsDir}`);
   }
-  const projectRoot = path6.dirname(toolsDir);
+  const projectRoot = path5.dirname(toolsDir);
   const tools = await loadAndValidateTools(toolsDir, { projectRoot });
   const { metadata, defaultsApplied } = await buildMetadataArtifact({
     projectRoot,
     tools
   });
-  const outputPath = options.output ? path6.resolve(options.output) : path6.join(projectRoot, "metadata.json");
-  fs2.writeFileSync(outputPath, JSON.stringify(metadata, null, 2));
+  const outputPath = options.output ? path5.resolve(options.output) : path5.join(projectRoot, "metadata.json");
+  fs4.writeFileSync(outputPath, JSON.stringify(metadata, null, 2));
   return {
     metadata,
     defaultsApplied,

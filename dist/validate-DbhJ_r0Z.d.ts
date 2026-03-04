@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { X402Payment } from './x402/index.js';
+import { X as X402Payment } from './payment-orkZA9se.js';
 
 declare const PaymentConfigSchema: z.ZodUnion<readonly [z.ZodObject<{
     definition: z.ZodObject<{

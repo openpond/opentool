@@ -1,9 +1,8 @@
 #!/usr/bin/env node
-import { M as Metadata, I as InternalToolDefinition } from '../validate-BgNU5laL.js';
-export { G as GenerateMetadataOptions, a as GenerateMetadataResult, V as ValidateOptions, g as generateMetadata, b as generateMetadataCommand, l as loadAndValidateTools, v as validateCommand, c as validateFullCommand } from '../validate-BgNU5laL.js';
+import { M as Metadata, I as InternalToolDefinition } from '../validate-DbhJ_r0Z.js';
+export { G as GenerateMetadataOptions, a as GenerateMetadataResult, V as ValidateOptions, g as generateMetadata, b as generateMetadataCommand, l as loadAndValidateTools, v as validateCommand, c as validateFullCommand } from '../validate-DbhJ_r0Z.js';
 import 'zod';
-import '../x402/index.js';
-import 'viem';
+import '../payment-orkZA9se.js';
 
 interface BuildOptions {
     input: string;

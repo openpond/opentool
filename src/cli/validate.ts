@@ -1,5 +1,6 @@
 import * as fs from "fs";
-import * as path from "path";
+import * as path from "node:path";
+import { fileURLToPath } from "url";
 import { z, type ZodSchema } from "zod";
 import { zodToJsonSchema, type JsonSchema7Type } from "@alcyone-labs/zod-to-json-schema";
 import { createMcpAdapter } from "../adapters/mcp";
@@ -11,7 +12,7 @@ import {
   type NormalizedSchedule,
 } from "../types/index";
 import { Metadata, ToolMetadataOverrides } from "../types/metadata";
-import { withX402Payment, type X402Payment } from "../x402/index";
+import { withX402Payment, type X402Payment } from "../x402/payment";
 import { transpileWithEsbuild } from "../utils/esbuild";
 import { importFresh, resolveCompiledPath } from "../utils/module-loader";
 import { buildMetadataArtifact } from "./shared/metadata";
@@ -26,6 +27,8 @@ interface LoadToolsOptions {
 }
 
 const SUPPORTED_EXTENSIONS = [".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"];
+const OPENTOOL_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
+const OPENTOOL_NODE_MODULES = path.join(OPENTOOL_ROOT, "node_modules");
 
 const MIN_TEMPLATE_CONFIG_VERSION = 2;
 const TEMPLATE_PREVIEW_TITLE_MAX = 80;
@@ -234,6 +237,8 @@ export async function loadAndValidateTools(
 
   const entryPoints = files.map((file) => path.join(toolsDir, file));
 
+  const fallbackNodePaths = [OPENTOOL_NODE_MODULES].filter((dir) => fs.existsSync(dir));
+
   const { outDir, cleanup } = await transpileWithEsbuild({
     entryPoints,
     projectRoot,
@@ -241,11 +246,14 @@ export async function loadAndValidateTools(
     outDir: tempDir,
     bundle: true,
     external: ["opentool", "opentool/*"],
+    ...(fallbackNodePaths.length > 0 ? { nodePaths: fallbackNodePaths } : {}),
   });
 
   const tools: InternalToolDefinition[] = [];
 
   try {
+    ensureLocalRuntimeLinks(tempDir);
+
     for (const file of files) {
       const compiledPath = resolveCompiledPath(outDir, file);
       if (!fs.existsSync(compiledPath)) {
@@ -511,6 +519,29 @@ export async function loadAndValidateTools(
   }
 
   return tools;
+}
+
+function ensureLocalRuntimeLinks(tempDir: string): void {
+  const nodeModulesDir = path.join(tempDir, "node_modules");
+  fs.mkdirSync(nodeModulesDir, { recursive: true });
+
+  const packageLinks = [
+    { name: "opentool", target: OPENTOOL_ROOT },
+    { name: "zod", target: path.join(OPENTOOL_NODE_MODULES, "zod") },
+  ];
+
+  for (const { name, target } of packageLinks) {
+    if (!fs.existsSync(target)) {
+      continue;
+    }
+
+    const linkPath = path.join(nodeModulesDir, name);
+    if (fs.existsSync(linkPath)) {
+      continue;
+    }
+
+    fs.symlinkSync(target, linkPath, "junction");
+  }
 }
 
 function extractToolModule(exportsObject: any, filename: string): any {

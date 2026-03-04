@@ -1,5 +1,5 @@
 import { createHmac, randomBytes } from "node:crypto";
-import { formatUnits, parseUnits } from "viem";
+import { parseUnits } from "viem";
 import type { WalletFullContext } from "../../wallet/types";
 
 export type PolymarketEnvironment = "mainnet" | "testnet";
@@ -482,8 +482,4 @@ export async function buildSignedOrderPayload(args: {
     signatureType,
     signature: signature as `0x${string}`,
   };
-}
-
-export function formatPriceFromUnits(units: bigint): string {
-  return formatUnits(units, 6);
 }

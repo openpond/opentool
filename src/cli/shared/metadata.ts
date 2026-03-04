@@ -1,5 +1,5 @@
 import * as fs from "fs";
-import * as path from "path";
+import * as path from "node:path";
 import { JsonSchema7Type } from "@alcyone-labs/zod-to-json-schema";
 import {
   Metadata,

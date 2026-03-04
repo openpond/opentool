@@ -1,5 +1,5 @@
 import * as fs from "fs";
-import * as path from "path";
+import * as path from "node:path";
 import { InternalToolDefinition } from "../types/index";
 import { Metadata } from "../types/metadata";
 import { transpileWithEsbuild } from "../utils/esbuild";

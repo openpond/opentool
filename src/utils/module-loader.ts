@@ -1,4 +1,4 @@
-import * as path from "path";
+import * as path from "node:path";
 import { createRequire } from "module";
 import { pathToFileURL } from "url";
 

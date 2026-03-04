@@ -1,5 +1,5 @@
 import * as fs from "fs";
-import * as path from "path";
+import * as path from "node:path";
 import { tmpdir } from "os";
 import { build, type BuildOptions } from "esbuild";
 
@@ -11,6 +11,7 @@ interface TranspileOptions {
   format: "cjs" | "esm";
   bundle?: boolean;
   external?: string[];
+  nodePaths?: string[];
   metafile?: boolean;
   logLevel?: "silent" | "error" | "warning" | "info" | "debug";
 }
@@ -69,6 +70,10 @@ export async function transpileWithEsbuild(options: TranspileOptions): Promise<T
 
   if (options.external && options.external.length > 0) {
     buildOptions.external = options.external;
+  }
+
+  if (options.nodePaths && options.nodePaths.length > 0) {
+    buildOptions.nodePaths = options.nodePaths;
   }
 
   if (options.outBase) {
