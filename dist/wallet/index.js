@@ -40,10 +40,7 @@ var chains = {
     slug: "ethereum",
     name: "Ethereum",
     chain: mainnet,
-    rpcUrl: buildRpcResolver(
-      ETHEREUM_ALCHEMY_HOST,
-      mainnet.rpcUrls.default.http
-    ),
+    rpcUrl: buildRpcResolver(ETHEREUM_ALCHEMY_HOST, mainnet.rpcUrls.default.http),
     publicRpcUrls: mainnet.rpcUrls.default.http
   },
   baseSepolia: {
@@ -51,20 +48,14 @@ var chains = {
     slug: "base-sepolia",
     name: "Base Sepolia",
     chain: baseSepolia,
-    rpcUrl: buildRpcResolver(
-      BASE_SEPOLIA_ALCHEMY_HOST,
-      baseSepolia.rpcUrls.default.http
-    )
+    rpcUrl: buildRpcResolver(BASE_SEPOLIA_ALCHEMY_HOST, baseSepolia.rpcUrls.default.http)
   },
   arbitrum: {
     id: arbitrum.id,
     slug: "arbitrum",
     name: "Arbitrum One",
     chain: arbitrum,
-    rpcUrl: buildRpcResolver(
-      ARBITRUM_ALCHEMY_HOST,
-      arbitrum.rpcUrls.default.http
-    ),
+    rpcUrl: buildRpcResolver(ARBITRUM_ALCHEMY_HOST, arbitrum.rpcUrls.default.http),
     publicRpcUrls: arbitrum.rpcUrls.default.http
   },
   arbitrumSepolia: {
@@ -72,10 +63,7 @@ var chains = {
     slug: "arbitrum-sepolia",
     name: "Arbitrum Sepolia",
     chain: arbitrumSepolia,
-    rpcUrl: buildRpcResolver(
-      ARBITRUM_SEPOLIA_ALCHEMY_HOST,
-      arbitrumSepolia.rpcUrls.default.http
-    ),
+    rpcUrl: buildRpcResolver(ARBITRUM_SEPOLIA_ALCHEMY_HOST, arbitrumSepolia.rpcUrls.default.http),
     publicRpcUrls: arbitrumSepolia.rpcUrls.default.http
   }
 };
@@ -103,33 +91,15 @@ function token(chainId, symbol, name, address, decimals) {
 var tokens = {
   base: {
     ...createNativeToken(base.id, "ETH", "Ether"),
-    USDC: token(
-      base.id,
-      "USDC",
-      "USD Coin",
-      "0x833589fCD6eDb6E08f4c7C31c9A8Ba32D74b86B2",
-      6
-    )
+    USDC: token(base.id, "USDC", "USD Coin", "0x833589fCD6eDb6E08f4c7C31c9A8Ba32D74b86B2", 6)
   },
   ethereum: {
     ...createNativeToken(mainnet.id, "ETH", "Ether"),
-    USDC: token(
-      mainnet.id,
-      "USDC",
-      "USD Coin",
-      "0xA0b86991c6218b36c1d19d4a2e9Eb0cE3606eB48",
-      6
-    )
+    USDC: token(mainnet.id, "USDC", "USD Coin", "0xA0b86991c6218b36c1d19d4a2e9Eb0cE3606eB48", 6)
   },
   arbitrum: {
     ...createNativeToken(arbitrum.id, "ETH", "Ether"),
-    USDC: token(
-      arbitrum.id,
-      "USDC",
-      "USD Coin",
-      "0xaf88d065e77c8cc2239327c5edb3a432268e5831",
-      6
-    )
+    USDC: token(arbitrum.id, "USDC", "USD Coin", "0xaf88d065e77c8cc2239327c5edb3a432268e5831", 6)
   },
   arbitrumSepolia: {
     ...createNativeToken(arbitrumSepolia.id, "ETH", "Ether"),

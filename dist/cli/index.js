@@ -128,10 +128,7 @@ var X402PaymentSchema = z.object({
   }),
   metadata: z.record(z.string(), z.unknown()).optional()
 }).passthrough();
-var PaymentConfigSchema = z.union([
-  X402PaymentSchema,
-  z.record(z.string(), z.unknown())
-]);
+var PaymentConfigSchema = z.union([X402PaymentSchema, z.record(z.string(), z.unknown())]);
 var DiscoveryMetadataSchema = z.object({
   keywords: z.array(z.string()).optional(),
   category: z.string().optional(),
@@ -460,7 +457,7 @@ function buildDiscovery(authored) {
   }
   const merged = {
     ...legacyDiscovery,
-    ...authored.discovery ?? {}
+    ...authored.discovery
   };
   return Object.keys(merged).length > 0 ? merged : void 0;
 }
@@ -592,7 +589,10 @@ async function verifyX402Payment(attempt, definition, options = {}) {
     console.log("[x402] Facilitator /verify response", { status: verifyResponse.status });
     if (!verifyResponse.ok) {
       const errorText = await verifyResponse.text().catch(() => "");
-      console.error("[x402] Facilitator /verify error", { status: verifyResponse.status, body: errorText });
+      console.error("[x402] Facilitator /verify error", {
+        status: verifyResponse.status,
+        body: errorText
+      });
       return {
         success: false,
         failure: {
@@ -640,7 +640,10 @@ async function verifyX402Payment(attempt, definition, options = {}) {
         console.log("[x402] Facilitator /settle response", { status: settleResponse.status });
         if (!settleResponse.ok) {
           const errorText = await settleResponse.text().catch(() => "");
-          console.error("[x402] Facilitator /settle error", { status: settleResponse.status, body: errorText });
+          console.error("[x402] Facilitator /settle error", {
+            status: settleResponse.status,
+            body: errorText
+          });
           return {
             success: false,
             failure: {
@@ -658,7 +661,9 @@ async function verifyX402Payment(attempt, definition, options = {}) {
           });
         }
       } catch (error) {
-        console.error("[x402] Settlement exception", { error: error instanceof Error ? error.message : String(error) });
+        console.error("[x402] Settlement exception", {
+          error: error instanceof Error ? error.message : String(error)
+        });
         return {
           success: false,
           failure: {
@@ -838,9 +843,7 @@ function createMcpAdapter(options) {
   const defaultMethod = resolveDefaultMethod(options);
   const httpHandler = options.httpHandlers[defaultMethod];
   if (!httpHandler) {
-    throw new Error(
-      `Tool "${options.name}" does not export an HTTP handler for ${defaultMethod}`
-    );
+    throw new Error(`Tool "${options.name}" does not export an HTTP handler for ${defaultMethod}`);
   }
   return async function invoke(rawArguments) {
     const validated = normalizedSchema ? normalizedSchema.parse(rawArguments ?? {}) : rawArguments;
@@ -948,15 +951,7 @@ async function responseToToolResponse(response) {
 }
 
 // src/types/index.ts
-var HTTP_METHODS = [
-  "GET",
-  "HEAD",
-  "POST",
-  "PUT",
-  "DELETE",
-  "PATCH",
-  "OPTIONS"
-];
+var HTTP_METHODS = ["GET", "HEAD", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"];
 
 // src/utils/schedule.ts
 var CRON_WRAPPED_REGEX = /^cron\((.*)\)$/i;
@@ -969,7 +964,9 @@ function normalizeScheduleExpression(raw, context) {
   const cronBody = extractCronBody(value);
   const cronFields = cronBody.trim().split(/\s+/).filter(Boolean);
   if (cronFields.length !== 5 && cronFields.length !== 6) {
-    throw new Error(`${context}: cron expression must have 5 or 6 fields (got ${cronFields.length})`);
+    throw new Error(
+      `${context}: cron expression must have 5 or 6 fields (got ${cronFields.length})`
+    );
   }
   validateCronTokens(cronFields, context);
   return {
@@ -993,14 +990,7 @@ function validateCronTokens(fields, context) {
 }
 
 // src/cli/validate.ts
-var SUPPORTED_EXTENSIONS = [
-  ".ts",
-  ".tsx",
-  ".js",
-  ".jsx",
-  ".mjs",
-  ".cjs"
-];
+var SUPPORTED_EXTENSIONS = [".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"];
 var MIN_TEMPLATE_CONFIG_VERSION = 2;
 var TEMPLATE_PREVIEW_TITLE_MAX = 80;
 var TEMPLATE_PREVIEW_SUBTITLE_MAX = 120;
@@ -1070,14 +1060,10 @@ function normalizeTemplatePreview(value, file, toolName, requirePreview) {
     required: true,
     max: TEMPLATE_PREVIEW_SUBTITLE_MAX
   });
-  const description = parseNonEmptyString(
-    record.description,
-    `${pathPrefix}.description`,
-    {
-      required: true,
-      max: TEMPLATE_PREVIEW_DESCRIPTION_MAX
-    }
-  );
+  const description = parseNonEmptyString(record.description, `${pathPrefix}.description`, {
+    required: true,
+    max: TEMPLATE_PREVIEW_DESCRIPTION_MAX
+  });
   const descriptionLineCount = description.split(/\r?\n/).map((line) => line.trim()).filter((line) => line.length > 0).length;
   if (descriptionLineCount < TEMPLATE_PREVIEW_MIN_LINES || descriptionLineCount > TEMPLATE_PREVIEW_MAX_LINES) {
     throw new Error(
@@ -1204,15 +1190,13 @@ async function loadAndValidateTools(toolsDir, options = {}) {
       const profileRaw = toolModule?.profile && typeof toolModule.profile === "object" ? toolModule.profile : null;
       const schedule = profileRaw?.schedule ?? null;
       const profileNotifyEmail = typeof profileRaw?.notifyEmail === "boolean" ? profileRaw.notifyEmail : void 0;
-      const allowedProfileCategories = [
-        "strategy",
-        "tracker",
-        "orchestrator"
-      ];
+      const allowedProfileCategories = ["strategy", "tracker", "orchestrator"];
       const profileCategoryCandidate = typeof profileRaw?.category === "string" ? profileRaw.category : void 0;
       let profileCategoryRaw;
       if (profileCategoryCandidate !== void 0) {
-        const isAllowed = allowedProfileCategories.includes(profileCategoryCandidate);
+        const isAllowed = allowedProfileCategories.includes(
+          profileCategoryCandidate
+        );
         if (!isAllowed) {
           throw new Error(
             `${file}: profile.category must be one of ${allowedProfileCategories.join(", ")}`
@@ -1227,22 +1211,16 @@ async function loadAndValidateTools(toolsDir, options = {}) {
         }
         profileAssetsRaw.forEach((entry, index) => {
           if (!entry || typeof entry !== "object") {
-            throw new Error(
-              `${file}: profile.assets[${index}] must be an object.`
-            );
+            throw new Error(`${file}: profile.assets[${index}] must be an object.`);
           }
           const record = entry;
           const venue = typeof record.venue === "string" ? record.venue.trim() : "";
           if (!venue) {
-            throw new Error(
-              `${file}: profile.assets[${index}].venue must be a non-empty string.`
-            );
+            throw new Error(`${file}: profile.assets[${index}].venue must be a non-empty string.`);
           }
           const chain = record.chain;
           if (typeof chain !== "string" && typeof chain !== "number") {
-            throw new Error(
-              `${file}: profile.assets[${index}].chain must be a string or number.`
-            );
+            throw new Error(`${file}: profile.assets[${index}].chain must be a string or number.`);
           }
           const symbols = record.assetSymbols;
           if (!Array.isArray(symbols) || symbols.length === 0) {
@@ -1336,14 +1314,14 @@ async function loadAndValidateTools(toolsDir, options = {}) {
           throw new Error(`${file}: POST tools must export a Zod schema as 'schema'`);
         }
         if (schedule && typeof schedule.cron === "string") {
-          throw new Error(`${file}: POST tools must not define profile.schedule; use GET + cron for scheduled tasks.`);
+          throw new Error(
+            `${file}: POST tools must not define profile.schedule; use GET + cron for scheduled tasks.`
+          );
         }
       }
       const httpHandlers = [...httpHandlersRaw];
       if (httpHandlers.length === 0) {
-        throw new Error(
-          `${file} must export at least one HTTP handler (e.g. POST)`
-        );
+        throw new Error(`${file} must export at least one HTTP handler (e.g. POST)`);
       }
       if (paymentExport) {
         for (let index = 0; index < httpHandlers.length; index += 1) {
@@ -1369,7 +1347,7 @@ async function loadAndValidateTools(toolsDir, options = {}) {
             ...metadataOverrides,
             payment: metadataOverrides.payment ?? paymentExport,
             annotations: {
-              ...metadataOverrides.annotations ?? {},
+              ...metadataOverrides.annotations,
               requiresPayment: metadataOverrides.annotations?.requiresPayment ?? true
             }
           };
@@ -1831,19 +1809,12 @@ async function writeMcpServer(options) {
 }
 function writeToolsManifest(options) {
   const manifestPath = path6.join(options.outputDir, "tools.json");
-  const legacyManifestPath = path6.join(
-    options.outputDir,
-    ".well-known",
-    "opentool",
-    "cron.json"
-  );
+  const legacyManifestPath = path6.join(options.outputDir, ".well-known", "opentool", "cron.json");
   if (fs4.existsSync(legacyManifestPath)) {
     fs4.rmSync(legacyManifestPath, { force: true });
   }
   const entries = options.tools.map((tool) => {
-    const compiled = options.compiledTools.find(
-      (artifact) => artifact.filename === tool.filename
-    );
+    const compiled = options.compiledTools.find((artifact) => artifact.filename === tool.filename);
     if (!compiled) {
       throw new Error(`Internal error: missing compiled artifact for ${tool.filename}`);
     }
@@ -1947,10 +1918,8 @@ async function devCommand(options) {
           return;
         }
         reloading = true;
-        log(
-          `${dim}
-Detected change in ${changedPath ?? "tools directory"}, reloading...${reset}`
-        );
+        log(`${dim}
+Detected change in ${changedPath ?? "tools directory"}, reloading...${reset}`);
         try {
           toolDefinitions = await loadToolDefinitions(toolsDir, projectRoot);
           routes = expandRoutes(toolDefinitions);
@@ -1983,9 +1952,7 @@ Detected change in ${changedPath ?? "tools directory"}, reloading...${reset}`
       log(`${dim}[request] ${method} ${routePath}${reset}`);
       try {
         await handleRequest({ req, res, port, routes });
-        log(
-          `${dim}[response] ${method} ${routePath} ${res.statusCode}${reset}`
-        );
+        log(`${dim}[response] ${method} ${routePath} ${res.statusCode}${reset}`);
       } catch (error) {
         console.error("Error handling request:", error);
         res.writeHead(500, { "Content-Type": "application/json" });
@@ -1995,9 +1962,7 @@ Detected change in ${changedPath ?? "tools directory"}, reloading...${reset}`
     });
     server.listen(port, () => {
       log(`${bold}${dim}> dev opentool${reset}`);
-      log(
-        `   * ${bold}opentool${reset} ${cyan}v${packageJson.version}${reset}`
-      );
+      log(`   * ${bold}opentool${reset} ${cyan}v${packageJson.version}${reset}`);
       log(`   * ${bold}HTTP:${reset} http://localhost:${port}`);
       logStartup(toolDefinitions, enableStdio, log);
     });
@@ -2050,9 +2015,7 @@ async function startMcpServer(getTools) {
       throw new Error(`Tool ${request.params.name} not found`);
     }
     try {
-      const validatedParams = tool.schema.parse(
-        request.params.arguments
-      );
+      const validatedParams = tool.schema.parse(request.params.arguments);
       const handler = tool.handler ?? createMcpAdapter({
         name: tool.metadata?.name ?? tool.filename,
         httpHandlers: toHttpHandlerMap2(tool.httpHandlers),
@@ -2136,10 +2099,7 @@ function printToolList(tools, log) {
 async function handleRequest(params) {
   const { req, res, port, routes } = params;
   res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader(
-    "Access-Control-Allow-Methods",
-    HTTP_METHODS.join(", ") + ", OPTIONS"
-  );
+  res.setHeader("Access-Control-Allow-Methods", HTTP_METHODS.join(", ") + ", OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
   if (req.method === "OPTIONS") {
     res.writeHead(200);
@@ -2192,9 +2152,7 @@ function findRoute(toolName, method, routes) {
     return direct;
   }
   if (method === "HEAD") {
-    return routes.find(
-      (route) => routeName(route.tool) === toolName && route.method === "GET"
-    );
+    return routes.find((route) => routeName(route.tool) === toolName && route.method === "GET");
   }
   return void 0;
 }
@@ -2241,13 +2199,10 @@ function createWebRequest(params) {
   return new Request(url, init);
 }
 function toHttpHandlerMap2(handlers) {
-  return handlers.reduce(
-    (acc, handler) => {
-      acc[handler.method.toUpperCase()] = handler.handler;
-      return acc;
-    },
-    {}
-  );
+  return handlers.reduce((acc, handler) => {
+    acc[handler.method.toUpperCase()] = handler.handler;
+    return acc;
+  }, {});
 }
 function isMcpEnabled(tool) {
   return Boolean(tool.mcpConfig?.enabled);
@@ -2347,7 +2302,7 @@ async function updateMetadata(targetDir, name, description) {
   const raw = await promises.readFile(filePath, "utf-8");
   const displayName = toDisplayName(name);
   const resolvedDescription = description || "OpenTool project";
-  const updated = raw.replace(/name:\s*\".*?\"/, `name: "${toPackageName(name)}"`).replace(/displayName:\s*\".*?\"/, `displayName: "${displayName}"`).replace(/description:\s*\".*?\"/, `description: "${resolvedDescription}"`);
+  const updated = raw.replace(/name:\s*".*?"/, `name: "${toPackageName(name)}"`).replace(/displayName:\s*".*?"/, `displayName: "${displayName}"`).replace(/description:\s*".*?"/, `description: "${resolvedDescription}"`);
   await promises.writeFile(filePath, updated, "utf-8");
 }
 async function initCommand(options) {
@@ -2355,9 +2310,7 @@ async function initCommand(options) {
   const templateDir = resolveTemplateDir();
   const empty = await directoryIsEmpty(targetDir);
   if (!empty && !options.force) {
-    throw new Error(
-      `Directory not empty: ${targetDir}. Use --force to overwrite.`
-    );
+    throw new Error(`Directory not empty: ${targetDir}. Use --force to overwrite.`);
   }
   await copyDir(templateDir, targetDir);
   const projectName = options.name || path6__default.basename(targetDir);
@@ -2379,11 +2332,7 @@ program.command("dev").description("Start HTTP dev server (optional MCP stdio)")
 program.command("build").description("Build tools for deployment").option("-i, --input <dir>", "Input directory containing tools", "tools").option("-o, --output <dir>", "Output directory for built tools", "dist").option("--name <name>", "Server name", "opentool-server").option("--version <version>", "Server version", "1.0.0").action(buildCommand);
 program.command("validate").description("Validate metadata for registry submission").option("-i, --input <dir>", "Input directory containing tools", "tools").action(validateCommand);
 program.command("validate-full").description("Full validation of tools and metadata").option("-i, --input <dir>", "Input directory containing tools", "tools").action(validateFullCommand);
-program.command("metadata").description("Generate OpenTool metadata JSON without building").option("-i, --input <dir>", "Input directory containing tools", "tools").option(
-  "-o, --output <file>",
-  "Output file path for metadata.json",
-  "metadata.json"
-).option("--name <name>", "Server name", "opentool-server").option("--version <version>", "Server version", "1.0.0").action(generateMetadataCommand);
+program.command("metadata").description("Generate OpenTool metadata JSON without building").option("-i, --input <dir>", "Input directory containing tools", "tools").option("-o, --output <file>", "Output file path for metadata.json", "metadata.json").option("--name <name>", "Server name", "opentool-server").option("--version <version>", "Server version", "1.0.0").action(generateMetadataCommand);
 program.command("init").description("Create a new OpenTool project in the target directory").option("-d, --dir <dir>", "Target directory", ".").option("-n, --name <name>", "Project name").option("--description <description>", "Project description").option("--force", "Overwrite existing files", false).action(async (cmdOptions) => {
   await initCommand({
     dir: cmdOptions.dir,

@@ -267,9 +267,7 @@ function ensureTextContent(message, options) {
   if (flattened !== void 0) {
     return flattened;
   }
-  throw new AIError(
-    options?.errorMessage ?? "Assistant response did not contain textual content."
-  );
+  throw new AIError(options?.errorMessage ?? "Assistant response did not contain textual content.");
 }
 function extractTextPart(part, options) {
   if (!part || typeof part !== "object") {
@@ -501,7 +499,7 @@ async function streamText(options, clientConfig = {}) {
     } finally {
       try {
         reader.releaseLock();
-      } catch (error) {
+      } catch {
       }
       abortBundle.cleanup();
     }
@@ -636,11 +634,7 @@ function buildRequestPayload(options, model, capabilities, metadataExtras) {
   assignIfDefined(payload, "top_p", generation.topP);
   assignIfDefined(payload, "max_tokens", generation.maxTokens);
   assignIfDefined(payload, "stop", generation.stop);
-  assignIfDefined(
-    payload,
-    "frequency_penalty",
-    generation.frequencyPenalty
-  );
+  assignIfDefined(payload, "frequency_penalty", generation.frequencyPenalty);
   assignIfDefined(payload, "presence_penalty", generation.presencePenalty);
   assignIfDefined(payload, "response_format", generation.responseFormat);
   const toolExecution = options.toolExecution;
@@ -652,11 +646,7 @@ function buildRequestPayload(options, model, capabilities, metadataExtras) {
   } else if (options.toolChoice && options.toolChoice !== "none") {
     payload.tool_choice = "none";
   }
-  const metadataPayload = buildMetadataPayload(
-    options.metadata,
-    toolExecution,
-    metadataExtras
-  );
+  const metadataPayload = buildMetadataPayload(options.metadata, toolExecution, metadataExtras);
   if (metadataPayload) {
     payload.metadata = metadataPayload;
   }
@@ -680,9 +670,7 @@ function createAbortBundle(upstreamSignal, timeoutMs) {
     } else {
       const onAbort = () => controller.abort(upstreamSignal.reason);
       upstreamSignal.addEventListener("abort", onAbort, { once: true });
-      cleanupCallbacks.push(
-        () => upstreamSignal.removeEventListener("abort", onAbort)
-      );
+      cleanupCallbacks.push(() => upstreamSignal.removeEventListener("abort", onAbort));
     }
   }
   if (timeoutMs && timeoutMs > 0) {
@@ -714,11 +702,9 @@ function buildMetadataPayload(base, toolExecution, extras) {
         continue;
       }
       if (key === "openpond" && typeof value === "object" && value !== null) {
-        const existing = {
-          ...metadata.openpond ?? {}
-        };
+        const existing = metadata.openpond;
         metadata.openpond = {
-          ...existing,
+          ...typeof existing === "object" && existing !== null ? existing : void 0,
           ...value
         };
       } else {
@@ -727,8 +713,9 @@ function buildMetadataPayload(base, toolExecution, extras) {
     }
   }
   if (toolExecution) {
+    const existing = metadata.openpond;
     const openpond = {
-      ...metadata.openpond ?? {},
+      ...typeof existing === "object" && existing !== null ? existing : void 0,
       toolExecution
     };
     metadata.openpond = openpond;

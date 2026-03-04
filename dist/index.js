@@ -169,7 +169,10 @@ async function verifyX402Payment(attempt, definition, options = {}) {
     console.log("[x402] Facilitator /verify response", { status: verifyResponse.status });
     if (!verifyResponse.ok) {
       const errorText = await verifyResponse.text().catch(() => "");
-      console.error("[x402] Facilitator /verify error", { status: verifyResponse.status, body: errorText });
+      console.error("[x402] Facilitator /verify error", {
+        status: verifyResponse.status,
+        body: errorText
+      });
       return {
         success: false,
         failure: {
@@ -217,7 +220,10 @@ async function verifyX402Payment(attempt, definition, options = {}) {
         console.log("[x402] Facilitator /settle response", { status: settleResponse.status });
         if (!settleResponse.ok) {
           const errorText = await settleResponse.text().catch(() => "");
-          console.error("[x402] Facilitator /settle error", { status: settleResponse.status, body: errorText });
+          console.error("[x402] Facilitator /settle error", {
+            status: settleResponse.status,
+            body: errorText
+          });
           return {
             success: false,
             failure: {
@@ -235,7 +241,9 @@ async function verifyX402Payment(attempt, definition, options = {}) {
           });
         }
       } catch (error) {
-        console.error("[x402] Settlement exception", { error: error instanceof Error ? error.message : String(error) });
+        console.error("[x402] Settlement exception", {
+          error: error instanceof Error ? error.message : String(error)
+        });
         return {
           success: false,
           failure: {
@@ -769,23 +777,13 @@ function toDecimalString(value) {
 }
 
 // src/adapters/mcp.ts
-var HTTP_METHODS = [
-  "GET",
-  "HEAD",
-  "POST",
-  "PUT",
-  "DELETE",
-  "PATCH",
-  "OPTIONS"
-];
+var HTTP_METHODS = ["GET", "HEAD", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"];
 function createMcpAdapter(options) {
   const normalizedSchema = ensureSchema(options.schema);
   const defaultMethod = resolveDefaultMethod(options);
   const httpHandler = options.httpHandlers[defaultMethod];
   if (!httpHandler) {
-    throw new Error(
-      `Tool "${options.name}" does not export an HTTP handler for ${defaultMethod}`
-    );
+    throw new Error(`Tool "${options.name}" does not export an HTTP handler for ${defaultMethod}`);
   }
   return async function invoke(rawArguments) {
     const validated = normalizedSchema ? normalizedSchema.parse(rawArguments ?? {}) : rawArguments;
@@ -1017,7 +1015,7 @@ async function loadToolsFromDirectory(metadataMap) {
             target: "jsonSchema7",
             $refStrategy: "none"
           });
-        } catch (error) {
+        } catch {
           inputSchema = { type: "object" };
         }
       }
@@ -1189,15 +1187,7 @@ function resolveRuntimePath(value) {
 }
 
 // src/types/index.ts
-var HTTP_METHODS2 = [
-  "GET",
-  "HEAD",
-  "POST",
-  "PUT",
-  "DELETE",
-  "PATCH",
-  "OPTIONS"
-];
+var HTTP_METHODS2 = ["GET", "HEAD", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"];
 var BASE_ALCHEMY_HOST = "https://base-mainnet.g.alchemy.com/v2/";
 var ETHEREUM_ALCHEMY_HOST = "https://eth-mainnet.g.alchemy.com/v2/";
 var BASE_SEPOLIA_ALCHEMY_HOST = "https://base-sepolia.g.alchemy.com/v2/";
@@ -1233,10 +1223,7 @@ var chains = {
     slug: "ethereum",
     name: "Ethereum",
     chain: mainnet,
-    rpcUrl: buildRpcResolver(
-      ETHEREUM_ALCHEMY_HOST,
-      mainnet.rpcUrls.default.http
-    ),
+    rpcUrl: buildRpcResolver(ETHEREUM_ALCHEMY_HOST, mainnet.rpcUrls.default.http),
     publicRpcUrls: mainnet.rpcUrls.default.http
   },
   baseSepolia: {
@@ -1244,20 +1231,14 @@ var chains = {
     slug: "base-sepolia",
     name: "Base Sepolia",
     chain: baseSepolia,
-    rpcUrl: buildRpcResolver(
-      BASE_SEPOLIA_ALCHEMY_HOST,
-      baseSepolia.rpcUrls.default.http
-    )
+    rpcUrl: buildRpcResolver(BASE_SEPOLIA_ALCHEMY_HOST, baseSepolia.rpcUrls.default.http)
   },
   arbitrum: {
     id: arbitrum.id,
     slug: "arbitrum",
     name: "Arbitrum One",
     chain: arbitrum,
-    rpcUrl: buildRpcResolver(
-      ARBITRUM_ALCHEMY_HOST,
-      arbitrum.rpcUrls.default.http
-    ),
+    rpcUrl: buildRpcResolver(ARBITRUM_ALCHEMY_HOST, arbitrum.rpcUrls.default.http),
     publicRpcUrls: arbitrum.rpcUrls.default.http
   },
   arbitrumSepolia: {
@@ -1265,10 +1246,7 @@ var chains = {
     slug: "arbitrum-sepolia",
     name: "Arbitrum Sepolia",
     chain: arbitrumSepolia,
-    rpcUrl: buildRpcResolver(
-      ARBITRUM_SEPOLIA_ALCHEMY_HOST,
-      arbitrumSepolia.rpcUrls.default.http
-    ),
+    rpcUrl: buildRpcResolver(ARBITRUM_SEPOLIA_ALCHEMY_HOST, arbitrumSepolia.rpcUrls.default.http),
     publicRpcUrls: arbitrumSepolia.rpcUrls.default.http
   }
 };
@@ -1296,33 +1274,15 @@ function token(chainId, symbol, name, address, decimals) {
 var tokens = {
   base: {
     ...createNativeToken(base.id, "ETH", "Ether"),
-    USDC: token(
-      base.id,
-      "USDC",
-      "USD Coin",
-      "0x833589fCD6eDb6E08f4c7C31c9A8Ba32D74b86B2",
-      6
-    )
+    USDC: token(base.id, "USDC", "USD Coin", "0x833589fCD6eDb6E08f4c7C31c9A8Ba32D74b86B2", 6)
   },
   ethereum: {
     ...createNativeToken(mainnet.id, "ETH", "Ether"),
-    USDC: token(
-      mainnet.id,
-      "USDC",
-      "USD Coin",
-      "0xA0b86991c6218b36c1d19d4a2e9Eb0cE3606eB48",
-      6
-    )
+    USDC: token(mainnet.id, "USDC", "USD Coin", "0xA0b86991c6218b36c1d19d4a2e9Eb0cE3606eB48", 6)
   },
   arbitrum: {
     ...createNativeToken(arbitrum.id, "ETH", "Ether"),
-    USDC: token(
-      arbitrum.id,
-      "USDC",
-      "USD Coin",
-      "0xaf88d065e77c8cc2239327c5edb3a432268e5831",
-      6
-    )
+    USDC: token(arbitrum.id, "USDC", "USD Coin", "0xaf88d065e77c8cc2239327c5edb3a432268e5831", 6)
   },
   arbitrumSepolia: {
     ...createNativeToken(arbitrumSepolia.id, "ETH", "Ether"),
@@ -1626,11 +1586,7 @@ var walletToolkit = {
 };
 
 // src/store/index.ts
-var STORE_EVENT_LEVELS = [
-  "decision",
-  "execution",
-  "lifecycle"
-];
+var STORE_EVENT_LEVELS = ["decision", "execution", "lifecycle"];
 var STORE_EVENT_LEVEL_SET = new Set(STORE_EVENT_LEVELS);
 var MARKET_REQUIRED_ACTIONS = [
   "swap",
@@ -1697,7 +1653,7 @@ var resolveEventLevel = (input) => {
   return null;
 };
 var normalizeStoreInput = (input) => {
-  const metadata = { ...input.metadata ?? {} };
+  const metadata = { ...input.metadata };
   const eventLevel = resolveEventLevel({ ...input, metadata });
   if (eventLevel) {
     metadata.eventLevel = eventLevel;
@@ -1716,9 +1672,7 @@ function resolveConfig(options) {
     throw new StoreError("BASE_URL is required to store activity events");
   }
   if (!apiKey) {
-    throw new StoreError(
-      "OPENPOND_API_KEY is required to store activity events"
-    );
+    throw new StoreError("OPENPOND_API_KEY is required to store activity events");
   }
   const normalizedBaseUrl = baseUrl.replace(/\/$/, "");
   const fetchFn = options?.fetchFn ?? globalThis.fetch;
@@ -1734,7 +1688,7 @@ async function requestJson(url, options, init) {
     headers: {
       "content-type": "application/json",
       "openpond-api-key": apiKey,
-      ...init.headers ?? {}
+      ...init.headers
     }
   });
   if (!response.ok) {
@@ -1744,11 +1698,7 @@ async function requestJson(url, options, init) {
     } catch {
       body = await response.text().catch(() => void 0);
     }
-    throw new StoreError(
-      `Request failed with status ${response.status}`,
-      response.status,
-      body
-    );
+    throw new StoreError(`Request failed with status ${response.status}`, response.status, body);
   }
   if (response.status === 204) {
     return null;
@@ -1765,15 +1715,11 @@ async function store(input, options) {
   const eventLevel = normalizedInput.eventLevel;
   const normalizedAction = normalizeAction(normalizedInput.action);
   if (mode === "backtest" && !normalizedInput.backtestRunId) {
-    throw new StoreError(
-      `backtestRunId is required when mode is "backtest"`
-    );
+    throw new StoreError(`backtestRunId is required when mode is "backtest"`);
   }
   if (eventLevel === "execution" || eventLevel === "lifecycle") {
     if (!normalizedAction || !EXECUTION_ACTIONS_SET.has(normalizedAction)) {
-      throw new StoreError(
-        `eventLevel "${eventLevel}" requires an execution action`
-      );
+      throw new StoreError(`eventLevel "${eventLevel}" requires an execution action`);
     }
   }
   if (eventLevel === "execution" && !hasMarketIdentity(normalizedInput.market)) {
@@ -2103,9 +2049,7 @@ async function getUniverse(args) {
   const response = await args.fetcher(`${args.baseUrl}/info`, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify(
-      dexKey ? { type: "meta", dex: dexKey } : { type: "meta" }
-    )
+    body: JSON.stringify(dexKey ? { type: "meta", dex: dexKey } : { type: "meta" })
   });
   const json = await response.json().catch(() => null);
   if (!response.ok || !json?.universe) {
@@ -2143,9 +2087,7 @@ async function getSpotMeta(args) {
 function resolveAssetIndex(symbol, universe) {
   const [raw] = symbol.split("-");
   const target = raw.trim();
-  const index = universe.findIndex(
-    (entry) => entry.name.toUpperCase() === target.toUpperCase()
-  );
+  const index = universe.findIndex((entry) => entry.name.toUpperCase() === target.toUpperCase());
   if (index === -1) {
     throw new Error(`Unknown Hyperliquid asset symbol: ${symbol}`);
   }
@@ -2175,9 +2117,7 @@ async function getPerpDexs(args) {
 async function resolveDexIndex(args) {
   const dexs = await getPerpDexs(args);
   const target = args.dex.trim().toLowerCase();
-  const index = dexs.findIndex(
-    (entry) => entry?.name?.toLowerCase() === target
-  );
+  const index = dexs.findIndex((entry) => entry?.name?.toLowerCase() === target);
   if (index === -1) {
     throw new Error(`Unknown Hyperliquid perp dex: ${args.dex}`);
   }
@@ -2364,15 +2304,7 @@ async function signL1Action(args) {
   return splitSignature(signatureHex);
 }
 async function signSpotSend(args) {
-  const {
-    wallet: wallet2,
-    hyperliquidChain,
-    signatureChainId,
-    destination,
-    token: token2,
-    amount,
-    time
-  } = args;
+  const { wallet: wallet2, hyperliquidChain, signatureChainId, destination, token: token2, amount, time } = args;
   const domain = {
     name: "HyperliquidSignTransaction",
     version: "1",
@@ -2781,9 +2713,7 @@ var HyperliquidExchangeClient = class {
     this.expiresAfter = args.expiresAfter;
     const resolvedNonceSource = args.walletNonceProvider ?? args.wallet.nonceSource ?? args.nonceSource;
     if (!resolvedNonceSource) {
-      throw new Error(
-        "Wallet nonce source is required for Hyperliquid exchange actions."
-      );
+      throw new Error("Wallet nonce source is required for Hyperliquid exchange actions.");
     }
     this.nonceSource = resolvedNonceSource;
   }
@@ -2913,9 +2843,7 @@ var HyperliquidExchangeClient = class {
       expiresAfter: this.expiresAfter,
       nonceSource: this.nonceSource
     };
-    return setHyperliquidDexAbstraction(
-      params.user ? { ...base2, user: params.user } : base2
-    );
+    return setHyperliquidDexAbstraction(params.user ? { ...base2, user: params.user } : base2);
   }
   setAccountAbstractionMode(params) {
     const base2 = {
@@ -2939,24 +2867,18 @@ var HyperliquidExchangeClient = class {
       expiresAfter: this.expiresAfter,
       nonceSource: this.nonceSource
     };
-    return setHyperliquidPortfolioMargin(
-      params.user ? { ...base2, user: params.user } : base2
-    );
+    return setHyperliquidPortfolioMargin(params.user ? { ...base2, user: params.user } : base2);
   }
 };
 async function setHyperliquidPortfolioMargin(options) {
   const env = options.environment ?? "mainnet";
   if (!options.wallet?.account || !options.wallet.walletClient) {
-    throw new Error(
-      "Wallet with signing capability is required for portfolio margin."
-    );
+    throw new Error("Wallet with signing capability is required for portfolio margin.");
   }
   const nonce = options.nonce ?? options.walletNonceProvider?.() ?? options.wallet.nonceSource?.() ?? options.nonceSource?.() ?? Date.now();
   const signatureChainId = getSignatureChainId(env);
   const hyperliquidChain = HL_CHAIN_LABEL[env];
-  const user = normalizeAddress(
-    options.user ?? options.wallet.address
-  );
+  const user = normalizeAddress(options.user ?? options.wallet.address);
   const action = {
     type: "userPortfolioMargin",
     enabled: Boolean(options.enabled),
@@ -2985,16 +2907,12 @@ async function setHyperliquidPortfolioMargin(options) {
 async function setHyperliquidDexAbstraction(options) {
   const env = options.environment ?? "mainnet";
   if (!options.wallet?.account || !options.wallet.walletClient) {
-    throw new Error(
-      "Wallet with signing capability is required for dex abstraction."
-    );
+    throw new Error("Wallet with signing capability is required for dex abstraction.");
   }
   const nonce = options.nonce ?? options.walletNonceProvider?.() ?? options.wallet.nonceSource?.() ?? options.nonceSource?.() ?? Date.now();
   const signatureChainId = getSignatureChainId(env);
   const hyperliquidChain = HL_CHAIN_LABEL[env];
-  const user = normalizeAddress(
-    options.user ?? options.wallet.address
-  );
+  const user = normalizeAddress(options.user ?? options.wallet.address);
   const action = {
     type: "userDexAbstraction",
     enabled: Boolean(options.enabled),
@@ -3023,16 +2941,12 @@ async function setHyperliquidDexAbstraction(options) {
 async function setHyperliquidAccountAbstractionMode(options) {
   const env = options.environment ?? "mainnet";
   if (!options.wallet?.account || !options.wallet.walletClient) {
-    throw new Error(
-      "Wallet with signing capability is required for account abstraction mode."
-    );
+    throw new Error("Wallet with signing capability is required for account abstraction mode.");
   }
   const nonce = options.nonce ?? options.walletNonceProvider?.() ?? options.wallet.nonceSource?.() ?? options.nonceSource?.() ?? Date.now();
   const signatureChainId = getSignatureChainId(env);
   const hyperliquidChain = HL_CHAIN_LABEL[env];
-  const user = normalizeAddress(
-    options.user ?? options.wallet.address
-  );
+  const user = normalizeAddress(options.user ?? options.wallet.address);
   const abstraction = resolveHyperliquidAbstractionFromMode(options.mode);
   const action = {
     type: "userSetAbstraction",
@@ -3074,14 +2988,10 @@ async function cancelHyperliquidOrdersByCloid(options) {
   options.cancels.forEach((c) => assertSymbol(c.symbol));
   const action = {
     type: "cancelByCloid",
-    cancels: await withAssetIndexes(
-      options,
-      options.cancels,
-      (idx, entry) => ({
-        asset: idx,
-        cloid: normalizeCloid(entry.cloid)
-      })
-    )
+    cancels: await withAssetIndexes(options, options.cancels, (idx, entry) => ({
+      asset: idx,
+      cloid: normalizeCloid(entry.cloid)
+    }))
   };
   return submitExchangeAction(options, action);
 }
@@ -4032,10 +3942,7 @@ function formatScaledInt(value, decimals) {
     return `${negative ? "-" : ""}${integer.toString()}`;
   }
   const fractionStr = fraction.toString().padStart(decimals, "0");
-  return `${negative ? "-" : ""}${integer.toString()}.${fractionStr}`.replace(
-    /\.?0+$/,
-    ""
-  );
+  return `${negative ? "-" : ""}${integer.toString()}.${fractionStr}`.replace(/\.?0+$/, "");
 }
 function resolveSpotSizeDecimals(meta, symbol) {
   const universe = meta.universe ?? [];
@@ -4143,10 +4050,7 @@ async function fetchHyperliquidSpotTickSize(params) {
   if (!Number.isFinite(params.marketIndex)) {
     throw new Error("Hyperliquid spot market index is invalid.");
   }
-  return fetchHyperliquidTickSizeForCoin(
-    params.environment,
-    `@${params.marketIndex}`
-  );
+  return fetchHyperliquidTickSizeForCoin(params.environment, `@${params.marketIndex}`);
 }
 async function fetchHyperliquidTickSizeForCoin(environment, coin) {
   const base2 = API_BASES[environment];
@@ -4160,9 +4064,7 @@ async function fetchHyperliquidTickSizeForCoin(environment, coin) {
   }
   const data = await res.json().catch(() => null);
   const levels = Array.isArray(data?.levels) ? data?.levels ?? [] : [];
-  const prices = levels.flatMap(
-    (side) => Array.isArray(side) ? side.map((entry) => String(entry?.px ?? "")) : []
-  ).filter((px) => px.length > 0);
+  const prices = levels.flatMap((side) => Array.isArray(side) ? side.map((entry) => String(entry?.px ?? "")) : []).filter((px) => px.length > 0);
   if (prices.length < 2) {
     throw new Error(`Hyperliquid l2Book missing price levels for ${coin}`);
   }
@@ -4253,9 +4155,7 @@ async function fetchHyperliquidSpotMarketInfo(params) {
         price = readHyperliquidNumber(ctx?.markPx ?? ctx?.midPx ?? ctx?.oraclePx);
       }
       if (!price || price <= 0) {
-        throw new Error(
-          `No spot price available for ${normalizedBase}/${normalizedQuote}`
-        );
+        throw new Error(`No spot price available for ${normalizedBase}/${normalizedQuote}`);
       }
       const marketIndex = typeof market?.index === "number" ? market.index : idx;
       return {
@@ -4405,9 +4305,7 @@ async function placeHyperliquidOrder(options) {
   } = options;
   const effectiveBuilder = BUILDER_CODE;
   if (!wallet2?.account || !wallet2.walletClient) {
-    throw new Error(
-      "Hyperliquid order signing requires a wallet with signing capabilities."
-    );
+    throw new Error("Hyperliquid order signing requires a wallet with signing capabilities.");
   }
   if (!orders.length) {
     throw new Error("At least one order is required.");
@@ -4521,10 +4419,7 @@ async function placeHyperliquidOrder(options) {
   );
   if (errorStatuses.length) {
     const message = errorStatuses.map((entry) => entry.error).join(", ");
-    throw new HyperliquidApiError(
-      message || "Hyperliquid rejected the order.",
-      json
-    );
+    throw new HyperliquidApiError(message || "Hyperliquid rejected the order.", json);
   }
   return json;
 }
@@ -4544,9 +4439,7 @@ async function depositToHyperliquidBridge(options) {
   const usdcAddress = getUsdcAddress(environment);
   const amountUnits = parseUnits(amount, 6);
   if (!wallet2.walletClient || !wallet2.publicClient) {
-    throw new Error(
-      "Wallet client and public client are required for deposit."
-    );
+    throw new Error("Wallet client and public client are required for deposit.");
   }
   const walletClient = wallet2.walletClient;
   const publicClient = wallet2.publicClient;
@@ -4571,15 +4464,10 @@ async function depositToHyperliquidBridge(options) {
 }
 async function withdrawFromHyperliquid(options) {
   const { environment, amount, destination, wallet: wallet2 } = options;
-  const normalizedAmount = normalizePositiveDecimalString(
-    amount,
-    "Withdraw amount"
-  );
+  const normalizedAmount = normalizePositiveDecimalString(amount, "Withdraw amount");
   const parsedAmount = Number.parseFloat(normalizedAmount);
   if (!wallet2.account || !wallet2.walletClient || !wallet2.publicClient) {
-    throw new Error(
-      "Wallet client and public client are required for withdraw."
-    );
+    throw new Error("Wallet client and public client are required for withdraw.");
   }
   const signatureChainId = getSignatureChainId(environment);
   const hyperliquidChain = HL_CHAIN_LABEL[environment];
@@ -4662,9 +4550,7 @@ async function fetchHyperliquidClearinghouseState(params) {
 async function approveHyperliquidBuilderFee(options) {
   const { environment, wallet: wallet2, nonce, signatureChainId } = options;
   if (!wallet2?.account || !wallet2.walletClient) {
-    throw new Error(
-      "Hyperliquid builder approval requires a wallet with signing capabilities."
-    );
+    throw new Error("Hyperliquid builder approval requires a wallet with signing capabilities.");
   }
   const maxFeeRateValue = BUILDER_CODE.fee / 1e3;
   const formattedPercent = `${maxFeeRateValue}%`;
@@ -4887,9 +4773,7 @@ function normalizeStringArrayish(value) {
   return normalizeArrayish(value).map((entry) => entry == null ? "" : String(entry).trim()).filter((entry) => entry.length > 0);
 }
 function normalizeNumberArrayish(value) {
-  return normalizeArrayish(value).map(
-    (entry) => typeof entry === "number" ? entry : Number.parseFloat(String(entry))
-  ).filter((entry) => Number.isFinite(entry));
+  return normalizeArrayish(value).map((entry) => typeof entry === "number" ? entry : Number.parseFloat(String(entry))).filter((entry) => Number.isFinite(entry));
 }
 function normalizeTags(value) {
   if (!Array.isArray(value)) return [];
@@ -5533,9 +5417,7 @@ async function fetchPolymarketMarkets(params = {}) {
   if (params.slug) url.searchParams.set("slug", params.slug);
   const data = await requestJson3(url.toString());
   const markets = data.flatMap(
-    (event) => Array.isArray(event?.markets) ? event.markets.map(
-      (market) => normalizeGammaMarket(market, event)
-    ) : []
+    (event) => Array.isArray(event?.markets) ? event.markets.map((market) => normalizeGammaMarket(market, event)) : []
   );
   const filtered = params.category ? markets.filter(
     (market) => (market.category ?? "").toLowerCase().includes(params.category.toLowerCase())
@@ -5886,9 +5768,7 @@ function ensureTextContent(message, options) {
   if (flattened !== void 0) {
     return flattened;
   }
-  throw new AIError(
-    options?.errorMessage ?? "Assistant response did not contain textual content."
-  );
+  throw new AIError(options?.errorMessage ?? "Assistant response did not contain textual content.");
 }
 function extractTextPart(part, options) {
   if (!part || typeof part !== "object") {
@@ -6120,7 +6000,7 @@ async function streamText(options, clientConfig = {}) {
     } finally {
       try {
         reader.releaseLock();
-      } catch (error) {
+      } catch {
       }
       abortBundle.cleanup();
     }
@@ -6255,11 +6135,7 @@ function buildRequestPayload(options, model, capabilities, metadataExtras) {
   assignIfDefined(payload, "top_p", generation.topP);
   assignIfDefined(payload, "max_tokens", generation.maxTokens);
   assignIfDefined(payload, "stop", generation.stop);
-  assignIfDefined(
-    payload,
-    "frequency_penalty",
-    generation.frequencyPenalty
-  );
+  assignIfDefined(payload, "frequency_penalty", generation.frequencyPenalty);
   assignIfDefined(payload, "presence_penalty", generation.presencePenalty);
   assignIfDefined(payload, "response_format", generation.responseFormat);
   const toolExecution = options.toolExecution;
@@ -6271,11 +6147,7 @@ function buildRequestPayload(options, model, capabilities, metadataExtras) {
   } else if (options.toolChoice && options.toolChoice !== "none") {
     payload.tool_choice = "none";
   }
-  const metadataPayload = buildMetadataPayload(
-    options.metadata,
-    toolExecution,
-    metadataExtras
-  );
+  const metadataPayload = buildMetadataPayload(options.metadata, toolExecution, metadataExtras);
   if (metadataPayload) {
     payload.metadata = metadataPayload;
   }
@@ -6299,9 +6171,7 @@ function createAbortBundle(upstreamSignal, timeoutMs) {
     } else {
       const onAbort = () => controller.abort(upstreamSignal.reason);
       upstreamSignal.addEventListener("abort", onAbort, { once: true });
-      cleanupCallbacks.push(
-        () => upstreamSignal.removeEventListener("abort", onAbort)
-      );
+      cleanupCallbacks.push(() => upstreamSignal.removeEventListener("abort", onAbort));
     }
   }
   if (timeoutMs && timeoutMs > 0) {
@@ -6333,11 +6203,9 @@ function buildMetadataPayload(base2, toolExecution, extras) {
         continue;
       }
       if (key === "openpond" && typeof value === "object" && value !== null) {
-        const existing = {
-          ...metadata.openpond ?? {}
-        };
+        const existing = metadata.openpond;
         metadata.openpond = {
-          ...existing,
+          ...typeof existing === "object" && existing !== null ? existing : void 0,
           ...value
         };
       } else {
@@ -6346,8 +6214,9 @@ function buildMetadataPayload(base2, toolExecution, extras) {
     }
   }
   if (toolExecution) {
+    const existing = metadata.openpond;
     const openpond = {
-      ...metadata.openpond ?? {},
+      ...typeof existing === "object" && existing !== null ? existing : void 0,
       toolExecution
     };
     metadata.openpond = openpond;
@@ -6481,10 +6350,7 @@ var X402PaymentSchema = z.object({
   }),
   metadata: z.record(z.string(), z.unknown()).optional()
 }).passthrough();
-var PaymentConfigSchema = z.union([
-  X402PaymentSchema,
-  z.record(z.string(), z.unknown())
-]);
+var PaymentConfigSchema = z.union([X402PaymentSchema, z.record(z.string(), z.unknown())]);
 var DiscoveryMetadataSchema = z.object({
   keywords: z.array(z.string()).optional(),
   category: z.string().optional(),
@@ -6882,7 +6748,7 @@ function buildDiscovery(authored) {
   }
   const merged = {
     ...legacyDiscovery,
-    ...authored.discovery ?? {}
+    ...authored.discovery
   };
   return Object.keys(merged).length > 0 ? merged : void 0;
 }
@@ -6898,7 +6764,9 @@ function normalizeScheduleExpression(raw, context) {
   const cronBody = extractCronBody(value);
   const cronFields = cronBody.trim().split(/\s+/).filter(Boolean);
   if (cronFields.length !== 5 && cronFields.length !== 6) {
-    throw new Error(`${context}: cron expression must have 5 or 6 fields (got ${cronFields.length})`);
+    throw new Error(
+      `${context}: cron expression must have 5 or 6 fields (got ${cronFields.length})`
+    );
   }
   validateCronTokens(cronFields, context);
   return {
@@ -6922,14 +6790,7 @@ function validateCronTokens(fields, context) {
 }
 
 // src/cli/validate.ts
-var SUPPORTED_EXTENSIONS = [
-  ".ts",
-  ".tsx",
-  ".js",
-  ".jsx",
-  ".mjs",
-  ".cjs"
-];
+var SUPPORTED_EXTENSIONS = [".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"];
 var MIN_TEMPLATE_CONFIG_VERSION = 2;
 var TEMPLATE_PREVIEW_TITLE_MAX = 80;
 var TEMPLATE_PREVIEW_SUBTITLE_MAX = 120;
@@ -6999,14 +6860,10 @@ function normalizeTemplatePreview(value, file, toolName, requirePreview) {
     required: true,
     max: TEMPLATE_PREVIEW_SUBTITLE_MAX
   });
-  const description = parseNonEmptyString(
-    record.description,
-    `${pathPrefix}.description`,
-    {
-      required: true,
-      max: TEMPLATE_PREVIEW_DESCRIPTION_MAX
-    }
-  );
+  const description = parseNonEmptyString(record.description, `${pathPrefix}.description`, {
+    required: true,
+    max: TEMPLATE_PREVIEW_DESCRIPTION_MAX
+  });
   const descriptionLineCount = description.split(/\r?\n/).map((line) => line.trim()).filter((line) => line.length > 0).length;
   if (descriptionLineCount < TEMPLATE_PREVIEW_MIN_LINES || descriptionLineCount > TEMPLATE_PREVIEW_MAX_LINES) {
     throw new Error(
@@ -7099,15 +6956,13 @@ async function loadAndValidateTools(toolsDir, options = {}) {
       const profileRaw = toolModule?.profile && typeof toolModule.profile === "object" ? toolModule.profile : null;
       const schedule = profileRaw?.schedule ?? null;
       const profileNotifyEmail = typeof profileRaw?.notifyEmail === "boolean" ? profileRaw.notifyEmail : void 0;
-      const allowedProfileCategories = [
-        "strategy",
-        "tracker",
-        "orchestrator"
-      ];
+      const allowedProfileCategories = ["strategy", "tracker", "orchestrator"];
       const profileCategoryCandidate = typeof profileRaw?.category === "string" ? profileRaw.category : void 0;
       let profileCategoryRaw;
       if (profileCategoryCandidate !== void 0) {
-        const isAllowed = allowedProfileCategories.includes(profileCategoryCandidate);
+        const isAllowed = allowedProfileCategories.includes(
+          profileCategoryCandidate
+        );
         if (!isAllowed) {
           throw new Error(
             `${file}: profile.category must be one of ${allowedProfileCategories.join(", ")}`
@@ -7122,22 +6977,16 @@ async function loadAndValidateTools(toolsDir, options = {}) {
         }
         profileAssetsRaw.forEach((entry, index) => {
           if (!entry || typeof entry !== "object") {
-            throw new Error(
-              `${file}: profile.assets[${index}] must be an object.`
-            );
+            throw new Error(`${file}: profile.assets[${index}] must be an object.`);
           }
           const record = entry;
           const venue = typeof record.venue === "string" ? record.venue.trim() : "";
           if (!venue) {
-            throw new Error(
-              `${file}: profile.assets[${index}].venue must be a non-empty string.`
-            );
+            throw new Error(`${file}: profile.assets[${index}].venue must be a non-empty string.`);
           }
           const chain = record.chain;
           if (typeof chain !== "string" && typeof chain !== "number") {
-            throw new Error(
-              `${file}: profile.assets[${index}].chain must be a string or number.`
-            );
+            throw new Error(`${file}: profile.assets[${index}].chain must be a string or number.`);
           }
           const symbols = record.assetSymbols;
           if (!Array.isArray(symbols) || symbols.length === 0) {
@@ -7231,14 +7080,14 @@ async function loadAndValidateTools(toolsDir, options = {}) {
           throw new Error(`${file}: POST tools must export a Zod schema as 'schema'`);
         }
         if (schedule && typeof schedule.cron === "string") {
-          throw new Error(`${file}: POST tools must not define profile.schedule; use GET + cron for scheduled tasks.`);
+          throw new Error(
+            `${file}: POST tools must not define profile.schedule; use GET + cron for scheduled tasks.`
+          );
         }
       }
       const httpHandlers = [...httpHandlersRaw];
       if (httpHandlers.length === 0) {
-        throw new Error(
-          `${file} must export at least one HTTP handler (e.g. POST)`
-        );
+        throw new Error(`${file} must export at least one HTTP handler (e.g. POST)`);
       }
       if (paymentExport) {
         for (let index = 0; index < httpHandlers.length; index += 1) {
@@ -7264,7 +7113,7 @@ async function loadAndValidateTools(toolsDir, options = {}) {
             ...metadataOverrides,
             payment: metadataOverrides.payment ?? paymentExport,
             annotations: {
-              ...metadataOverrides.annotations ?? {},
+              ...metadataOverrides.annotations,
               requiresPayment: metadataOverrides.annotations?.requiresPayment ?? true
             }
           };

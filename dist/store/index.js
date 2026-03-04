@@ -1,9 +1,5 @@
 // src/store/index.ts
-var STORE_EVENT_LEVELS = [
-  "decision",
-  "execution",
-  "lifecycle"
-];
+var STORE_EVENT_LEVELS = ["decision", "execution", "lifecycle"];
 var STORE_EVENT_LEVEL_SET = new Set(STORE_EVENT_LEVELS);
 var MARKET_REQUIRED_ACTIONS = [
   "swap",
@@ -70,7 +66,7 @@ var resolveEventLevel = (input) => {
   return null;
 };
 var normalizeStoreInput = (input) => {
-  const metadata = { ...input.metadata ?? {} };
+  const metadata = { ...input.metadata };
   const eventLevel = resolveEventLevel({ ...input, metadata });
   if (eventLevel) {
     metadata.eventLevel = eventLevel;
@@ -89,9 +85,7 @@ function resolveConfig(options) {
     throw new StoreError("BASE_URL is required to store activity events");
   }
   if (!apiKey) {
-    throw new StoreError(
-      "OPENPOND_API_KEY is required to store activity events"
-    );
+    throw new StoreError("OPENPOND_API_KEY is required to store activity events");
   }
   const normalizedBaseUrl = baseUrl.replace(/\/$/, "");
   const fetchFn = options?.fetchFn ?? globalThis.fetch;
@@ -107,7 +101,7 @@ async function requestJson(url, options, init) {
     headers: {
       "content-type": "application/json",
       "openpond-api-key": apiKey,
-      ...init.headers ?? {}
+      ...init.headers
     }
   });
   if (!response.ok) {
@@ -117,11 +111,7 @@ async function requestJson(url, options, init) {
     } catch {
       body = await response.text().catch(() => void 0);
     }
-    throw new StoreError(
-      `Request failed with status ${response.status}`,
-      response.status,
-      body
-    );
+    throw new StoreError(`Request failed with status ${response.status}`, response.status, body);
   }
   if (response.status === 204) {
     return null;
@@ -138,15 +128,11 @@ async function store(input, options) {
   const eventLevel = normalizedInput.eventLevel;
   const normalizedAction = normalizeAction(normalizedInput.action);
   if (mode === "backtest" && !normalizedInput.backtestRunId) {
-    throw new StoreError(
-      `backtestRunId is required when mode is "backtest"`
-    );
+    throw new StoreError(`backtestRunId is required when mode is "backtest"`);
   }
   if (eventLevel === "execution" || eventLevel === "lifecycle") {
     if (!normalizedAction || !EXECUTION_ACTIONS_SET.has(normalizedAction)) {
-      throw new StoreError(
-        `eventLevel "${eventLevel}" requires an execution action`
-      );
+      throw new StoreError(`eventLevel "${eventLevel}" requires an execution action`);
     }
   }
   if (eventLevel === "execution" && !hasMarketIdentity(normalizedInput.market)) {

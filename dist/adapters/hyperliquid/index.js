@@ -6,11 +6,7 @@ import { hexToBytes, concatBytes, bytesToHex } from '@noble/hashes/utils';
 // src/adapters/hyperliquid/index.ts
 
 // src/store/index.ts
-var STORE_EVENT_LEVELS = [
-  "decision",
-  "execution",
-  "lifecycle"
-];
+var STORE_EVENT_LEVELS = ["decision", "execution", "lifecycle"];
 var STORE_EVENT_LEVEL_SET = new Set(STORE_EVENT_LEVELS);
 var MARKET_REQUIRED_ACTIONS = [
   "swap",
@@ -77,7 +73,7 @@ var resolveEventLevel = (input) => {
   return null;
 };
 var normalizeStoreInput = (input) => {
-  const metadata = { ...input.metadata ?? {} };
+  const metadata = { ...input.metadata };
   const eventLevel = resolveEventLevel({ ...input, metadata });
   if (eventLevel) {
     metadata.eventLevel = eventLevel;
@@ -96,9 +92,7 @@ function resolveConfig(options) {
     throw new StoreError("BASE_URL is required to store activity events");
   }
   if (!apiKey) {
-    throw new StoreError(
-      "OPENPOND_API_KEY is required to store activity events"
-    );
+    throw new StoreError("OPENPOND_API_KEY is required to store activity events");
   }
   const normalizedBaseUrl = baseUrl.replace(/\/$/, "");
   const fetchFn = options?.fetchFn ?? globalThis.fetch;
@@ -113,15 +107,11 @@ async function store(input, options) {
   const eventLevel = normalizedInput.eventLevel;
   const normalizedAction = normalizeAction(normalizedInput.action);
   if (mode === "backtest" && !normalizedInput.backtestRunId) {
-    throw new StoreError(
-      `backtestRunId is required when mode is "backtest"`
-    );
+    throw new StoreError(`backtestRunId is required when mode is "backtest"`);
   }
   if (eventLevel === "execution" || eventLevel === "lifecycle") {
     if (!normalizedAction || !EXECUTION_ACTIONS_SET.has(normalizedAction)) {
-      throw new StoreError(
-        `eventLevel "${eventLevel}" requires an execution action`
-      );
+      throw new StoreError(`eventLevel "${eventLevel}" requires an execution action`);
     }
   }
   if (eventLevel === "execution" && !hasMarketIdentity(normalizedInput.market)) {
@@ -375,9 +365,7 @@ async function getUniverse(args) {
   const response = await args.fetcher(`${args.baseUrl}/info`, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify(
-      dexKey ? { type: "meta", dex: dexKey } : { type: "meta" }
-    )
+    body: JSON.stringify(dexKey ? { type: "meta", dex: dexKey } : { type: "meta" })
   });
   const json = await response.json().catch(() => null);
   if (!response.ok || !json?.universe) {
@@ -415,9 +403,7 @@ async function getSpotMeta(args) {
 function resolveAssetIndex(symbol, universe) {
   const [raw] = symbol.split("-");
   const target = raw.trim();
-  const index = universe.findIndex(
-    (entry) => entry.name.toUpperCase() === target.toUpperCase()
-  );
+  const index = universe.findIndex((entry) => entry.name.toUpperCase() === target.toUpperCase());
   if (index === -1) {
     throw new Error(`Unknown Hyperliquid asset symbol: ${symbol}`);
   }
@@ -447,9 +433,7 @@ async function getPerpDexs(args) {
 async function resolveDexIndex(args) {
   const dexs = await getPerpDexs(args);
   const target = args.dex.trim().toLowerCase();
-  const index = dexs.findIndex(
-    (entry) => entry?.name?.toLowerCase() === target
-  );
+  const index = dexs.findIndex((entry) => entry?.name?.toLowerCase() === target);
   if (index === -1) {
     throw new Error(`Unknown Hyperliquid perp dex: ${args.dex}`);
   }
@@ -636,15 +620,7 @@ async function signL1Action(args) {
   return splitSignature(signatureHex);
 }
 async function signSpotSend(args) {
-  const {
-    wallet,
-    hyperliquidChain,
-    signatureChainId,
-    destination,
-    token,
-    amount,
-    time
-  } = args;
+  const { wallet, hyperliquidChain, signatureChainId, destination, token, amount, time } = args;
   const domain = {
     name: "HyperliquidSignTransaction",
     version: "1",
@@ -1053,9 +1029,7 @@ var HyperliquidExchangeClient = class {
     this.expiresAfter = args.expiresAfter;
     const resolvedNonceSource = args.walletNonceProvider ?? args.wallet.nonceSource ?? args.nonceSource;
     if (!resolvedNonceSource) {
-      throw new Error(
-        "Wallet nonce source is required for Hyperliquid exchange actions."
-      );
+      throw new Error("Wallet nonce source is required for Hyperliquid exchange actions.");
     }
     this.nonceSource = resolvedNonceSource;
   }
@@ -1185,9 +1159,7 @@ var HyperliquidExchangeClient = class {
       expiresAfter: this.expiresAfter,
       nonceSource: this.nonceSource
     };
-    return setHyperliquidDexAbstraction(
-      params.user ? { ...base, user: params.user } : base
-    );
+    return setHyperliquidDexAbstraction(params.user ? { ...base, user: params.user } : base);
   }
   setAccountAbstractionMode(params) {
     const base = {
@@ -1211,24 +1183,18 @@ var HyperliquidExchangeClient = class {
       expiresAfter: this.expiresAfter,
       nonceSource: this.nonceSource
     };
-    return setHyperliquidPortfolioMargin(
-      params.user ? { ...base, user: params.user } : base
-    );
+    return setHyperliquidPortfolioMargin(params.user ? { ...base, user: params.user } : base);
   }
 };
 async function setHyperliquidPortfolioMargin(options) {
   const env = options.environment ?? "mainnet";
   if (!options.wallet?.account || !options.wallet.walletClient) {
-    throw new Error(
-      "Wallet with signing capability is required for portfolio margin."
-    );
+    throw new Error("Wallet with signing capability is required for portfolio margin.");
   }
   const nonce = options.nonce ?? options.walletNonceProvider?.() ?? options.wallet.nonceSource?.() ?? options.nonceSource?.() ?? Date.now();
   const signatureChainId = getSignatureChainId(env);
   const hyperliquidChain = HL_CHAIN_LABEL[env];
-  const user = normalizeAddress(
-    options.user ?? options.wallet.address
-  );
+  const user = normalizeAddress(options.user ?? options.wallet.address);
   const action = {
     type: "userPortfolioMargin",
     enabled: Boolean(options.enabled),
@@ -1257,16 +1223,12 @@ async function setHyperliquidPortfolioMargin(options) {
 async function setHyperliquidDexAbstraction(options) {
   const env = options.environment ?? "mainnet";
   if (!options.wallet?.account || !options.wallet.walletClient) {
-    throw new Error(
-      "Wallet with signing capability is required for dex abstraction."
-    );
+    throw new Error("Wallet with signing capability is required for dex abstraction.");
   }
   const nonce = options.nonce ?? options.walletNonceProvider?.() ?? options.wallet.nonceSource?.() ?? options.nonceSource?.() ?? Date.now();
   const signatureChainId = getSignatureChainId(env);
   const hyperliquidChain = HL_CHAIN_LABEL[env];
-  const user = normalizeAddress(
-    options.user ?? options.wallet.address
-  );
+  const user = normalizeAddress(options.user ?? options.wallet.address);
   const action = {
     type: "userDexAbstraction",
     enabled: Boolean(options.enabled),
@@ -1295,16 +1257,12 @@ async function setHyperliquidDexAbstraction(options) {
 async function setHyperliquidAccountAbstractionMode(options) {
   const env = options.environment ?? "mainnet";
   if (!options.wallet?.account || !options.wallet.walletClient) {
-    throw new Error(
-      "Wallet with signing capability is required for account abstraction mode."
-    );
+    throw new Error("Wallet with signing capability is required for account abstraction mode.");
   }
   const nonce = options.nonce ?? options.walletNonceProvider?.() ?? options.wallet.nonceSource?.() ?? options.nonceSource?.() ?? Date.now();
   const signatureChainId = getSignatureChainId(env);
   const hyperliquidChain = HL_CHAIN_LABEL[env];
-  const user = normalizeAddress(
-    options.user ?? options.wallet.address
-  );
+  const user = normalizeAddress(options.user ?? options.wallet.address);
   const abstraction = resolveHyperliquidAbstractionFromMode(options.mode);
   const action = {
     type: "userSetAbstraction",
@@ -1346,14 +1304,10 @@ async function cancelHyperliquidOrdersByCloid(options) {
   options.cancels.forEach((c) => assertSymbol(c.symbol));
   const action = {
     type: "cancelByCloid",
-    cancels: await withAssetIndexes(
-      options,
-      options.cancels,
-      (idx, entry) => ({
-        asset: idx,
-        cloid: normalizeCloid(entry.cloid)
-      })
-    )
+    cancels: await withAssetIndexes(options, options.cancels, (idx, entry) => ({
+      asset: idx,
+      cloid: normalizeCloid(entry.cloid)
+    }))
   };
   return submitExchangeAction(options, action);
 }
@@ -2304,10 +2258,7 @@ function formatScaledInt(value, decimals) {
     return `${negative ? "-" : ""}${integer.toString()}`;
   }
   const fractionStr = fraction.toString().padStart(decimals, "0");
-  return `${negative ? "-" : ""}${integer.toString()}.${fractionStr}`.replace(
-    /\.?0+$/,
-    ""
-  );
+  return `${negative ? "-" : ""}${integer.toString()}.${fractionStr}`.replace(/\.?0+$/, "");
 }
 function resolveSpotSizeDecimals(meta, symbol) {
   const universe = meta.universe ?? [];
@@ -2415,10 +2366,7 @@ async function fetchHyperliquidSpotTickSize(params) {
   if (!Number.isFinite(params.marketIndex)) {
     throw new Error("Hyperliquid spot market index is invalid.");
   }
-  return fetchHyperliquidTickSizeForCoin(
-    params.environment,
-    `@${params.marketIndex}`
-  );
+  return fetchHyperliquidTickSizeForCoin(params.environment, `@${params.marketIndex}`);
 }
 async function fetchHyperliquidTickSizeForCoin(environment, coin) {
   const base = API_BASES[environment];
@@ -2432,9 +2380,7 @@ async function fetchHyperliquidTickSizeForCoin(environment, coin) {
   }
   const data = await res.json().catch(() => null);
   const levels = Array.isArray(data?.levels) ? data?.levels ?? [] : [];
-  const prices = levels.flatMap(
-    (side) => Array.isArray(side) ? side.map((entry) => String(entry?.px ?? "")) : []
-  ).filter((px) => px.length > 0);
+  const prices = levels.flatMap((side) => Array.isArray(side) ? side.map((entry) => String(entry?.px ?? "")) : []).filter((px) => px.length > 0);
   if (prices.length < 2) {
     throw new Error(`Hyperliquid l2Book missing price levels for ${coin}`);
   }
@@ -2525,9 +2471,7 @@ async function fetchHyperliquidSpotMarketInfo(params) {
         price = readHyperliquidNumber(ctx?.markPx ?? ctx?.midPx ?? ctx?.oraclePx);
       }
       if (!price || price <= 0) {
-        throw new Error(
-          `No spot price available for ${normalizedBase}/${normalizedQuote}`
-        );
+        throw new Error(`No spot price available for ${normalizedBase}/${normalizedQuote}`);
       }
       const marketIndex = typeof market?.index === "number" ? market.index : idx;
       return {
@@ -2677,9 +2621,7 @@ async function placeHyperliquidOrder(options) {
   } = options;
   const effectiveBuilder = BUILDER_CODE;
   if (!wallet?.account || !wallet.walletClient) {
-    throw new Error(
-      "Hyperliquid order signing requires a wallet with signing capabilities."
-    );
+    throw new Error("Hyperliquid order signing requires a wallet with signing capabilities.");
   }
   if (!orders.length) {
     throw new Error("At least one order is required.");
@@ -2793,10 +2735,7 @@ async function placeHyperliquidOrder(options) {
   );
   if (errorStatuses.length) {
     const message = errorStatuses.map((entry) => entry.error).join(", ");
-    throw new HyperliquidApiError(
-      message || "Hyperliquid rejected the order.",
-      json
-    );
+    throw new HyperliquidApiError(message || "Hyperliquid rejected the order.", json);
   }
   return json;
 }
@@ -2816,9 +2755,7 @@ async function depositToHyperliquidBridge(options) {
   const usdcAddress = getUsdcAddress(environment);
   const amountUnits = parseUnits(amount, 6);
   if (!wallet.walletClient || !wallet.publicClient) {
-    throw new Error(
-      "Wallet client and public client are required for deposit."
-    );
+    throw new Error("Wallet client and public client are required for deposit.");
   }
   const walletClient = wallet.walletClient;
   const publicClient = wallet.publicClient;
@@ -2843,15 +2780,10 @@ async function depositToHyperliquidBridge(options) {
 }
 async function withdrawFromHyperliquid(options) {
   const { environment, amount, destination, wallet } = options;
-  const normalizedAmount = normalizePositiveDecimalString(
-    amount,
-    "Withdraw amount"
-  );
+  const normalizedAmount = normalizePositiveDecimalString(amount, "Withdraw amount");
   const parsedAmount = Number.parseFloat(normalizedAmount);
   if (!wallet.account || !wallet.walletClient || !wallet.publicClient) {
-    throw new Error(
-      "Wallet client and public client are required for withdraw."
-    );
+    throw new Error("Wallet client and public client are required for withdraw.");
   }
   const signatureChainId = getSignatureChainId(environment);
   const hyperliquidChain = HL_CHAIN_LABEL[environment];
@@ -2934,9 +2866,7 @@ async function fetchHyperliquidClearinghouseState(params) {
 async function approveHyperliquidBuilderFee(options) {
   const { environment, wallet, nonce, signatureChainId } = options;
   if (!wallet?.account || !wallet.walletClient) {
-    throw new Error(
-      "Hyperliquid builder approval requires a wallet with signing capabilities."
-    );
+    throw new Error("Hyperliquid builder approval requires a wallet with signing capabilities.");
   }
   const maxFeeRateValue = BUILDER_CODE.fee / 1e3;
   const formattedPercent = `${maxFeeRateValue}%`;
