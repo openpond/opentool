@@ -1,4 +1,4 @@
-import { c as WalletFullContext } from '../../types-BVLpaY4O.js';
+import { c as WalletFullContext } from '../../types-3w880w_t.js';
 import { StoreOptions, StoreResponse } from '../../store/index.js';
 import 'viem';
 import 'viem/accounts';
