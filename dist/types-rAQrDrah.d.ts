@@ -3,6 +3,7 @@ import { Account } from 'viem/accounts';
 
 type Hex = `0x${string}`;
 type HexAddress = `0x${string}`;
+type NonceSource = () => number;
 interface RpcProviderOptions {
     /** Optional fully-qualified RPC URL override. */
     url?: string;
@@ -81,7 +82,7 @@ interface WalletSignerContext {
     /**
      * Optional monotonic nonce provider for systems that require client-side nonces.
      */
-    nonceSource?: () => number;
+    nonceSource?: NonceSource;
 }
 interface WalletBaseContext {
     chain: ChainMetadata;
@@ -97,4 +98,4 @@ type WalletReadonlyContext = WalletBaseContext;
 type WalletFullContext = WalletBaseContext & WalletSignerContext;
 type WalletContext = WalletReadonlyContext | WalletFullContext;
 
-export type { ChainMetadata as C, Hex as H, RpcProviderOptions as R, TokenMetadata as T, WalletRegistry as W, ChainTokenMap as a, WalletPrivateKeyOptions as b, WalletFullContext as c, WalletTurnkeyOptions as d, WalletReadonlyOptions as e, WalletReadonlyContext as f, ChainReference as g, HexAddress as h, RpcUrlResolver as i, TurnkeyOptions as j, TurnkeySignWith as k, WalletBaseContext as l, WalletContext as m, WalletOptions as n, WalletOptionsBase as o, WalletProviderType as p, WalletSendTransactionParams as q, WalletSignerContext as r, WalletTransferParams as s };
+export type { ChainReference as C, HexAddress as H, NonceSource as N, RpcProviderOptions as R, TurnkeySignWith as T, WalletProviderType as W, ChainMetadata as a, WalletFullContext as b, ChainTokenMap as c, WalletRegistry as d, WalletPrivateKeyOptions as e, WalletTurnkeyOptions as f, WalletReadonlyOptions as g, WalletReadonlyContext as h, Hex as i, RpcUrlResolver as j, TokenMetadata as k, TurnkeyOptions as l, WalletBaseContext as m, WalletContext as n, WalletOptions as o, WalletOptionsBase as p, WalletSendTransactionParams as q, WalletSignerContext as r, WalletTransferParams as s };

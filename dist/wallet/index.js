@@ -118,15 +118,9 @@ var registry = {
   chains,
   tokens
 };
-function normalizePrivateKey(raw) {
-  const trimmed = raw.trim();
-  const withPrefix = trimmed.startsWith("0x") ? trimmed : `0x${trimmed}`;
-  if (!/^0x[0-9a-fA-F]{64}$/.test(withPrefix)) {
-    throw new Error("wallet() privateKey must be a 32-byte hex string");
-  }
-  return withPrefix;
-}
-function createNonceSource(start = Date.now()) {
+
+// src/wallet/nonces.ts
+function createMonotonicNonceSource(start = Date.now()) {
   let last = start;
   return () => {
     const now = Date.now();
@@ -137,6 +131,16 @@ function createNonceSource(start = Date.now()) {
     }
     return last;
   };
+}
+
+// src/wallet/providers/private-key.ts
+function normalizePrivateKey(raw) {
+  const trimmed = raw.trim();
+  const withPrefix = trimmed.startsWith("0x") ? trimmed : `0x${trimmed}`;
+  if (!/^0x[0-9a-fA-F]{64}$/.test(withPrefix)) {
+    throw new Error("wallet() privateKey must be a 32-byte hex string");
+  }
+  return withPrefix;
 }
 function createPrivateKeyProvider(config) {
   const privateKey = normalizePrivateKey(config.privateKey);
@@ -184,19 +188,7 @@ function createPrivateKeyProvider(config) {
     sendTransaction,
     getNativeBalance,
     transfer,
-    nonceSource: createNonceSource()
-  };
-}
-function createNonceSource2(start = Date.now()) {
-  let last = start;
-  return () => {
-    const now = Date.now();
-    if (now > last) {
-      last = now;
-    } else {
-      last += 1;
-    }
-    return last;
+    nonceSource: createMonotonicNonceSource()
   };
 }
 async function createTurnkeyProvider(config) {
@@ -255,7 +247,7 @@ async function createTurnkeyProvider(config) {
     sendTransaction,
     getNativeBalance,
     transfer,
-    nonceSource: createNonceSource2()
+    nonceSource: createMonotonicNonceSource()
   };
 }
 

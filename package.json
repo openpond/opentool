@@ -94,6 +94,10 @@
       "import": "./dist/wallet/index.js",
       "types": "./dist/wallet/index.d.ts"
     },
+    "./wallet/browser": {
+      "import": "./dist/wallet/browser.js",
+      "types": "./dist/wallet/browser.d.ts"
+    },
     "./adapters/hyperliquid": {
       "import": "./dist/adapters/hyperliquid/index.js",
       "types": "./dist/adapters/hyperliquid/index.d.ts"
@@ -101,6 +105,10 @@
     "./adapters/polymarket": {
       "import": "./dist/adapters/polymarket/index.js",
       "types": "./dist/adapters/polymarket/index.d.ts"
+    },
+    "./adapters/news": {
+      "import": "./dist/adapters/news/index.js",
+      "types": "./dist/adapters/news/index.d.ts"
     },
     "./store": {
       "import": "./dist/store/index.js",

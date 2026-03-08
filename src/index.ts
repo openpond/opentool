@@ -5,6 +5,7 @@ export * from "./x402/index";
 export * from "./wallet/index";
 export * from "./adapters/hyperliquid/index";
 export * from "./adapters/polymarket/index";
+export * from "./adapters/news/index";
 export * from "./ai/index";
 export * from "./store/index";
 export * from "./backtest/index";

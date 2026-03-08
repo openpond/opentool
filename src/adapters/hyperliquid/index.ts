@@ -25,6 +25,7 @@ import type {
   HyperliquidEnvironment,
   HyperliquidGrouping,
   HyperliquidOrderIntent,
+  NonceSource,
   ExchangeOrderAction,
   ExchangeSignature,
 } from "./base";
@@ -40,7 +41,6 @@ export type {
   HyperliquidBuilderFee,
   MarketIdentity,
   HyperliquidMarketIdentityInput,
-  NonceSource,
   HyperliquidExchangeResponse,
 } from "./base";
 export {
@@ -81,6 +81,7 @@ export interface HyperliquidOrderOptions {
   vaultAddress?: `0x${string}`;
   expiresAfter?: number;
   nonce?: number;
+  nonceSource?: NonceSource;
 }
 
 export type HyperliquidOrderStatus =
@@ -132,6 +133,7 @@ export interface HyperliquidApproveBuilderFeeOptions {
   environment: HyperliquidEnvironment;
   wallet: WalletFullContext;
   nonce?: number;
+  nonceSource?: NonceSource;
   /** Override default signature chain id. */
   signatureChainId?: string;
 }
@@ -152,6 +154,24 @@ export interface HyperliquidBuilderApprovalRecordInput {
   environment: HyperliquidEnvironment;
   walletAddress: `0x${string}`;
   storeOptions?: StoreOptions;
+}
+
+function resolveRequiredNonce(params: {
+  nonce?: number | undefined;
+  nonceSource?: NonceSource | undefined;
+  wallet?: Pick<WalletFullContext, "nonceSource"> | undefined;
+  action: string;
+}): number {
+  if (typeof params.nonce === "number") {
+    return params.nonce;
+  }
+
+  const resolved = params.nonceSource?.() ?? params.wallet?.nonceSource?.();
+  if (resolved === undefined) {
+    throw new Error(`${params.action} requires an explicit nonce or wallet nonce source.`);
+  }
+
+  return resolved;
 }
 
 type ExchangeRequestBody = {
@@ -295,7 +315,12 @@ export async function placeHyperliquidOrder(
     };
   }
 
-  const effectiveNonce = nonce ?? Date.now();
+  const effectiveNonce = resolveRequiredNonce({
+    nonce,
+    nonceSource: options.nonceSource,
+    wallet,
+    action: "Hyperliquid order submission",
+  });
   const signature = await signL1Action({
     wallet,
     action,
@@ -440,6 +465,8 @@ export async function withdrawFromHyperliquid(options: {
   amount: string;
   destination: `0x${string}`;
   wallet: WalletFullContext;
+  nonce?: number;
+  nonceSource?: NonceSource;
 }): Promise<HyperliquidWithdrawResult> {
   const { environment, amount, destination, wallet } = options;
 
@@ -460,8 +487,13 @@ export async function withdrawFromHyperliquid(options: {
     verifyingContract: ZERO_ADDRESS,
   } as const;
 
-  const time = BigInt(Date.now());
-  const nonce = Number(time);
+  const nonce = resolveRequiredNonce({
+    nonce: options.nonce,
+    nonceSource: options.nonceSource,
+    wallet,
+    action: "Hyperliquid withdraw",
+  });
+  const time = BigInt(nonce);
   const normalizedDestination = normalizeAddress(destination);
 
   const message = {
@@ -570,7 +602,12 @@ export async function approveHyperliquidBuilderFee(
   const resolvedBaseUrl = API_BASES[inferredEnvironment];
   const maxFeeRate = formattedPercent;
 
-  const effectiveNonce = nonce ?? Date.now();
+  const effectiveNonce = resolveRequiredNonce({
+    nonce,
+    nonceSource: options.nonceSource,
+    wallet,
+    action: "Hyperliquid builder approval",
+  });
   const signatureNonce = BigInt(effectiveNonce);
   const signatureChainHex = signatureChainId ?? getSignatureChainId(inferredEnvironment);
 
