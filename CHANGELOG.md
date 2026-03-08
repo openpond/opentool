@@ -1,5 +1,11 @@
 # opentool
 
+## 0.10.5
+
+### Patch Changes
+
+- b160190: updated signals and hyperliquid
+
 ## 0.10.4
 
 ### Patch Changes
