@@ -1021,6 +1021,16 @@ async function fetchHyperliquidSpotClearinghouseState(params) {
 }
 
 // src/adapters/hyperliquid/exchange.ts
+function resolveRequiredExchangeNonce(options) {
+  if (typeof options.nonce === "number") {
+    return options.nonce;
+  }
+  const resolved = options.walletNonceProvider?.() ?? options.wallet.nonceSource?.() ?? options.nonceSource?.();
+  if (resolved === void 0) {
+    throw new Error(`${options.action} requires an explicit nonce or wallet nonce source.`);
+  }
+  return resolved;
+}
 var HyperliquidExchangeClient = class {
   constructor(args) {
     this.wallet = args.wallet;
@@ -1191,7 +1201,13 @@ async function setHyperliquidPortfolioMargin(options) {
   if (!options.wallet?.account || !options.wallet.walletClient) {
     throw new Error("Wallet with signing capability is required for portfolio margin.");
   }
-  const nonce = options.nonce ?? options.walletNonceProvider?.() ?? options.wallet.nonceSource?.() ?? options.nonceSource?.() ?? Date.now();
+  const nonce = resolveRequiredExchangeNonce({
+    nonce: options.nonce,
+    nonceSource: options.nonceSource,
+    walletNonceProvider: options.walletNonceProvider,
+    wallet: options.wallet,
+    action: "Hyperliquid portfolio margin"
+  });
   const signatureChainId = getSignatureChainId(env);
   const hyperliquidChain = HL_CHAIN_LABEL[env];
   const user = normalizeAddress(options.user ?? options.wallet.address);
@@ -1225,7 +1241,13 @@ async function setHyperliquidDexAbstraction(options) {
   if (!options.wallet?.account || !options.wallet.walletClient) {
     throw new Error("Wallet with signing capability is required for dex abstraction.");
   }
-  const nonce = options.nonce ?? options.walletNonceProvider?.() ?? options.wallet.nonceSource?.() ?? options.nonceSource?.() ?? Date.now();
+  const nonce = resolveRequiredExchangeNonce({
+    nonce: options.nonce,
+    nonceSource: options.nonceSource,
+    walletNonceProvider: options.walletNonceProvider,
+    wallet: options.wallet,
+    action: "Hyperliquid dex abstraction"
+  });
   const signatureChainId = getSignatureChainId(env);
   const hyperliquidChain = HL_CHAIN_LABEL[env];
   const user = normalizeAddress(options.user ?? options.wallet.address);
@@ -1259,7 +1281,13 @@ async function setHyperliquidAccountAbstractionMode(options) {
   if (!options.wallet?.account || !options.wallet.walletClient) {
     throw new Error("Wallet with signing capability is required for account abstraction mode.");
   }
-  const nonce = options.nonce ?? options.walletNonceProvider?.() ?? options.wallet.nonceSource?.() ?? options.nonceSource?.() ?? Date.now();
+  const nonce = resolveRequiredExchangeNonce({
+    nonce: options.nonce,
+    nonceSource: options.nonceSource,
+    walletNonceProvider: options.walletNonceProvider,
+    wallet: options.wallet,
+    action: "Hyperliquid account abstraction mode"
+  });
   const signatureChainId = getSignatureChainId(env);
   const hyperliquidChain = HL_CHAIN_LABEL[env];
   const user = normalizeAddress(options.user ?? options.wallet.address);
@@ -1459,7 +1487,12 @@ async function sendHyperliquidSpot(options) {
   assertPositiveDecimal(options.amount, "amount");
   const signatureChainId = getSignatureChainId(env);
   const hyperliquidChain = HL_CHAIN_LABEL[env];
-  const nonce = options.nonce ?? options.nonceSource?.() ?? Date.now();
+  const nonce = resolveRequiredExchangeNonce({
+    nonce: options.nonce,
+    nonceSource: options.nonceSource,
+    wallet: options.wallet,
+    action: "Hyperliquid spot send"
+  });
   const time = BigInt(nonce);
   const signature = await signSpotSend({
     wallet: options.wallet,
@@ -2833,6 +2866,16 @@ function resolveHyperliquidCadenceFromResolution(resolution) {
 }
 
 // src/adapters/hyperliquid/index.ts
+function resolveRequiredNonce(params) {
+  if (typeof params.nonce === "number") {
+    return params.nonce;
+  }
+  const resolved = params.nonceSource?.() ?? params.wallet?.nonceSource?.();
+  if (resolved === void 0) {
+    throw new Error(`${params.action} requires an explicit nonce or wallet nonce source.`);
+  }
+  return resolved;
+}
 function assertPositiveDecimalInput(value, label) {
   if (typeof value === "number") {
     if (!Number.isFinite(value) || value <= 0) {
@@ -2941,7 +2984,12 @@ async function placeHyperliquidOrder(options) {
       f: effectiveBuilder.fee
     };
   }
-  const effectiveNonce = nonce ?? Date.now();
+  const effectiveNonce = resolveRequiredNonce({
+    nonce,
+    nonceSource: options.nonceSource,
+    wallet,
+    action: "Hyperliquid order submission"
+  });
   const signature = await signL1Action({
     wallet,
     action,
@@ -3057,8 +3105,13 @@ async function withdrawFromHyperliquid(options) {
     chainId: Number.parseInt(signatureChainId, 16),
     verifyingContract: ZERO_ADDRESS
   };
-  const time = BigInt(Date.now());
-  const nonce = Number(time);
+  const nonce = resolveRequiredNonce({
+    nonce: options.nonce,
+    nonceSource: options.nonceSource,
+    wallet,
+    action: "Hyperliquid withdraw"
+  });
+  const time = BigInt(nonce);
   const normalizedDestination = normalizeAddress(destination);
   const message = {
     hyperliquidChain,
@@ -3138,7 +3191,12 @@ async function approveHyperliquidBuilderFee(options) {
   const inferredEnvironment = environment ?? "mainnet";
   const resolvedBaseUrl = API_BASES[inferredEnvironment];
   const maxFeeRate = formattedPercent;
-  const effectiveNonce = nonce ?? Date.now();
+  const effectiveNonce = resolveRequiredNonce({
+    nonce,
+    nonceSource: options.nonceSource,
+    wallet,
+    action: "Hyperliquid builder approval"
+  });
   const signatureNonce = BigInt(effectiveNonce);
   const signatureChainHex = signatureChainId ?? getSignatureChainId(inferredEnvironment);
   const approvalSignature = await signApproveBuilderFee({

@@ -3,6 +3,7 @@ import type { Account } from "viem/accounts";
 
 export type Hex = `0x${string}`;
 export type HexAddress = `0x${string}`;
+export type NonceSource = () => number;
 
 export interface RpcProviderOptions {
   /** Optional fully-qualified RPC URL override. */
@@ -99,7 +100,7 @@ export interface WalletSignerContext {
   /**
    * Optional monotonic nonce provider for systems that require client-side nonces.
    */
-  nonceSource?: () => number;
+  nonceSource?: NonceSource;
 }
 
 export interface WalletBaseContext {

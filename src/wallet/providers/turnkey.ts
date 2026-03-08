@@ -10,6 +10,7 @@ import {
 } from "viem";
 import type { Account } from "viem/accounts";
 
+import { createMonotonicNonceSource } from "../nonces";
 import type {
   ChainMetadata,
   HexAddress,
@@ -31,19 +32,6 @@ export interface TurnkeyProviderConfig {
 
 export interface TurnkeyProviderResult extends WalletSignerContext {
   publicClient: PublicClient<Transport, Chain>;
-}
-
-function createNonceSource(start: number = Date.now()) {
-  let last = start;
-  return () => {
-    const now = Date.now();
-    if (now > last) {
-      last = now;
-    } else {
-      last += 1;
-    }
-    return last;
-  };
 }
 
 export async function createTurnkeyProvider(
@@ -112,6 +100,6 @@ export async function createTurnkeyProvider(
     sendTransaction,
     getNativeBalance,
     transfer,
-    nonceSource: createNonceSource(),
+    nonceSource: createMonotonicNonceSource(),
   };
 }

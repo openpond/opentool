@@ -76,6 +76,29 @@ type UpdateIsolatedMarginInput = {
   ntli: number;
 };
 
+function resolveRequiredExchangeNonce(options: {
+  nonce?: number | undefined;
+  nonceSource?: NonceSource | undefined;
+  walletNonceProvider?: NonceSource | undefined;
+  wallet: WalletFullContext;
+  action: string;
+}): number {
+  if (typeof options.nonce === "number") {
+    return options.nonce;
+  }
+
+  const resolved =
+    options.walletNonceProvider?.() ??
+    options.wallet.nonceSource?.() ??
+    options.nonceSource?.();
+
+  if (resolved === undefined) {
+    throw new Error(`${options.action} requires an explicit nonce or wallet nonce source.`);
+  }
+
+  return resolved;
+}
+
 export class HyperliquidExchangeClient {
   private readonly nonceSource: NonceSource;
   private readonly environment: HyperliquidEnvironment;
@@ -290,12 +313,13 @@ export async function setHyperliquidPortfolioMargin(
     throw new Error("Wallet with signing capability is required for portfolio margin.");
   }
 
-  const nonce =
-    options.nonce ??
-    options.walletNonceProvider?.() ??
-    options.wallet.nonceSource?.() ??
-    options.nonceSource?.() ??
-    Date.now();
+  const nonce = resolveRequiredExchangeNonce({
+    nonce: options.nonce,
+    nonceSource: options.nonceSource,
+    walletNonceProvider: options.walletNonceProvider,
+    wallet: options.wallet,
+    action: "Hyperliquid portfolio margin",
+  });
 
   const signatureChainId = getSignatureChainId(env);
   const hyperliquidChain = HL_CHAIN_LABEL[env];
@@ -349,12 +373,13 @@ export async function setHyperliquidDexAbstraction(
     throw new Error("Wallet with signing capability is required for dex abstraction.");
   }
 
-  const nonce =
-    options.nonce ??
-    options.walletNonceProvider?.() ??
-    options.wallet.nonceSource?.() ??
-    options.nonceSource?.() ??
-    Date.now();
+  const nonce = resolveRequiredExchangeNonce({
+    nonce: options.nonce,
+    nonceSource: options.nonceSource,
+    walletNonceProvider: options.walletNonceProvider,
+    wallet: options.wallet,
+    action: "Hyperliquid dex abstraction",
+  });
 
   const signatureChainId = getSignatureChainId(env);
   const hyperliquidChain = HL_CHAIN_LABEL[env];
@@ -408,12 +433,13 @@ export async function setHyperliquidAccountAbstractionMode(
     throw new Error("Wallet with signing capability is required for account abstraction mode.");
   }
 
-  const nonce =
-    options.nonce ??
-    options.walletNonceProvider?.() ??
-    options.wallet.nonceSource?.() ??
-    options.nonceSource?.() ??
-    Date.now();
+  const nonce = resolveRequiredExchangeNonce({
+    nonce: options.nonce,
+    nonceSource: options.nonceSource,
+    walletNonceProvider: options.walletNonceProvider,
+    wallet: options.wallet,
+    action: "Hyperliquid account abstraction mode",
+  });
 
   const signatureChainId = getSignatureChainId(env);
   const hyperliquidChain = HL_CHAIN_LABEL[env];
@@ -708,7 +734,7 @@ export async function sendHyperliquidSpot(options: {
   amount: string | number | bigint;
   environment?: HyperliquidEnvironment;
   nonce?: number;
-  nonceSource?: NonceSource;
+  nonceSource?: NonceSource | undefined;
 }) {
   const env = options.environment ?? "mainnet";
   if (!options.wallet.account || !options.wallet.walletClient) {
@@ -719,7 +745,12 @@ export async function sendHyperliquidSpot(options: {
   const signatureChainId = getSignatureChainId(env);
   const hyperliquidChain = HL_CHAIN_LABEL[env];
 
-  const nonce = options.nonce ?? options.nonceSource?.() ?? Date.now();
+  const nonce = resolveRequiredExchangeNonce({
+    nonce: options.nonce,
+    nonceSource: options.nonceSource,
+    wallet: options.wallet,
+    action: "Hyperliquid spot send",
+  });
   const time = BigInt(nonce);
 
   const signature = await signSpotSend({

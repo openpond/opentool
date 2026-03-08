@@ -8,6 +8,7 @@ import {
 } from "viem";
 import { privateKeyToAccount, type Account } from "viem/accounts";
 
+import { createMonotonicNonceSource } from "../nonces";
 import type {
   ChainMetadata,
   HexAddress,
@@ -33,19 +34,6 @@ export interface PrivateKeyProviderConfig {
 
 export interface PrivateKeyProviderResult extends WalletSignerContext {
   publicClient: PublicClient<Transport, Chain>;
-}
-
-function createNonceSource(start: number = Date.now()) {
-  let last = start;
-  return () => {
-    const now = Date.now();
-    if (now > last) {
-      last = now;
-    } else {
-      last += 1;
-    }
-    return last;
-  };
 }
 
 export function createPrivateKeyProvider(
@@ -103,6 +91,6 @@ export function createPrivateKeyProvider(
     sendTransaction,
     getNativeBalance,
     transfer,
-    nonceSource: createNonceSource(),
+    nonceSource: createMonotonicNonceSource(),
   };
 }
