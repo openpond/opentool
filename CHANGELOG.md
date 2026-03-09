@@ -1,5 +1,11 @@
 # opentool
 
+## 0.13.0
+
+### Minor Changes
+
+- d24c8d3: broke hyperliquid into browser
+
 ## 0.12.0
 
 ### Minor Changes
