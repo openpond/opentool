@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { e as Metadata, I as InternalToolDefinition } from '../index-9Z3wo28l.js';
+export { V as ValidateOptions, l as loadAndValidateTools, v as validateCommand, a as validateFullCommand } from '../index-BnQsRvND.js';
 import 'zod';
 import '../payment-BLm1ltur.js';
 
@@ -54,14 +55,4 @@ interface GenerateMetadataResult {
 declare function generateMetadataCommand(options: GenerateMetadataOptions): Promise<void>;
 declare function generateMetadata(options: GenerateMetadataOptions): Promise<GenerateMetadataResult>;
 
-interface ValidateOptions {
-    input: string;
-}
-interface LoadToolsOptions {
-    projectRoot?: string;
-}
-declare function validateCommand(options: ValidateOptions): Promise<void>;
-declare function validateFullCommand(options: ValidateOptions): Promise<void>;
-declare function loadAndValidateTools(toolsDir: string, options?: LoadToolsOptions): Promise<InternalToolDefinition[]>;
-
-export { type BuildOptions, type DevOptions, type GenerateMetadataOptions, type GenerateMetadataResult, type ValidateOptions, buildCommand, buildProject, devCommand, generateMetadata, generateMetadataCommand, loadAndValidateTools, validateCommand, validateFullCommand };
+export { type BuildOptions, type DevOptions, type GenerateMetadataOptions, type GenerateMetadataResult, buildCommand, buildProject, devCommand, generateMetadata, generateMetadataCommand };

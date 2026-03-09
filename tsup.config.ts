@@ -4,6 +4,7 @@ export default defineConfig({
   entry: [
     "src/index.ts",
     "src/backtest/index.ts",
+    "src/validation/index.ts",
     "src/cli/index.ts",
     "src/viem/index.ts",
     "src/x402/index.ts",

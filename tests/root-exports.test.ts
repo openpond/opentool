@@ -3,6 +3,7 @@ import test from "node:test";
 
 import * as opentool from "../src/index";
 import * as backtest from "../src/backtest/index";
+import * as validation from "../src/validation/index";
 
 test("root exports stay runtime-only and do not expose CLI helpers", () => {
   assert.equal("generateMetadata" in opentool, false);
@@ -17,4 +18,8 @@ test("backtest helpers remain available from the dedicated backtest entrypoint",
   assert.equal(typeof backtest.resolveBacktestWindow, "function");
   assert.equal(typeof backtest.resolveBacktestAccountValueUsd, "function");
   assert.equal(typeof backtest.buildBacktestDecisionSeriesInput, "function");
+});
+
+test("validation helpers remain available from the dedicated validation entrypoint", () => {
+  assert.equal(typeof validation.loadAndValidateTools, "function");
 });
