@@ -114,6 +114,10 @@
       "import": "./dist/store/index.js",
       "types": "./dist/store/index.d.ts"
     },
+    "./backtest": {
+      "import": "./dist/backtest/index.js",
+      "types": "./dist/backtest/index.d.ts"
+    },
     "./cli": {
       "import": "./dist/cli/index.js",
       "types": "./dist/cli/index.d.ts"
