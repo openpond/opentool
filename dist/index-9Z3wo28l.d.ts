@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { X as X402Payment } from './payment-orkZA9se.js';
+import { d as X402Payment } from './payment-BLm1ltur.js';
 
 declare const PaymentConfigSchema: z.ZodUnion<readonly [z.ZodObject<{
     definition: z.ZodObject<{
@@ -443,27 +443,4 @@ interface BuildConfig {
     serverVersion?: string;
 }
 
-interface GenerateMetadataOptions {
-    input: string;
-    output?: string;
-}
-interface GenerateMetadataResult {
-    metadata: Metadata;
-    defaultsApplied: string[];
-    tools: InternalToolDefinition[];
-    outputPath: string;
-}
-declare function generateMetadataCommand(options: GenerateMetadataOptions): Promise<void>;
-declare function generateMetadata(options: GenerateMetadataOptions): Promise<GenerateMetadataResult>;
-
-interface ValidateOptions {
-    input: string;
-}
-interface LoadToolsOptions {
-    projectRoot?: string;
-}
-declare function validateCommand(options: ValidateOptions): Promise<void>;
-declare function validateFullCommand(options: ValidateOptions): Promise<void>;
-declare function loadAndValidateTools(toolsDir: string, options?: LoadToolsOptions): Promise<InternalToolDefinition[]>;
-
-export { type BuildConfig as B, type ConnectedApp as C, type GenerateMetadataOptions as G, HTTP_METHODS as H, type InternalToolDefinition as I, type Metadata as M, type NormalizedSchedule as N, type PaymentConfig as P, type ScheduleType as S, type ToolResponse as T, type ValidateOptions as V, type GenerateMetadataResult as a, generateMetadataCommand as b, validateFullCommand as c, type BuildMetadata as d, type CronSpec as e, type GetHandler as f, generateMetadata as g, type HttpHandlerDefinition as h, type HttpMethod as i, type McpConfig as j, type PostHandler as k, loadAndValidateTools as l, type ServerConfig as m, type TemplatePreviewProfile as n, type Tool as o, type ToolAsset as p, type ToolCategory as q, type ToolContent as r, type ToolMetadataOverrides as s, type ToolModule as t, type ToolModuleGET as u, validateCommand as v, type ToolModulePOST as w, type ToolProfile as x };
+export { type BuildConfig as B, type ConnectedApp as C, type GetHandler as G, HTTP_METHODS as H, type InternalToolDefinition as I, type McpConfig as M, type NormalizedSchedule as N, type PaymentConfig as P, type ScheduleType as S, type ToolResponse as T, type BuildMetadata as a, type CronSpec as b, type HttpHandlerDefinition as c, type HttpMethod as d, type Metadata as e, type PostHandler as f, type ServerConfig as g, type TemplatePreviewProfile as h, type Tool as i, type ToolAsset as j, type ToolCategory as k, type ToolContent as l, type ToolMetadataOverrides as m, type ToolModule as n, type ToolModuleGET as o, type ToolModulePOST as p, type ToolProfile as q };

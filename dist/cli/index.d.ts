@@ -1,8 +1,7 @@
 #!/usr/bin/env node
-import { M as Metadata, I as InternalToolDefinition } from '../validate-DbhJ_r0Z.js';
-export { G as GenerateMetadataOptions, a as GenerateMetadataResult, V as ValidateOptions, g as generateMetadata, b as generateMetadataCommand, l as loadAndValidateTools, v as validateCommand, c as validateFullCommand } from '../validate-DbhJ_r0Z.js';
+import { e as Metadata, I as InternalToolDefinition } from '../index-9Z3wo28l.js';
 import 'zod';
-import '../payment-orkZA9se.js';
+import '../payment-BLm1ltur.js';
 
 interface BuildOptions {
     input: string;
@@ -42,4 +41,27 @@ interface DevOptions {
 }
 declare function devCommand(options: DevOptions): Promise<void>;
 
-export { type BuildOptions, type DevOptions, buildCommand, buildProject, devCommand };
+interface GenerateMetadataOptions {
+    input: string;
+    output?: string;
+}
+interface GenerateMetadataResult {
+    metadata: Metadata;
+    defaultsApplied: string[];
+    tools: InternalToolDefinition[];
+    outputPath: string;
+}
+declare function generateMetadataCommand(options: GenerateMetadataOptions): Promise<void>;
+declare function generateMetadata(options: GenerateMetadataOptions): Promise<GenerateMetadataResult>;
+
+interface ValidateOptions {
+    input: string;
+}
+interface LoadToolsOptions {
+    projectRoot?: string;
+}
+declare function validateCommand(options: ValidateOptions): Promise<void>;
+declare function validateFullCommand(options: ValidateOptions): Promise<void>;
+declare function loadAndValidateTools(toolsDir: string, options?: LoadToolsOptions): Promise<InternalToolDefinition[]>;
+
+export { type BuildOptions, type DevOptions, type GenerateMetadataOptions, type GenerateMetadataResult, type ValidateOptions, buildCommand, buildProject, devCommand, generateMetadata, generateMetadataCommand, loadAndValidateTools, validateCommand, validateFullCommand };

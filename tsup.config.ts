@@ -3,6 +3,7 @@ import { defineConfig } from "tsup";
 export default defineConfig({
   entry: [
     "src/index.ts",
+    "src/backtest/index.ts",
     "src/cli/index.ts",
     "src/viem/index.ts",
     "src/x402/index.ts",
@@ -12,6 +13,7 @@ export default defineConfig({
     "src/store/index.ts",
     "src/adapters/hyperliquid/index.ts",
     "src/adapters/news/index.ts",
+    "src/adapters/polymarket/index.ts",
   ],
   format: ["esm"],
   dts: true,

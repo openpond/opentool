@@ -1,9 +1,9 @@
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { ListToolsRequestSchema, CallToolRequestSchema } from '@modelcontextprotocol/sdk/types.js';
-import * as fs4 from 'fs';
-import * as path5 from 'path';
-import { fileURLToPath, pathToFileURL } from 'url';
+import * as fs from 'fs';
+import * as path from 'path';
+import { fileURLToPath } from 'url';
 import { zodToJsonSchema } from '@alcyone-labs/zod-to-json-schema';
 import { z } from 'zod';
 import { zeroAddress, createWalletClient, http, createPublicClient, parseUnits, encodeFunctionData, erc20Abi } from 'viem';
@@ -15,9 +15,6 @@ import { encode } from '@msgpack/msgpack';
 import { keccak_256 } from '@noble/hashes/sha3';
 import { hexToBytes, concatBytes, bytesToHex } from '@noble/hashes/utils';
 import { createHmac, randomBytes } from 'crypto';
-import { tmpdir } from 'os';
-import { build } from 'esbuild';
-import { createRequire } from 'module';
 
 var __require = /* @__PURE__ */ ((x) => typeof require !== "undefined" ? require : typeof Proxy !== "undefined" ? new Proxy(x, {
   get: (a, b) => (typeof require !== "undefined" ? require : a)[b]
@@ -699,16 +696,16 @@ function buildAdapters(tools) {
 }
 async function loadToolsFromDirectory(metadataMap) {
   const tools = [];
-  const toolsDir = path5.join(process.cwd(), "tools");
-  if (!fs4.existsSync(toolsDir)) {
+  const toolsDir = path.join(process.cwd(), "tools");
+  if (!fs.existsSync(toolsDir)) {
     return tools;
   }
-  const files = fs4.readdirSync(toolsDir);
+  const files = fs.readdirSync(toolsDir);
   for (const file of files) {
     if (!isSupportedToolFile(file)) {
       continue;
     }
-    const toolPath = path5.join(toolsDir, file);
+    const toolPath = path.join(toolsDir, file);
     try {
       const exportsObject = __require(toolPath);
       const candidate = resolveModuleCandidate(exportsObject);
@@ -772,12 +769,12 @@ async function loadToolsFromDirectory(metadataMap) {
   return tools;
 }
 function loadMetadata() {
-  const metadataPath = path5.join(process.cwd(), "metadata.json");
-  if (!fs4.existsSync(metadataPath)) {
+  const metadataPath = path.join(process.cwd(), "metadata.json");
+  if (!fs.existsSync(metadataPath)) {
     return null;
   }
   try {
-    const contents = fs4.readFileSync(metadataPath, "utf8");
+    const contents = fs.readFileSync(metadataPath, "utf8");
     return JSON.parse(contents);
   } catch (error) {
     console.warn(`Failed to parse metadata.json: ${error}`);
@@ -894,7 +891,7 @@ function resolveRuntimePath(value) {
   if (value.startsWith("file://")) {
     return fileURLToPath(value);
   }
-  return path5.resolve(value);
+  return path.resolve(value);
 }
 
 // src/types/index.ts
@@ -1724,8 +1721,8 @@ async function store(input, options) {
     );
   }
   const { baseUrl, apiKey, fetchFn } = resolveConfig(options);
-  const path7 = mode === "backtest" ? "/apps/backtests/tx" : "/apps/positions/tx";
-  const url = `${baseUrl}${path7}`;
+  const path2 = mode === "backtest" ? "/apps/backtests/tx" : "/apps/positions/tx";
+  const url = `${baseUrl}${path2}`;
   let response;
   try {
     response = await fetchFn(url, {
@@ -1765,8 +1762,8 @@ async function store(input, options) {
 async function retrieve(params, options) {
   const { baseUrl, apiKey, fetchFn } = resolveConfig(options);
   const mode = params?.mode ?? "live";
-  const path7 = mode === "backtest" ? "/apps/backtests/tx" : "/apps/positions/tx";
-  const url = new URL(`${baseUrl}${path7}`);
+  const path2 = mode === "backtest" ? "/apps/backtests/tx" : "/apps/positions/tx";
+  const url = new URL(`${baseUrl}${path2}`);
   if (params?.source) url.searchParams.set("source", params.source);
   if (params?.walletAddress) url.searchParams.set("walletAddress", params.walletAddress);
   if (params?.symbol) url.searchParams.set("symbol", params.symbol);
@@ -5113,19 +5110,19 @@ function parseOptionalDate(value) {
   return null;
 }
 function buildHmacSignature(args) {
-  const timestamp2 = args.timestamp.toString();
+  const timestamp = args.timestamp.toString();
   const method = args.method.toUpperCase();
-  const path7 = args.path;
+  const path2 = args.path;
   const body = args.body == null ? "" : typeof args.body === "string" ? args.body : JSON.stringify(args.body);
-  const payload = `${timestamp2}${method}${path7}${body}`;
+  const payload = `${timestamp}${method}${path2}${body}`;
   const key = Buffer.from(args.secret, "base64");
   return createHmac("sha256", key).update(payload).digest("hex");
 }
 function buildL2Headers(args) {
-  const timestamp2 = args.timestamp ?? Math.floor(Date.now() / 1e3);
+  const timestamp = args.timestamp ?? Math.floor(Date.now() / 1e3);
   const signature = buildHmacSignature({
     secret: args.credentials.secret,
-    timestamp: timestamp2,
+    timestamp,
     method: args.method,
     path: args.path,
     body: args.body ?? null
@@ -5134,13 +5131,13 @@ function buildL2Headers(args) {
     POLY_ADDRESS: args.address,
     POLY_API_KEY: args.credentials.apiKey,
     POLY_PASSPHRASE: args.credentials.passphrase,
-    POLY_TIMESTAMP: timestamp2.toString(),
+    POLY_TIMESTAMP: timestamp.toString(),
     POLY_SIGNATURE: signature
   };
 }
 async function buildL1Headers(args) {
   assertWalletSigner(args.wallet);
-  const timestamp2 = args.timestamp ?? Math.floor(Date.now() / 1e3);
+  const timestamp = args.timestamp ?? Math.floor(Date.now() / 1e3);
   const nonce = args.nonce ?? Date.now();
   const chainId = POLYMARKET_CHAIN_ID[args.environment ?? "mainnet"];
   const address = args.wallet.address;
@@ -5162,14 +5159,14 @@ async function buildL1Headers(args) {
     primaryType: "ClobAuth",
     message: {
       address,
-      timestamp: timestamp2.toString(),
+      timestamp: timestamp.toString(),
       nonce: BigInt(nonce),
       message
     }
   });
   return {
     POLY_ADDRESS: address,
-    POLY_TIMESTAMP: timestamp2.toString(),
+    POLY_TIMESTAMP: timestamp.toString(),
     POLY_NONCE: nonce.toString(),
     POLY_SIGNATURE: signature
   };
@@ -6410,8 +6407,8 @@ async function streamText(options, clientConfig = {}) {
   const handlers = options.handlers ?? {};
   let finishedResolve;
   let finishedReject;
-  const finished = new Promise((resolve4, reject) => {
-    finishedResolve = resolve4;
+  const finished = new Promise((resolve2, reject) => {
+    finishedResolve = resolve2;
     finishedReject = reject;
   });
   let settled = false;
@@ -6640,9 +6637,9 @@ function assignIfDefined(target, key, value) {
     target[key] = value;
   }
 }
-function buildUrl(baseUrl, path7) {
+function buildUrl(baseUrl, path2) {
   const sanitizedBase = baseUrl.endsWith("/") ? baseUrl.slice(0, -1) : baseUrl;
-  return `${sanitizedBase}${path7}`;
+  return `${sanitizedBase}${path2}`;
 }
 function createAbortBundle(upstreamSignal, timeoutMs) {
   const controller = new AbortController();
@@ -6846,1085 +6843,7 @@ function buildBacktestDecisionSeriesInput(request) {
     ...accountValueUsd != null ? { accountValueUsd } : {}
   };
 }
-var METADATA_SPEC_VERSION = "1.1.0";
-var McpAnnotationsSchema = z.object({
-  title: z.string().optional(),
-  readOnlyHint: z.boolean().optional(),
-  destructiveHint: z.boolean().optional(),
-  idempotentHint: z.boolean().optional(),
-  openWorldHint: z.boolean().optional(),
-  requiresPayment: z.boolean().optional()
-}).strict();
-var X402PaymentSchema = z.object({
-  definition: z.object({
-    amount: z.string(),
-    currency: z.object({
-      code: z.string(),
-      symbol: z.string(),
-      decimals: z.number()
-    }),
-    asset: z.object({
-      symbol: z.string(),
-      network: z.string(),
-      address: z.string(),
-      decimals: z.number()
-    }),
-    payTo: z.string(),
-    resource: z.string().optional(),
-    description: z.string().optional(),
-    scheme: z.string(),
-    network: z.string(),
-    facilitator: z.object({
-      url: z.string(),
-      verifyPath: z.string().optional(),
-      settlePath: z.string().optional(),
-      apiKeyHeader: z.string().optional()
-    }),
-    metadata: z.record(z.string(), z.unknown()).optional()
-  }),
-  metadata: z.record(z.string(), z.unknown()).optional()
-}).passthrough();
-var PaymentConfigSchema = z.union([X402PaymentSchema, z.record(z.string(), z.unknown())]);
-var DiscoveryMetadataSchema = z.object({
-  keywords: z.array(z.string()).optional(),
-  category: z.string().optional(),
-  useCases: z.array(z.string()).optional(),
-  capabilities: z.array(z.string()).optional(),
-  requirements: z.record(z.string(), z.any()).optional(),
-  compatibility: z.record(z.string(), z.any()).optional(),
-  documentation: z.union([z.string(), z.array(z.string())]).optional()
-}).catchall(z.any());
-var ToolCategorySchema = z.enum(["strategy", "tracker", "orchestrator"]);
-var ToolMetadataOverridesSchema = z.object({
-  name: z.string().optional(),
-  description: z.string().optional(),
-  annotations: McpAnnotationsSchema.optional(),
-  payment: PaymentConfigSchema.optional(),
-  discovery: DiscoveryMetadataSchema.optional(),
-  chains: z.array(z.union([z.string(), z.number()])).optional()
-}).catchall(z.any());
-var ToolSchema = z.object({
-  name: z.string(),
-  description: z.string(),
-  inputSchema: z.any(),
-  annotations: McpAnnotationsSchema.optional(),
-  payment: PaymentConfigSchema.optional(),
-  discovery: DiscoveryMetadataSchema.optional(),
-  chains: z.array(z.union([z.string(), z.number()])).optional(),
-  notifyEmail: z.boolean().optional(),
-  category: ToolCategorySchema.optional()
-}).strict();
-var MetadataSchema = z.object({
-  metadataSpecVersion: z.string().optional(),
-  name: z.string().optional(),
-  displayName: z.string().optional(),
-  version: z.string().optional(),
-  description: z.string().optional(),
-  author: z.string().optional(),
-  repository: z.string().optional(),
-  website: z.string().optional(),
-  category: z.string().optional(),
-  categories: z.array(z.string()).optional(),
-  termsOfService: z.string().optional(),
-  mcpUrl: z.string().optional(),
-  payment: PaymentConfigSchema.optional(),
-  discovery: DiscoveryMetadataSchema.optional(),
-  promptExamples: z.array(z.string()).optional(),
-  iconPath: z.string().optional(),
-  videoPath: z.string().optional(),
-  image: z.string().optional(),
-  animation_url: z.string().optional(),
-  keywords: z.array(z.string()).optional(),
-  useCases: z.array(z.string()).optional(),
-  capabilities: z.array(z.string()).optional(),
-  requirements: z.record(z.string(), z.any()).optional(),
-  compatibility: z.record(z.string(), z.any()).optional(),
-  chains: z.array(z.union([z.string(), z.number()])).optional()
-}).catchall(z.any());
-var BuildMetadataSchema = z.object({
-  metadataSpecVersion: z.string().default(METADATA_SPEC_VERSION),
-  name: z.string(),
-  displayName: z.string(),
-  version: z.string(),
-  description: z.string().optional(),
-  author: z.string().optional(),
-  repository: z.string().optional(),
-  website: z.string().optional(),
-  category: z.string(),
-  termsOfService: z.string().optional(),
-  mcpUrl: z.string().optional(),
-  payment: PaymentConfigSchema.optional(),
-  tools: z.array(ToolSchema).min(1),
-  discovery: DiscoveryMetadataSchema.optional(),
-  promptExamples: z.array(z.string()).optional(),
-  iconPath: z.string().optional(),
-  videoPath: z.string().optional(),
-  image: z.string().optional(),
-  animation_url: z.string().optional(),
-  chains: z.array(z.union([z.string(), z.number()])).optional()
-}).strict();
-function resolveTsconfig(projectRoot) {
-  const candidate = path5.join(projectRoot, "tsconfig.json");
-  if (fs4.existsSync(candidate)) {
-    return candidate;
-  }
-  return void 0;
-}
-async function transpileWithEsbuild(options) {
-  if (options.entryPoints.length === 0) {
-    throw new Error("No entry points provided for esbuild transpilation");
-  }
-  const projectRoot = options.projectRoot;
-  const tempBase = options.outDir ?? fs4.mkdtempSync(path5.join(tmpdir(), "opentool-"));
-  if (!fs4.existsSync(tempBase)) {
-    fs4.mkdirSync(tempBase, { recursive: true });
-  }
-  const tsconfig = resolveTsconfig(projectRoot);
-  const buildOptions = {
-    entryPoints: options.entryPoints,
-    outdir: tempBase,
-    bundle: options.bundle ?? false,
-    format: options.format,
-    platform: "node",
-    target: "node20",
-    logLevel: options.logLevel ?? "warning",
-    sourcesContent: false,
-    sourcemap: false,
-    loader: {
-      ".ts": "ts",
-      ".tsx": "tsx",
-      ".cts": "ts",
-      ".mts": "ts",
-      ".js": "js",
-      ".jsx": "jsx",
-      ".mjs": "js",
-      ".cjs": "js",
-      ".json": "json"
-    },
-    metafile: options.metafile ?? false,
-    allowOverwrite: true,
-    absWorkingDir: projectRoot
-  };
-  if (options.external && options.external.length > 0) {
-    buildOptions.external = options.external;
-  }
-  if (options.nodePaths && options.nodePaths.length > 0) {
-    buildOptions.nodePaths = options.nodePaths;
-  }
-  if (options.outBase) {
-    buildOptions.outbase = options.outBase;
-  }
-  if (!buildOptions.bundle) {
-    buildOptions.packages = "external";
-  }
-  if (tsconfig) {
-    buildOptions.tsconfig = tsconfig;
-  }
-  await build(buildOptions);
-  if (options.format === "esm") {
-    const packageJsonPath = path5.join(tempBase, "package.json");
-    if (!fs4.existsSync(packageJsonPath)) {
-      fs4.writeFileSync(packageJsonPath, JSON.stringify({ type: "module" }), "utf8");
-    }
-  }
-  const cleanup = () => {
-    if (options.outDir) {
-      return;
-    }
-    fs4.rmSync(tempBase, { recursive: true, force: true });
-  };
-  return { outDir: tempBase, cleanup };
-}
-createRequire(
-  typeof __filename !== "undefined" ? __filename : import.meta.url
-);
-function resolveCompiledPath(outDir, originalFile, extension = ".js") {
-  const baseName = path5.basename(originalFile).replace(/\.[^.]+$/, "");
-  return path5.join(outDir, `${baseName}${extension}`);
-}
-async function importFresh(modulePath) {
-  const fileUrl = pathToFileURL(modulePath).href;
-  const cacheBuster = `t=${Date.now()}-${Math.random()}`;
-  const separator = fileUrl.includes("?") ? "&" : "?";
-  return import(`${fileUrl}${separator}${cacheBuster}`);
-}
 
-// src/cli/shared/metadata.ts
-var METADATA_ENTRY = "metadata.ts";
-async function loadMetadata2(projectRoot) {
-  const absPath = path5.join(projectRoot, METADATA_ENTRY);
-  if (!fs4.existsSync(absPath)) {
-    return {
-      metadata: MetadataSchema.parse({}),
-      sourcePath: "smart defaults (metadata.ts missing)"
-    };
-  }
-  const tempDir = path5.join(projectRoot, ".opentool-temp");
-  if (fs4.existsSync(tempDir)) {
-    fs4.rmSync(tempDir, { recursive: true, force: true });
-  }
-  const { outDir, cleanup } = await transpileWithEsbuild({
-    entryPoints: [absPath],
-    projectRoot,
-    format: "esm",
-    outDir: tempDir
-  });
-  try {
-    const compiledPath = resolveCompiledPath(outDir, METADATA_ENTRY);
-    const moduleExports = await importFresh(compiledPath);
-    const metadataExport = extractMetadataExport(moduleExports);
-    const parsed = MetadataSchema.parse(metadataExport);
-    return { metadata: parsed, sourcePath: absPath };
-  } finally {
-    cleanup();
-    if (fs4.existsSync(tempDir)) {
-      fs4.rmSync(tempDir, { recursive: true, force: true });
-    }
-  }
-}
-function extractMetadataExport(moduleExports) {
-  if (!moduleExports || typeof moduleExports !== "object") {
-    throw new Error("metadata.ts must export a metadata object");
-  }
-  const exportsObject = moduleExports;
-  if (exportsObject.metadata) {
-    return exportsObject.metadata;
-  }
-  if (exportsObject.default && typeof exportsObject.default === "object") {
-    const defaultExport = exportsObject.default;
-    if (defaultExport.metadata) {
-      return defaultExport.metadata;
-    }
-    return defaultExport;
-  }
-  return moduleExports;
-}
-function readPackageJson(projectRoot) {
-  const packagePath = path5.join(projectRoot, "package.json");
-  if (!fs4.existsSync(packagePath)) {
-    return {};
-  }
-  try {
-    const content = fs4.readFileSync(packagePath, "utf8");
-    return JSON.parse(content);
-  } catch (error) {
-    throw new Error(`Failed to read package.json: ${error}`);
-  }
-}
-async function buildMetadataArtifact(options) {
-  const projectRoot = options.projectRoot;
-  const packageInfo = readPackageJson(projectRoot);
-  const { metadata: authored, sourcePath } = await loadMetadata2(projectRoot);
-  const defaultsApplied = [];
-  const folderName = path5.basename(projectRoot);
-  const name = resolveField(
-    "name",
-    authored.name,
-    () => packageInfo.name ?? folderName,
-    defaultsApplied,
-    "package.json name"
-  );
-  const displayName = resolveField(
-    "displayName",
-    authored.displayName,
-    () => {
-      const source = packageInfo.name ?? folderName;
-      return source.split(/[-_]/).map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1)).join(" ");
-    },
-    defaultsApplied,
-    "package.json name"
-  );
-  const versionRaw = resolveField(
-    "version",
-    authored.version,
-    () => packageInfo.version ?? "0.1.0",
-    defaultsApplied,
-    "package.json version"
-  );
-  const version = typeof versionRaw === "number" ? String(versionRaw) : versionRaw;
-  const category = determineCategory(authored, defaultsApplied);
-  const description = authored.description ?? packageInfo.description;
-  if (!authored.description && packageInfo.description) {
-    defaultsApplied.push("description \u2192 package.json description");
-  }
-  const author = authored.author ?? packageInfo.author;
-  if (!authored.author && packageInfo.author) {
-    defaultsApplied.push("author \u2192 package.json author");
-  }
-  const repository = authored.repository ?? extractRepository(packageInfo.repository);
-  if (!authored.repository && repository) {
-    defaultsApplied.push("repository \u2192 package.json repository");
-  }
-  const website = authored.website ?? packageInfo.homepage;
-  if (!authored.website && packageInfo.homepage) {
-    defaultsApplied.push("website \u2192 package.json homepage");
-  }
-  const payment = resolvePayment(authored);
-  const baseImage = authored.image ?? authored.iconPath;
-  const animation = authored.animation_url ?? authored.videoPath;
-  const discovery = buildDiscovery(authored);
-  const metadataTools = options.tools.map((tool) => {
-    const overrides = tool.metadata ? ToolMetadataOverridesSchema.parse(tool.metadata) : {};
-    const toolName = overrides.name ?? tool.filename;
-    const toolDescription = overrides.description ?? `${toolName} tool`;
-    const toolPayment = overrides.payment ?? payment ?? void 0;
-    if (!overrides.payment && toolPayment && payment && toolPayment === payment) {
-      defaultsApplied.push(`tool ${toolName} payment \u2192 agent payment`);
-    }
-    const toolDiscovery = overrides.discovery ?? void 0;
-    const toolChains = overrides.chains ?? authored.chains ?? void 0;
-    const toolCategory = tool.profileCategory ?? "tracker";
-    if (!tool.profileCategory) {
-      defaultsApplied.push(`tool ${toolName} category \u2192 tracker (default)`);
-    }
-    const toolDefinition = {
-      name: toolName,
-      description: toolDescription,
-      inputSchema: tool.inputSchema
-    };
-    if (overrides.annotations) {
-      toolDefinition.annotations = overrides.annotations;
-    }
-    if (toolPayment) {
-      toolDefinition.payment = toolPayment;
-    }
-    if (toolDiscovery) {
-      toolDefinition.discovery = toolDiscovery;
-    }
-    if (toolChains) {
-      toolDefinition.chains = toolChains;
-    }
-    toolDefinition.category = toolCategory;
-    const notifyEmail = tool.notifyEmail ?? tool.schedule?.notifyEmail;
-    if (notifyEmail !== void 0) {
-      toolDefinition.notifyEmail = notifyEmail;
-    }
-    if (tool.profileCategory) {
-      toolDefinition.category = tool.profileCategory;
-    }
-    return toolDefinition;
-  });
-  const metadata = BuildMetadataSchema.parse({
-    metadataSpecVersion: authored.metadataSpecVersion ?? METADATA_SPEC_VERSION,
-    name,
-    displayName,
-    version,
-    description,
-    author,
-    repository,
-    website,
-    category,
-    termsOfService: authored.termsOfService,
-    mcpUrl: authored.mcpUrl,
-    payment: payment ?? void 0,
-    tools: metadataTools,
-    discovery,
-    promptExamples: authored.promptExamples,
-    iconPath: authored.iconPath,
-    videoPath: authored.videoPath,
-    image: baseImage,
-    animation_url: animation,
-    chains: authored.chains
-  });
-  return {
-    metadata,
-    defaultsApplied,
-    sourceMetadataPath: sourcePath
-  };
-}
-function resolveField(field, value, fallback, defaultsApplied, fallbackLabel) {
-  if (value !== void 0 && value !== null && value !== "") {
-    return value;
-  }
-  const resolved = fallback();
-  defaultsApplied.push(`${field} \u2192 ${fallbackLabel}`);
-  return resolved;
-}
-function determineCategory(authored, defaultsApplied) {
-  if (authored.category) {
-    return authored.category;
-  }
-  if (Array.isArray(authored.categories) && authored.categories.length > 0) {
-    defaultsApplied.push("category \u2192 metadata.categories[0]");
-    return authored.categories[0];
-  }
-  defaultsApplied.push("category \u2192 default category");
-  return "utility";
-}
-function extractRepository(repository) {
-  if (!repository) {
-    return void 0;
-  }
-  if (typeof repository === "string") {
-    return repository;
-  }
-  return repository.url;
-}
-function resolvePayment(authored, _defaults) {
-  return authored.payment ?? void 0;
-}
-function buildDiscovery(authored) {
-  const legacyDiscovery = {};
-  if (Array.isArray(authored.keywords) && authored.keywords.length > 0) {
-    legacyDiscovery.keywords = authored.keywords;
-  }
-  if (Array.isArray(authored.useCases) && authored.useCases.length > 0) {
-    legacyDiscovery.useCases = authored.useCases;
-  }
-  if (Array.isArray(authored.capabilities) && authored.capabilities.length > 0) {
-    legacyDiscovery.capabilities = authored.capabilities;
-  }
-  if (authored.requirements) {
-    legacyDiscovery.requirements = authored.requirements;
-  }
-  if (authored.compatibility) {
-    legacyDiscovery.compatibility = authored.compatibility;
-  }
-  if (Array.isArray(authored.categories) && authored.categories.length > 0) {
-    legacyDiscovery.category = authored.categories[0];
-  }
-  const merged = {
-    ...legacyDiscovery,
-    ...authored.discovery
-  };
-  return Object.keys(merged).length > 0 ? merged : void 0;
-}
-
-// src/utils/schedule.ts
-var CRON_WRAPPED_REGEX = /^cron\((.*)\)$/i;
-var CRON_TOKEN_REGEX = /^[A-Za-z0-9*?/,\-#L]+$/;
-function normalizeScheduleExpression(raw, context) {
-  const value = raw?.trim();
-  if (!value) {
-    throw new Error(`${context}: profile.schedule.cron must be a non-empty string`);
-  }
-  const cronBody = extractCronBody(value);
-  const cronFields = cronBody.trim().split(/\s+/).filter(Boolean);
-  if (cronFields.length !== 5 && cronFields.length !== 6) {
-    throw new Error(
-      `${context}: cron expression must have 5 or 6 fields (got ${cronFields.length})`
-    );
-  }
-  validateCronTokens(cronFields, context);
-  return {
-    type: "cron",
-    expression: cronFields.join(" ")
-  };
-}
-function extractCronBody(value) {
-  const cronMatch = CRON_WRAPPED_REGEX.exec(value);
-  if (cronMatch) {
-    return (cronMatch[1] ?? "").trim();
-  }
-  return value;
-}
-function validateCronTokens(fields, context) {
-  fields.forEach((token2, idx) => {
-    if (!CRON_TOKEN_REGEX.test(token2)) {
-      throw new Error(`${context}: invalid cron token "${token2}" at position ${idx + 1}`);
-    }
-  });
-}
-
-// src/cli/validate.ts
-var SUPPORTED_EXTENSIONS = [".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"];
-var OPENTOOL_ROOT = path5.resolve(path5.dirname(fileURLToPath(import.meta.url)), "../..");
-var OPENTOOL_NODE_MODULES = path5.join(OPENTOOL_ROOT, "node_modules");
-var MIN_TEMPLATE_CONFIG_VERSION = 2;
-var TEMPLATE_PREVIEW_TITLE_MAX = 80;
-var TEMPLATE_PREVIEW_SUBTITLE_MAX = 120;
-var TEMPLATE_PREVIEW_DESCRIPTION_MAX = 1200;
-var TEMPLATE_PREVIEW_MIN_LINES = 3;
-var TEMPLATE_PREVIEW_MAX_LINES = 8;
-function normalizeTemplateConfigVersion(value) {
-  if (typeof value === "number" && Number.isFinite(value)) {
-    return value;
-  }
-  if (typeof value !== "string") {
-    return null;
-  }
-  const trimmed = value.trim();
-  if (!trimmed) {
-    return null;
-  }
-  if (/^\d+(?:\.\d+)?$/.test(trimmed)) {
-    const numeric = Number.parseFloat(trimmed);
-    return Number.isFinite(numeric) ? numeric : null;
-  }
-  const majorMatch = /^v?(\d+)(?:\..*)?$/i.exec(trimmed);
-  if (!majorMatch) {
-    return null;
-  }
-  const major = Number.parseInt(majorMatch[1], 10);
-  return Number.isFinite(major) ? major : null;
-}
-function parseNonEmptyString(value, fieldPath, opts = {}) {
-  const { max, required = false } = opts;
-  if (value == null) {
-    if (required) {
-      throw new Error(`${fieldPath} is required and must be a non-empty string.`);
-    }
-    return null;
-  }
-  if (typeof value !== "string") {
-    throw new Error(`${fieldPath} must be a string.`);
-  }
-  const trimmed = value.trim();
-  if (!trimmed) {
-    throw new Error(`${fieldPath} must be a non-empty string.`);
-  }
-  if (typeof max === "number" && trimmed.length > max) {
-    throw new Error(`${fieldPath} must be <= ${max} characters.`);
-  }
-  return trimmed;
-}
-function normalizeTemplatePreview(value, file, toolName, requirePreview) {
-  const pathPrefix = `${file}: profile.templatePreview`;
-  if (value == null) {
-    if (requirePreview) {
-      throw new Error(
-        `${pathPrefix} is required for strategy tools and must define subtitle + description.`
-      );
-    }
-    return null;
-  }
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    throw new Error(`${pathPrefix} must be an object.`);
-  }
-  const record = value;
-  const title = parseNonEmptyString(record.title, `${pathPrefix}.title`, {
-    max: TEMPLATE_PREVIEW_TITLE_MAX
-  }) ?? toolName;
-  const subtitle = parseNonEmptyString(record.subtitle, `${pathPrefix}.subtitle`, {
-    required: true,
-    max: TEMPLATE_PREVIEW_SUBTITLE_MAX
-  });
-  const description = parseNonEmptyString(record.description, `${pathPrefix}.description`, {
-    required: true,
-    max: TEMPLATE_PREVIEW_DESCRIPTION_MAX
-  });
-  const descriptionLineCount = description.split(/\r?\n/).map((line) => line.trim()).filter((line) => line.length > 0).length;
-  if (descriptionLineCount < TEMPLATE_PREVIEW_MIN_LINES || descriptionLineCount > TEMPLATE_PREVIEW_MAX_LINES) {
-    throw new Error(
-      `${pathPrefix}.description must contain ${TEMPLATE_PREVIEW_MIN_LINES}-${TEMPLATE_PREVIEW_MAX_LINES} non-empty lines (target ~5 lines).`
-    );
-  }
-  return {
-    title,
-    subtitle,
-    description
-  };
-}
-async function validateCommand(options) {
-  console.log("\u{1F50D} Validating OpenTool project...");
-  try {
-    const toolsDir = path5.resolve(options.input);
-    if (!fs4.existsSync(toolsDir)) {
-      throw new Error(`Tools directory not found: ${toolsDir}`);
-    }
-    const projectRoot = path5.dirname(toolsDir);
-    const tools = await loadAndValidateTools(toolsDir, { projectRoot });
-    if (tools.length === 0) {
-      throw new Error("No valid tools found - validation aborted");
-    }
-    const { metadata, defaultsApplied, sourceMetadataPath } = await buildMetadataArtifact({
-      projectRoot,
-      tools
-    });
-    logMetadataSummary(metadata, defaultsApplied, sourceMetadataPath);
-    console.log("\n\u2705 OpenTool validation passed!\n");
-  } catch (error) {
-    console.error("\u274C OpenTool validation failed:", error);
-    process.exit(1);
-  }
-}
-async function loadAndValidateTools(toolsDir, options = {}) {
-  const files = fs4.readdirSync(toolsDir).filter((file) => SUPPORTED_EXTENSIONS.includes(path5.extname(file)));
-  if (files.length === 0) {
-    return [];
-  }
-  const projectRoot = options.projectRoot ?? path5.dirname(toolsDir);
-  const tempDir = path5.join(toolsDir, ".opentool-temp");
-  if (fs4.existsSync(tempDir)) {
-    fs4.rmSync(tempDir, { recursive: true, force: true });
-  }
-  const kebabCase = /^[a-z0-9]+(?:-[a-z0-9]+)*\.[a-z]+$/;
-  for (const f of files) {
-    if (!kebabCase.test(f)) {
-      throw new Error(`Tool filename must be kebab-case: ${f}`);
-    }
-  }
-  const entryPoints = files.map((file) => path5.join(toolsDir, file));
-  const fallbackNodePaths = [OPENTOOL_NODE_MODULES].filter((dir) => fs4.existsSync(dir));
-  const { outDir, cleanup } = await transpileWithEsbuild({
-    entryPoints,
-    projectRoot,
-    format: "esm",
-    outDir: tempDir,
-    bundle: true,
-    external: ["opentool", "opentool/*"],
-    ...fallbackNodePaths.length > 0 ? { nodePaths: fallbackNodePaths } : {}
-  });
-  const tools = [];
-  try {
-    ensureLocalRuntimeLinks(tempDir);
-    for (const file of files) {
-      const compiledPath = resolveCompiledPath(outDir, file);
-      if (!fs4.existsSync(compiledPath)) {
-        throw new Error(`Failed to compile ${file}`);
-      }
-      const moduleExports = await importFresh(compiledPath);
-      const toolModule = extractToolModule(moduleExports, file);
-      const schema = ensureZodSchema(toolModule.schema, file);
-      const paymentExport = toolModule.payment;
-      const toolName = toolModule.metadata?.name ?? toolModule.metadata?.title ?? toBaseName(file);
-      const inputSchemaRaw = schema ? toJsonSchema(toolName, schema) : void 0;
-      const inputSchema = normalizeInputSchema2(inputSchemaRaw);
-      const httpHandlersRaw = collectHttpHandlers2(toolModule, file);
-      const hasGET = typeof toolModule.GET === "function";
-      const hasPOST = typeof toolModule.POST === "function";
-      const otherMethods = HTTP_METHODS2.filter((m) => m !== "GET" && m !== "POST").filter(
-        (m) => typeof toolModule[m] === "function"
-      );
-      if (otherMethods.length > 0) {
-        throw new Error(
-          `${file} must not export ${otherMethods.join(", ")}. Only one of GET or POST is allowed.`
-        );
-      }
-      if (hasGET === hasPOST) {
-        throw new Error(`${file}: export exactly one of GET or POST`);
-      }
-      let normalizedSchedule = null;
-      const profileRaw = toolModule?.profile && typeof toolModule.profile === "object" ? toolModule.profile : null;
-      const schedule = profileRaw?.schedule ?? null;
-      const profileNotifyEmail = typeof profileRaw?.notifyEmail === "boolean" ? profileRaw.notifyEmail : void 0;
-      const allowedProfileCategories = ["strategy", "tracker", "orchestrator"];
-      const profileCategoryCandidate = typeof profileRaw?.category === "string" ? profileRaw.category : void 0;
-      let profileCategoryRaw;
-      if (profileCategoryCandidate !== void 0) {
-        const isAllowed = allowedProfileCategories.includes(
-          profileCategoryCandidate
-        );
-        if (!isAllowed) {
-          throw new Error(
-            `${file}: profile.category must be one of ${allowedProfileCategories.join(", ")}`
-          );
-        }
-        profileCategoryRaw = profileCategoryCandidate;
-      }
-      const profileAssetsRaw = profileRaw?.assets;
-      if (profileAssetsRaw !== void 0) {
-        if (!Array.isArray(profileAssetsRaw)) {
-          throw new Error(`${file}: profile.assets must be an array.`);
-        }
-        profileAssetsRaw.forEach((entry, index) => {
-          if (!entry || typeof entry !== "object") {
-            throw new Error(`${file}: profile.assets[${index}] must be an object.`);
-          }
-          const record = entry;
-          const venue = typeof record.venue === "string" ? record.venue.trim() : "";
-          if (!venue) {
-            throw new Error(`${file}: profile.assets[${index}].venue must be a non-empty string.`);
-          }
-          const chain = record.chain;
-          if (typeof chain !== "string" && typeof chain !== "number") {
-            throw new Error(`${file}: profile.assets[${index}].chain must be a string or number.`);
-          }
-          const symbols = record.assetSymbols;
-          if (!Array.isArray(symbols) || symbols.length === 0) {
-            throw new Error(
-              `${file}: profile.assets[${index}].assetSymbols must be a non-empty array.`
-            );
-          }
-          const invalidSymbol = symbols.find(
-            (symbol) => typeof symbol !== "string" || symbol.trim().length === 0
-          );
-          if (invalidSymbol !== void 0) {
-            throw new Error(
-              `${file}: profile.assets[${index}].assetSymbols must be non-empty strings.`
-            );
-          }
-          const walletAddress = record.walletAddress;
-          if (walletAddress !== void 0 && (typeof walletAddress !== "string" || walletAddress.trim().length === 0)) {
-            throw new Error(
-              `${file}: profile.assets[${index}].walletAddress must be a non-empty string when provided.`
-            );
-          }
-          const pair = record.pair;
-          if (pair !== void 0 && (typeof pair !== "string" || pair.trim().length === 0)) {
-            throw new Error(
-              `${file}: profile.assets[${index}].pair must be a non-empty string when provided.`
-            );
-          }
-          const leverage = record.leverage;
-          if (leverage !== void 0 && (typeof leverage !== "number" || !Number.isFinite(leverage) || leverage <= 0)) {
-            throw new Error(
-              `${file}: profile.assets[${index}].leverage must be a positive number when provided.`
-            );
-          }
-        });
-      }
-      const templateConfigRaw = profileRaw?.templateConfig;
-      if (templateConfigRaw !== void 0) {
-        if (!templateConfigRaw || typeof templateConfigRaw !== "object") {
-          throw new Error(`${file}: profile.templateConfig must be an object.`);
-        }
-        const record = templateConfigRaw;
-        const version = record.version;
-        const normalizedTemplateConfigVersion = normalizeTemplateConfigVersion(version);
-        if (normalizedTemplateConfigVersion === null) {
-          throw new Error(
-            `${file}: profile.templateConfig.version must be a numeric string or number.`
-          );
-        }
-        if (normalizedTemplateConfigVersion < MIN_TEMPLATE_CONFIG_VERSION) {
-          throw new Error(
-            `${file}: profile.templateConfig.version must be >= ${MIN_TEMPLATE_CONFIG_VERSION}.`
-          );
-        }
-        const schema2 = record.schema;
-        if (schema2 !== void 0 && (!schema2 || typeof schema2 !== "object" || Array.isArray(schema2))) {
-          throw new Error(
-            `${file}: profile.templateConfig.schema must be an object when provided.`
-          );
-        }
-        const defaults = record.defaults;
-        if (defaults !== void 0 && (!defaults || typeof defaults !== "object" || Array.isArray(defaults))) {
-          throw new Error(
-            `${file}: profile.templateConfig.defaults must be an object when provided.`
-          );
-        }
-        const envVar = record.envVar;
-        if (envVar !== void 0 && (typeof envVar !== "string" || envVar.trim().length === 0)) {
-          throw new Error(
-            `${file}: profile.templateConfig.envVar must be a non-empty string when provided.`
-          );
-        }
-      }
-      const normalizedTemplatePreview = normalizeTemplatePreview(
-        profileRaw?.templatePreview,
-        file,
-        toolName,
-        profileCategoryRaw === "strategy"
-      );
-      const normalizedProfile = profileRaw && normalizedTemplatePreview ? { ...profileRaw, templatePreview: normalizedTemplatePreview } : profileRaw;
-      if (hasGET && schedule && typeof schedule.cron === "string" && schedule.cron.trim().length > 0) {
-        normalizedSchedule = normalizeScheduleExpression(schedule.cron, file);
-        if (typeof schedule.enabled === "boolean") {
-          normalizedSchedule.authoredEnabled = schedule.enabled;
-        }
-        if (typeof schedule.notifyEmail === "boolean") {
-          normalizedSchedule.notifyEmail = schedule.notifyEmail;
-        }
-      }
-      if (hasPOST) {
-        if (!schema) {
-          throw new Error(`${file}: POST tools must export a Zod schema as 'schema'`);
-        }
-      }
-      const httpHandlers = [...httpHandlersRaw];
-      if (httpHandlers.length === 0) {
-        throw new Error(`${file} must export at least one HTTP handler (e.g. POST)`);
-      }
-      if (paymentExport) {
-        for (let index = 0; index < httpHandlers.length; index += 1) {
-          const entry = httpHandlers[index];
-          httpHandlers[index] = {
-            ...entry,
-            handler: withX402Payment(entry.handler, paymentExport)
-          };
-        }
-      }
-      const httpHandlerMap = toHttpHandlerMap2(httpHandlers);
-      const defaultMethod = typeof toolModule.mcp?.defaultMethod === "string" ? toolModule.mcp.defaultMethod : void 0;
-      const adapter = createMcpAdapter({
-        name: toolName,
-        httpHandlers: httpHandlerMap,
-        ...defaultMethod ? { defaultMethod } : {},
-        ...schema ? { schema } : {}
-      });
-      let metadataOverrides = toolModule.metadata ?? null;
-      if (paymentExport) {
-        if (metadataOverrides) {
-          metadataOverrides = {
-            ...metadataOverrides,
-            payment: metadataOverrides.payment ?? paymentExport,
-            annotations: {
-              ...metadataOverrides.annotations,
-              requiresPayment: metadataOverrides.annotations?.requiresPayment ?? true
-            }
-          };
-        } else {
-          metadataOverrides = {
-            payment: paymentExport,
-            annotations: { requiresPayment: true }
-          };
-        }
-      }
-      const tool = {
-        schema: schema ?? void 0,
-        inputSchema,
-        metadata: metadataOverrides,
-        httpHandlers,
-        mcpConfig: normalizeMcpConfig(toolModule.mcp, file),
-        filename: toBaseName(file),
-        sourcePath: path5.join(toolsDir, file),
-        handler: async (params) => adapter(params),
-        payment: paymentExport ?? null,
-        schedule: normalizedSchedule,
-        profile: normalizedProfile,
-        ...profileNotifyEmail !== void 0 ? { notifyEmail: profileNotifyEmail } : {},
-        profileDescription: typeof profileRaw?.description === "string" ? profileRaw.description : null,
-        ...profileCategoryRaw ? { profileCategory: profileCategoryRaw } : {}
-      };
-      tools.push(tool);
-    }
-  } finally {
-    cleanup();
-    if (fs4.existsSync(tempDir)) {
-      fs4.rmSync(tempDir, { recursive: true, force: true });
-    }
-  }
-  return tools;
-}
-function ensureLocalRuntimeLinks(tempDir) {
-  const nodeModulesDir = path5.join(tempDir, "node_modules");
-  fs4.mkdirSync(nodeModulesDir, { recursive: true });
-  const packageLinks = [
-    { name: "opentool", target: OPENTOOL_ROOT },
-    { name: "zod", target: path5.join(OPENTOOL_NODE_MODULES, "zod") }
-  ];
-  for (const { name, target } of packageLinks) {
-    if (!fs4.existsSync(target)) {
-      continue;
-    }
-    const linkPath = path5.join(nodeModulesDir, name);
-    if (fs4.existsSync(linkPath)) {
-      continue;
-    }
-    fs4.symlinkSync(target, linkPath, "junction");
-  }
-}
-function extractToolModule(exportsObject, filename) {
-  const candidates = [exportsObject, exportsObject?.default];
-  for (const candidate of candidates) {
-    if (candidate && typeof candidate === "object") {
-      const hasSchema = candidate.schema && typeof candidate.schema === "object";
-      const hasHttp = HTTP_METHODS2.some((method) => typeof candidate[method] === "function");
-      if (hasSchema || hasHttp) {
-        return candidate;
-      }
-    }
-  }
-  throw new Error(
-    `${filename} must export a tool definition. Expected a Zod schema plus HTTP handlers (export async function POST).`
-  );
-}
-function toJsonSchema(name, schema) {
-  if (!schema) {
-    return void 0;
-  }
-  try {
-    return zodToJsonSchema(schema, {
-      name: `${name}Schema`,
-      target: "jsonSchema7",
-      $refStrategy: "none"
-    });
-  } catch (error) {
-    throw new Error(`Failed to convert Zod schema for ${name}: ${error}`);
-  }
-}
-function toBaseName(file) {
-  return file.replace(/\.[^.]+$/, "");
-}
-function ensureZodSchema(schemaCandidate, filename) {
-  if (schemaCandidate == null) {
-    return void 0;
-  }
-  if (schemaCandidate instanceof z.ZodType) {
-    return schemaCandidate;
-  }
-  const schema = schemaCandidate;
-  if (typeof schema?.parse !== "function") {
-    throw new Error(`${filename} schema export must be a Zod schema (missing parse method)`);
-  }
-  return schema;
-}
-function collectHttpHandlers2(module, filename) {
-  const handlers = [];
-  for (const method of HTTP_METHODS2) {
-    const handler = module?.[method];
-    if (typeof handler === "function") {
-      handlers.push({
-        method,
-        handler: async (request) => handler.call(module, request)
-      });
-    }
-  }
-  handlers.sort((a, b) => HTTP_METHODS2.indexOf(a.method) - HTTP_METHODS2.indexOf(b.method));
-  const duplicates = findDuplicates(handlers.map((h) => h.method));
-  if (duplicates.length > 0) {
-    throw new Error(
-      `${filename} exports multiple handlers for HTTP method(s): ${duplicates.join(", ")}`
-    );
-  }
-  return handlers;
-}
-function toHttpHandlerMap2(handlers) {
-  return handlers.reduce((acc, handler) => {
-    acc[handler.method.toUpperCase()] = handler.handler;
-    return acc;
-  }, {});
-}
-function normalizeInputSchema2(schema) {
-  if (!schema || typeof schema !== "object") {
-    return schema;
-  }
-  const clone = JSON.parse(JSON.stringify(schema));
-  if (typeof clone.$ref === "string" && clone.$ref.startsWith("#/definitions/")) {
-    const refName = clone.$ref.replace("#/definitions/", "");
-    const definitions = clone.definitions;
-    if (definitions && typeof definitions[refName] === "object") {
-      return normalizeInputSchema2(definitions[refName]);
-    }
-  }
-  delete clone.$ref;
-  delete clone.definitions;
-  if (!("type" in clone)) {
-    clone.type = "object";
-  }
-  return clone;
-}
-function normalizeMcpConfig(rawConfig, filename) {
-  if (rawConfig == null) {
-    return null;
-  }
-  if (rawConfig === false) {
-    return null;
-  }
-  if (rawConfig === true) {
-    return { enabled: true };
-  }
-  if (!isPlainObject2(rawConfig)) {
-    throw new Error(`${filename} export \\"mcp\\" must be an object with an enabled flag`);
-  }
-  const enabledRaw = rawConfig.enabled;
-  if (enabledRaw === false) {
-    return null;
-  }
-  if (enabledRaw !== true) {
-    throw new Error(`${filename} mcp.enabled must be explicitly set to true to opt-in to MCP`);
-  }
-  const modeRaw = rawConfig.mode;
-  let mode;
-  if (typeof modeRaw === "string") {
-    const normalized = modeRaw.toLowerCase();
-    if (["stdio", "lambda", "dual"].includes(normalized)) {
-      mode = normalized;
-    } else {
-      throw new Error(
-        `${filename} mcp.mode must be one of "stdio", "lambda", or "dual" if specified`
-      );
-    }
-  }
-  const defaultMethodRaw = rawConfig.defaultMethod;
-  const defaultMethod = typeof defaultMethodRaw === "string" ? defaultMethodRaw.toUpperCase() : void 0;
-  const overridesRaw = rawConfig.metadataOverrides;
-  const metadataOverrides = isPlainObject2(overridesRaw) ? overridesRaw : void 0;
-  const config = {
-    enabled: true
-  };
-  if (mode) {
-    config.mode = mode;
-  }
-  if (defaultMethod) {
-    config.defaultMethod = defaultMethod;
-  }
-  if (metadataOverrides) {
-    config.metadataOverrides = metadataOverrides;
-  }
-  return config;
-}
-function isPlainObject2(value) {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-function findDuplicates(values) {
-  const seen = /* @__PURE__ */ new Map();
-  const duplicates = /* @__PURE__ */ new Set();
-  values.forEach((value) => {
-    const count = seen.get(value) ?? 0;
-    seen.set(value, count + 1);
-    if (count >= 1) {
-      duplicates.add(value);
-    }
-  });
-  return Array.from(duplicates.values());
-}
-function logMetadataSummary(metadata, defaultsApplied, sourceMetadataPath) {
-  console.log(`\u{1F4C4} metadata loaded from ${sourceMetadataPath}`);
-  console.log("\n\u{1F4CA} Metadata Summary:");
-  console.log(`  \u2022 Name: ${metadata.name}`);
-  console.log(`  \u2022 Display Name: ${metadata.displayName}`);
-  console.log(`  \u2022 Version: ${metadata.version}`);
-  console.log(`  \u2022 Category: ${metadata.category}`);
-  console.log(`  \u2022 Tools: ${metadata.tools.length}`);
-  console.log(`  \u2022 Spec Version: ${metadata.metadataSpecVersion}`);
-  if (metadata.payment) {
-    console.log(`  \u2022 Payment: $${metadata.payment.amountUSDC} USDC`);
-  }
-  if (defaultsApplied.length > 0) {
-    console.log("\nDefaults applied during metadata synthesis:");
-    defaultsApplied.forEach((entry) => console.log(`  \u2022 ${entry}`));
-  }
-}
-
-// src/cli/generate-metadata.ts
-async function generateMetadataCommand(options) {
-  const startTimestamp = timestamp();
-  console.log(`[${startTimestamp}] Generating OpenTool metadata...`);
-  try {
-    const result = await generateMetadata(options);
-    const endTimestamp = timestamp();
-    console.log(`[${endTimestamp}] Metadata generation completed successfully!`);
-    console.log(`Output file: ${result.outputPath}`);
-    console.log(`Spec version: ${result.metadata.metadataSpecVersion}`);
-    console.log(`Tools included: ${result.tools.length}`);
-    if (result.defaultsApplied.length > 0) {
-      console.log("Applied defaults:");
-      for (const entry of result.defaultsApplied) {
-        console.log(`  \u2022 ${entry}`);
-      }
-    }
-  } catch (error) {
-    const endTimestamp = timestamp();
-    console.error(`[${endTimestamp}] Metadata generation failed:`, error);
-    process.exit(1);
-  }
-}
-async function generateMetadata(options) {
-  const toolsDir = path5.resolve(options.input);
-  if (!fs4.existsSync(toolsDir)) {
-    throw new Error(`Tools directory not found: ${toolsDir}`);
-  }
-  const projectRoot = path5.dirname(toolsDir);
-  const tools = await loadAndValidateTools(toolsDir, { projectRoot });
-  const { metadata, defaultsApplied } = await buildMetadataArtifact({
-    projectRoot,
-    tools
-  });
-  const outputPath = options.output ? path5.resolve(options.output) : path5.join(projectRoot, "metadata.json");
-  fs4.writeFileSync(outputPath, JSON.stringify(metadata, null, 2));
-  return {
-    metadata,
-    defaultsApplied,
-    tools,
-    outputPath
-  };
-}
-function timestamp() {
-  return (/* @__PURE__ */ new Date()).toISOString().replace("T", " ").slice(0, 19);
-}
-
-export { AIAbortError, AIError, AIFetchError, AIResponseError, BACKTEST_DECISION_MODE, DEFAULT_BASE_URL, DEFAULT_CHAIN, DEFAULT_FACILITATOR, DEFAULT_HYPERLIQUID_CADENCE_CRON, DEFAULT_HYPERLIQUID_MARKET_SLIPPAGE_BPS, DEFAULT_MODEL, DEFAULT_OPENPOND_GATEWAY_URL2 as DEFAULT_OPENPOND_GATEWAY_URL, DEFAULT_TIMEOUT_MS, DEFAULT_TOKENS, HTTP_METHODS2 as HTTP_METHODS, HyperliquidApiError, HyperliquidBuilderApprovalError, HyperliquidExchangeClient, HyperliquidGuardError, HyperliquidInfoClient, HyperliquidTermsError, NewsSignalClient, PAYMENT_HEADERS, POLYMARKET_CHAIN_ID, POLYMARKET_CLOB_AUTH_DOMAIN, POLYMARKET_CLOB_DOMAIN, POLYMARKET_ENDPOINTS, POLYMARKET_EXCHANGE_ADDRESSES, PolymarketApiError, PolymarketAuthError, PolymarketExchangeClient, PolymarketInfoClient, SUPPORTED_CURRENCIES, StoreError, WEBSEARCH_TOOL_DEFINITION, WEBSEARCH_TOOL_NAME, X402BrowserClient, X402Client, X402PaymentRequiredError, __hyperliquidInternals, __hyperliquidMarketDataInternals, approveHyperliquidBuilderFee, backtestDecisionRequestSchema, batchModifyHyperliquidOrders, buildBacktestDecisionSeriesInput, buildHmacSignature, buildHyperliquidMarketIdentity, buildHyperliquidProfileAssets, buildHyperliquidSpotUsdPriceMap, buildL1Headers, buildL2Headers, buildPolymarketOrderAmounts, buildSignedOrderPayload, cancelAllHyperliquidOrders, cancelAllPolymarketOrders, cancelHyperliquidOrders, cancelHyperliquidOrdersByCloid, cancelHyperliquidTwapOrder, cancelMarketPolymarketOrders, cancelPolymarketOrder, cancelPolymarketOrders, chains, clampHyperliquidAbs, clampHyperliquidFloat, clampHyperliquidInt, computeHyperliquidMarketIocLimitPrice, createAIClient, createDevServer, createHyperliquidSubAccount, createMcpAdapter, createMonotonicNonceFactory, createPolymarketApiKey, createStdioServer, defineX402Payment, depositToHyperliquidBridge, derivePolymarketApiKey, ensureTextContent, estimateCountBack, evaluateNewsContinuationGate, executeTool, extractHyperliquidDex, extractHyperliquidOrderIds, fetchHyperliquidAllMids, fetchHyperliquidAssetCtxs, fetchHyperliquidBars, fetchHyperliquidClearinghouseState, fetchHyperliquidFrontendOpenOrders, fetchHyperliquidHistoricalOrders, fetchHyperliquidMeta, fetchHyperliquidMetaAndAssetCtxs, fetchHyperliquidOpenOrders, fetchHyperliquidOrderStatus, fetchHyperliquidPerpMarketInfo, fetchHyperliquidPreTransferCheck, fetchHyperliquidSizeDecimals, fetchHyperliquidSpotAccountValue, fetchHyperliquidSpotAssetCtxs, fetchHyperliquidSpotClearinghouseState, fetchHyperliquidSpotMarketInfo, fetchHyperliquidSpotMeta, fetchHyperliquidSpotMetaAndAssetCtxs, fetchHyperliquidSpotTickSize, fetchHyperliquidSpotUsdPriceMap, fetchHyperliquidTickSize, fetchHyperliquidUserFills, fetchHyperliquidUserFillsByTime, fetchHyperliquidUserRateLimit, fetchNewsEventSignal, fetchNewsPropositionSignal, fetchPolymarketMarket, fetchPolymarketMarkets, fetchPolymarketMidpoint, fetchPolymarketOrderbook, fetchPolymarketPrice, fetchPolymarketPriceHistory, flattenMessageContent, formatHyperliquidMarketablePrice, formatHyperliquidOrderSize, formatHyperliquidPrice, formatHyperliquidSize, generateMetadata, generateMetadataCommand, generateText, getHyperliquidMaxBuilderFee, getModelConfig, getMyPerformance, getMyTools, getRpcUrl, getX402PaymentContext, isHyperliquidSpotSymbol, isStreamingSupported, isToolCallingSupported, listModels, loadAndValidateTools, modifyHyperliquidOrder, normalizeHyperliquidBaseSymbol, normalizeHyperliquidDcaEntries, normalizeHyperliquidIndicatorBars, normalizeHyperliquidMetaSymbol, normalizeModelName, normalizeNumberArrayish, normalizeSpotTokenName2 as normalizeSpotTokenName, normalizeStringArrayish, parseHyperliquidJson, parseSpotPairSymbol, parseTimeToSeconds, payX402, payX402WithWallet, placeHyperliquidOrder, placeHyperliquidTwapOrder, placePolymarketOrder, planHyperliquidTrade, postAgentDigest, readHyperliquidAccountValue, readHyperliquidNumber, readHyperliquidPerpPosition, readHyperliquidPerpPositionSize, readHyperliquidSpotAccountValue, readHyperliquidSpotBalance, readHyperliquidSpotBalanceSize, recordHyperliquidBuilderApproval, recordHyperliquidTermsAcceptance, registry, requireX402Payment, reserveHyperliquidRequestWeight, resolutionToSeconds, resolveBacktestAccountValueUsd, resolveBacktestMode, resolveBacktestWindow, resolveConfig2 as resolveConfig, resolveExchangeAddress, resolveHyperliquidAbstractionFromMode, resolveHyperliquidBudgetUsd, resolveHyperliquidCadenceCron, resolveHyperliquidCadenceFromResolution, resolveHyperliquidChain, resolveHyperliquidChainConfig, resolveHyperliquidDcaSymbolEntries, resolveHyperliquidErrorDetail, resolveHyperliquidHourlyInterval, resolveHyperliquidIntervalCron, resolveHyperliquidLeverageMode, resolveHyperliquidMaxPerRunUsd, resolveHyperliquidOrderRef, resolveHyperliquidOrderSymbol, resolveHyperliquidPair, resolveHyperliquidPerpSymbol, resolveHyperliquidProfileChain, resolveHyperliquidRpcEnvVar, resolveHyperliquidScheduleEvery, resolveHyperliquidScheduleUnit, resolveHyperliquidSpotSymbol, resolveHyperliquidStoreNetwork, resolveHyperliquidSymbol, resolveHyperliquidTargetSize, resolveNewsGatewayBase, resolvePolymarketBaseUrl, resolveRuntimePath, resolveSpotMidCandidates, resolveSpotTokenCandidates, resolveToolset, responseToToolResponse, retrieve, roundHyperliquidPriceToTick, scheduleHyperliquidCancel, sendHyperliquidSpot, setHyperliquidAccountAbstractionMode, setHyperliquidDexAbstraction, setHyperliquidPortfolioMargin, store, streamText, tokens, transferHyperliquidSubAccount, updateHyperliquidIsolatedMargin, updateHyperliquidLeverage, validateCommand, wallet, walletToolkit, withX402Payment, withdrawFromHyperliquid };
+export { AIAbortError, AIError, AIFetchError, AIResponseError, BACKTEST_DECISION_MODE, DEFAULT_BASE_URL, DEFAULT_CHAIN, DEFAULT_FACILITATOR, DEFAULT_HYPERLIQUID_CADENCE_CRON, DEFAULT_HYPERLIQUID_MARKET_SLIPPAGE_BPS, DEFAULT_MODEL, DEFAULT_OPENPOND_GATEWAY_URL2 as DEFAULT_OPENPOND_GATEWAY_URL, DEFAULT_TIMEOUT_MS, DEFAULT_TOKENS, HTTP_METHODS2 as HTTP_METHODS, HyperliquidApiError, HyperliquidBuilderApprovalError, HyperliquidExchangeClient, HyperliquidGuardError, HyperliquidInfoClient, HyperliquidTermsError, NewsSignalClient, PAYMENT_HEADERS, POLYMARKET_CHAIN_ID, POLYMARKET_CLOB_AUTH_DOMAIN, POLYMARKET_CLOB_DOMAIN, POLYMARKET_ENDPOINTS, POLYMARKET_EXCHANGE_ADDRESSES, PolymarketApiError, PolymarketAuthError, PolymarketExchangeClient, PolymarketInfoClient, SUPPORTED_CURRENCIES, StoreError, WEBSEARCH_TOOL_DEFINITION, WEBSEARCH_TOOL_NAME, X402BrowserClient, X402Client, X402PaymentRequiredError, __hyperliquidInternals, __hyperliquidMarketDataInternals, approveHyperliquidBuilderFee, backtestDecisionRequestSchema, batchModifyHyperliquidOrders, buildBacktestDecisionSeriesInput, buildHmacSignature, buildHyperliquidMarketIdentity, buildHyperliquidProfileAssets, buildHyperliquidSpotUsdPriceMap, buildL1Headers, buildL2Headers, buildPolymarketOrderAmounts, buildSignedOrderPayload, cancelAllHyperliquidOrders, cancelAllPolymarketOrders, cancelHyperliquidOrders, cancelHyperliquidOrdersByCloid, cancelHyperliquidTwapOrder, cancelMarketPolymarketOrders, cancelPolymarketOrder, cancelPolymarketOrders, chains, clampHyperliquidAbs, clampHyperliquidFloat, clampHyperliquidInt, computeHyperliquidMarketIocLimitPrice, createAIClient, createDevServer, createHyperliquidSubAccount, createMcpAdapter, createMonotonicNonceFactory, createPolymarketApiKey, createStdioServer, defineX402Payment, depositToHyperliquidBridge, derivePolymarketApiKey, ensureTextContent, estimateCountBack, evaluateNewsContinuationGate, executeTool, extractHyperliquidDex, extractHyperliquidOrderIds, fetchHyperliquidAllMids, fetchHyperliquidAssetCtxs, fetchHyperliquidBars, fetchHyperliquidClearinghouseState, fetchHyperliquidFrontendOpenOrders, fetchHyperliquidHistoricalOrders, fetchHyperliquidMeta, fetchHyperliquidMetaAndAssetCtxs, fetchHyperliquidOpenOrders, fetchHyperliquidOrderStatus, fetchHyperliquidPerpMarketInfo, fetchHyperliquidPreTransferCheck, fetchHyperliquidSizeDecimals, fetchHyperliquidSpotAccountValue, fetchHyperliquidSpotAssetCtxs, fetchHyperliquidSpotClearinghouseState, fetchHyperliquidSpotMarketInfo, fetchHyperliquidSpotMeta, fetchHyperliquidSpotMetaAndAssetCtxs, fetchHyperliquidSpotTickSize, fetchHyperliquidSpotUsdPriceMap, fetchHyperliquidTickSize, fetchHyperliquidUserFills, fetchHyperliquidUserFillsByTime, fetchHyperliquidUserRateLimit, fetchNewsEventSignal, fetchNewsPropositionSignal, fetchPolymarketMarket, fetchPolymarketMarkets, fetchPolymarketMidpoint, fetchPolymarketOrderbook, fetchPolymarketPrice, fetchPolymarketPriceHistory, flattenMessageContent, formatHyperliquidMarketablePrice, formatHyperliquidOrderSize, formatHyperliquidPrice, formatHyperliquidSize, generateText, getHyperliquidMaxBuilderFee, getModelConfig, getMyPerformance, getMyTools, getRpcUrl, getX402PaymentContext, isHyperliquidSpotSymbol, isStreamingSupported, isToolCallingSupported, listModels, modifyHyperliquidOrder, normalizeHyperliquidBaseSymbol, normalizeHyperliquidDcaEntries, normalizeHyperliquidIndicatorBars, normalizeHyperliquidMetaSymbol, normalizeModelName, normalizeNumberArrayish, normalizeSpotTokenName2 as normalizeSpotTokenName, normalizeStringArrayish, parseHyperliquidJson, parseSpotPairSymbol, parseTimeToSeconds, payX402, payX402WithWallet, placeHyperliquidOrder, placeHyperliquidTwapOrder, placePolymarketOrder, planHyperliquidTrade, postAgentDigest, readHyperliquidAccountValue, readHyperliquidNumber, readHyperliquidPerpPosition, readHyperliquidPerpPositionSize, readHyperliquidSpotAccountValue, readHyperliquidSpotBalance, readHyperliquidSpotBalanceSize, recordHyperliquidBuilderApproval, recordHyperliquidTermsAcceptance, registry, requireX402Payment, reserveHyperliquidRequestWeight, resolutionToSeconds, resolveBacktestAccountValueUsd, resolveBacktestMode, resolveBacktestWindow, resolveConfig2 as resolveConfig, resolveExchangeAddress, resolveHyperliquidAbstractionFromMode, resolveHyperliquidBudgetUsd, resolveHyperliquidCadenceCron, resolveHyperliquidCadenceFromResolution, resolveHyperliquidChain, resolveHyperliquidChainConfig, resolveHyperliquidDcaSymbolEntries, resolveHyperliquidErrorDetail, resolveHyperliquidHourlyInterval, resolveHyperliquidIntervalCron, resolveHyperliquidLeverageMode, resolveHyperliquidMaxPerRunUsd, resolveHyperliquidOrderRef, resolveHyperliquidOrderSymbol, resolveHyperliquidPair, resolveHyperliquidPerpSymbol, resolveHyperliquidProfileChain, resolveHyperliquidRpcEnvVar, resolveHyperliquidScheduleEvery, resolveHyperliquidScheduleUnit, resolveHyperliquidSpotSymbol, resolveHyperliquidStoreNetwork, resolveHyperliquidSymbol, resolveHyperliquidTargetSize, resolveNewsGatewayBase, resolvePolymarketBaseUrl, resolveRuntimePath, resolveSpotMidCandidates, resolveSpotTokenCandidates, resolveToolset, responseToToolResponse, retrieve, roundHyperliquidPriceToTick, scheduleHyperliquidCancel, sendHyperliquidSpot, setHyperliquidAccountAbstractionMode, setHyperliquidDexAbstraction, setHyperliquidPortfolioMargin, store, streamText, tokens, transferHyperliquidSubAccount, updateHyperliquidIsolatedMargin, updateHyperliquidLeverage, wallet, walletToolkit, withX402Payment, withdrawFromHyperliquid };
 //# sourceMappingURL=index.js.map
 //# sourceMappingURL=index.js.map
