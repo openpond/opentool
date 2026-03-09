@@ -13,6 +13,7 @@ export default defineConfig({
     "src/ai/index.ts",
     "src/store/index.ts",
     "src/adapters/hyperliquid/index.ts",
+    "src/adapters/hyperliquid/browser.ts",
     "src/adapters/news/index.ts",
     "src/adapters/polymarket/index.ts",
   ],
