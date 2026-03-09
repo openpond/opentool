@@ -1,5 +1,11 @@
 # opentool
 
+## 0.11.0
+
+### Minor Changes
+
+- d2802e6: cli and export / import bug
+
 ## 0.10.5
 
 ### Patch Changes
