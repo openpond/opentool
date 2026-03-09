@@ -1,5 +1,11 @@
 # opentool
 
+## 0.12.0
+
+### Minor Changes
+
+- 5140773: move loadandvalidate outside of cli
+
 ## 0.11.0
 
 ### Minor Changes
