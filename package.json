@@ -59,6 +59,7 @@
     "commander": "^11.0.0",
     "dotenv": "^17.3.1",
     "esbuild": "^0.25.12",
+    "opentool": "file:opentool-0.13.0.tgz",
     "viem": "^2.31.7",
     "zod": "^4.3.6"
   },

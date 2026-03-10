@@ -3055,7 +3055,7 @@ async function placeHyperliquidTwapOrder(options) {
     symbol: twap.symbol,
     baseUrl: API_BASES[env],
     environment: env,
-    fetcher: fetch
+    fetcher: (...args) => fetch(...args)
   });
   const action = {
     type: "twapOrder",
@@ -3077,7 +3077,7 @@ async function cancelHyperliquidTwapOrder(options) {
     symbol: options.cancel.symbol,
     baseUrl: API_BASES[env],
     environment: env,
-    fetcher: fetch
+    fetcher: (...args) => fetch(...args)
   });
   const action = {
     type: "twapCancel",
@@ -3094,7 +3094,7 @@ async function updateHyperliquidLeverage(options) {
     symbol: options.input.symbol,
     baseUrl: API_BASES[env],
     environment: env,
-    fetcher: fetch
+    fetcher: (...args) => fetch(...args)
   });
   const action = {
     type: "updateLeverage",
@@ -3112,7 +3112,7 @@ async function updateHyperliquidIsolatedMargin(options) {
     symbol: options.input.symbol,
     baseUrl: API_BASES[env],
     environment: env,
-    fetcher: fetch
+    fetcher: (...args) => fetch(...args)
   });
   const action = {
     type: "updateIsolatedMargin",
@@ -3227,7 +3227,7 @@ async function withAssetIndexes(options, entries, mapper) {
         symbol: entry.symbol,
         baseUrl: API_BASES[env],
         environment: env,
-        fetcher: fetch
+        fetcher: (...args) => fetch(...args)
       });
       return mapper(assetIndex, entry);
     })
@@ -3242,7 +3242,7 @@ async function buildOrder(intent, options) {
     symbol: intent.symbol,
     baseUrl: API_BASES[env],
     environment: env,
-    fetcher: fetch
+    fetcher: (...args) => fetch(...args)
   });
   const limitOrTrigger = intent.trigger ? mapTrigger(intent.trigger) : {
     limit: {
@@ -4617,7 +4617,7 @@ async function placeHyperliquidOrder(options) {
         symbol: intent.symbol,
         baseUrl: resolvedBaseUrl,
         environment: inferredEnvironment,
-        fetcher: fetch
+        fetcher: (...args) => fetch(...args)
       });
       const limitOrTrigger = intent.trigger ? {
         trigger: {

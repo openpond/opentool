@@ -128,6 +128,7 @@ function createMonotonicNonceSource(start = Date.now()) {
 }
 
 // src/wallet/browser.ts
+var browserFetch = (...args) => fetch(...args);
 function resolveChainSlug(reference) {
   if (reference === void 0) {
     return Object.entries(chains).find(([, meta]) => meta.id === DEFAULT_CHAIN.id)?.[0] || DEFAULT_CHAIN.slug;
@@ -214,7 +215,7 @@ function createBrowserWalletContext(options) {
   const rpcUrl = getRpcUrl(slug, overrides);
   const publicClient = options.publicClient ?? createPublicClient({
     chain: chain.chain,
-    transport: http(rpcUrl)
+    transport: http(rpcUrl, { fetchFn: browserFetch })
   });
   const walletClient = options.walletClient;
   const helperNonceSource = options.nonceSource ?? createMonotonicNonceSource();
@@ -244,7 +245,7 @@ async function createTurnkeyBrowserProvider(config) {
     signWith: config.signWith,
     ...config.ethereumAddress ? { ethereumAddress: config.ethereumAddress } : {}
   });
-  const transport = http(config.rpcUrl);
+  const transport = http(config.rpcUrl, { fetchFn: browserFetch });
   const publicClient = createPublicClient({
     chain: config.chain.chain,
     transport
