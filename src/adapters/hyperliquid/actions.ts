@@ -144,7 +144,7 @@ function assertPositiveDecimalInput(value: string | number | bigint, label: stri
   if (!trimmed.length) {
     throw new Error(`${label} must be a non-empty string.`);
   }
-  if (!/^(?:\\d+\\.?\\d*|\\.\\d+)$/.test(trimmed)) {
+  if (!/^(?:\d+\.?\d*|\.\d+)$/.test(trimmed)) {
     throw new Error(`${label} must be a positive decimal string.`);
   }
   const numeric = Number(trimmed);
@@ -158,13 +158,13 @@ function normalizePositiveDecimalString(raw: string, label: string): string {
   if (!trimmed.length) {
     throw new Error(`${label} must be a non-empty decimal string.`);
   }
-  if (!/^(?:\\d+\\.?\\d*|\\.\\d+)$/.test(trimmed)) {
+  if (!/^(?:\d+\.?\d*|\.\d+)$/.test(trimmed)) {
     throw new Error(`${label} must be a positive decimal string.`);
   }
   const normalized = trimmed
-    .replace(/^0+(?=\\d)/, "")
-    .replace(/(\\.\\d*?)0+$/, "$1")
-    .replace(/\\.$/, "");
+    .replace(/^0+(?=\d)/, "")
+    .replace(/(\.\d*?)0+$/, "$1")
+    .replace(/\.$/, "");
   const numeric = Number(normalized);
   if (!Number.isFinite(numeric) || numeric <= 0) {
     throw new Error(`${label} must be positive.`);
@@ -207,7 +207,7 @@ export async function placeHyperliquidOrder(
         symbol: intent.symbol,
         baseUrl: resolvedBaseUrl,
         environment: inferredEnvironment,
-        fetcher: fetch,
+        fetcher: (...args) => fetch(...args),
       });
 
       const order: ExchangeOrderAction["orders"][number] = {

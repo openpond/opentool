@@ -32,6 +32,8 @@ import type {
 type ChainSlug = keyof typeof chainRegistry;
 type TurnkeyBrowserClientLike = Parameters<typeof createAccount>[0]["client"];
 
+const browserFetch: typeof fetch = (...args) => fetch(...args);
+
 function resolveChainSlug(reference?: ChainReference): ChainSlug {
   if (reference === undefined) {
     return (Object.entries(chainRegistry).find(([, meta]) => meta.id === DEFAULT_CHAIN.id)?.[0] ||
@@ -161,7 +163,7 @@ export function createBrowserWalletContext(
     options.publicClient ??
     createPublicClient<Transport, Chain>({
       chain: chain.chain,
-      transport: http(rpcUrl),
+      transport: http(rpcUrl, { fetchFn: browserFetch }),
     });
   const walletClient = options.walletClient;
   const helperNonceSource = options.nonceSource ?? createMonotonicNonceSource();
@@ -206,7 +208,7 @@ export async function createTurnkeyBrowserProvider(
     ...(config.ethereumAddress ? { ethereumAddress: config.ethereumAddress } : {}),
   })) as Account;
 
-  const transport = http(config.rpcUrl);
+  const transport = http(config.rpcUrl, { fetchFn: browserFetch });
   const publicClient = createPublicClient<Transport, Chain>({
     chain: config.chain.chain,
     transport,

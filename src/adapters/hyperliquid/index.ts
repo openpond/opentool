@@ -267,7 +267,7 @@ export async function placeHyperliquidOrder(
         symbol: intent.symbol,
         baseUrl: resolvedBaseUrl,
         environment: inferredEnvironment,
-        fetcher: fetch,
+        fetcher: (...args) => fetch(...args),
       });
 
       const limitOrTrigger = intent.trigger

@@ -594,7 +594,7 @@ export async function placeHyperliquidTwapOrder(
     symbol: twap.symbol,
     baseUrl: API_BASES[env],
     environment: env,
-    fetcher: fetch,
+    fetcher: (...args) => fetch(...args),
   });
   const action = {
     type: "twapOrder",
@@ -622,7 +622,7 @@ export async function cancelHyperliquidTwapOrder(
     symbol: options.cancel.symbol,
     baseUrl: API_BASES[env],
     environment: env,
-    fetcher: fetch,
+    fetcher: (...args) => fetch(...args),
   });
   const action = {
     type: "twapCancel",
@@ -645,7 +645,7 @@ export async function updateHyperliquidLeverage(
     symbol: options.input.symbol,
     baseUrl: API_BASES[env],
     environment: env,
-    fetcher: fetch,
+    fetcher: (...args) => fetch(...args),
   });
   const action = {
     type: "updateLeverage",
@@ -669,7 +669,7 @@ export async function updateHyperliquidIsolatedMargin(
     symbol: options.input.symbol,
     baseUrl: API_BASES[env],
     environment: env,
-    fetcher: fetch,
+    fetcher: (...args) => fetch(...args),
   });
   const action = {
     type: "updateIsolatedMargin",
@@ -838,7 +838,7 @@ async function withAssetIndexes<TInput>(
         symbol: entry.symbol,
         baseUrl: API_BASES[env],
         environment: env,
-        fetcher: fetch,
+        fetcher: (...args) => fetch(...args),
       });
       return mapper(assetIndex, entry);
     }),
@@ -857,7 +857,7 @@ async function buildOrder(
     symbol: intent.symbol,
     baseUrl: API_BASES[env],
     environment: env,
-    fetcher: fetch,
+    fetcher: (...args) => fetch(...args),
   });
 
   const limitOrTrigger = intent.trigger
