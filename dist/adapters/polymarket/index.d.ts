@@ -1,4 +1,4 @@
-import { W as WalletFullContext } from '../../types-DKohXZes.js';
+import { h as WalletFullContext } from '../../types-BaTmu0gS.js';
 import 'viem';
 import 'viem/accounts';
 

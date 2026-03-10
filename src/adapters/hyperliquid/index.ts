@@ -764,6 +764,7 @@ export * from "./strategy";
 export * from "./order-utils";
 export * from "./state-readers";
 export * from "./market-data";
+export * from "./tpsl";
 export * from "./utils";
 
 export const __hyperliquidInternals = {

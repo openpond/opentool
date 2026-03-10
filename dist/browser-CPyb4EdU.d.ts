@@ -1,4 +1,4 @@
-import { W as WalletFullContext } from './types-DKohXZes.js';
+import { h as WalletFullContext } from './types-BaTmu0gS.js';
 
 type HyperliquidEnvironment = "mainnet" | "testnet";
 type MarketIdentity = {
@@ -357,4 +357,140 @@ declare function sendHyperliquidSpot(options: {
     nonceSource?: NonceSource | undefined;
 }): Promise<HyperliquidExchangeResponse<unknown>>;
 
-export { setHyperliquidPortfolioMargin as $, fetchHyperliquidFrontendOpenOrders as A, fetchHyperliquidHistoricalOrders as B, fetchHyperliquidMeta as C, DEFAULT_HYPERLIQUID_MARKET_SLIPPAGE_BPS as D, type ExchangeOrderAction as E, fetchHyperliquidMetaAndAssetCtxs as F, fetchHyperliquidOpenOrders as G, type HyperliquidEnvironment as H, fetchHyperliquidOrderStatus as I, fetchHyperliquidPreTransferCheck as J, fetchHyperliquidSpotAssetCtxs as K, fetchHyperliquidSpotClearinghouseState as L, type MarketIdentity as M, type NonceSource as N, fetchHyperliquidSpotMeta as O, fetchHyperliquidSpotMetaAndAssetCtxs as P, fetchHyperliquidUserFills as Q, fetchHyperliquidUserFillsByTime as R, fetchHyperliquidUserRateLimit as S, modifyHyperliquidOrder as T, placeHyperliquidTwapOrder as U, reserveHyperliquidRequestWeight as V, resolveHyperliquidAbstractionFromMode as W, scheduleHyperliquidCancel as X, sendHyperliquidSpot as Y, setHyperliquidAccountAbstractionMode as Z, setHyperliquidDexAbstraction as _, type HyperliquidOrderIntent as a, transferHyperliquidSubAccount as a0, updateHyperliquidIsolatedMargin as a1, updateHyperliquidLeverage as a2, toApiDecimal as a3, createL1ActionHash as a4, splitSignature as a5, type HyperliquidGrouping as b, type HyperliquidAbstraction as c, type HyperliquidAccountMode as d, HyperliquidApiError as e, HyperliquidBuilderApprovalError as f, type HyperliquidBuilderFee as g, HyperliquidExchangeClient as h, type HyperliquidExchangeResponse as i, HyperliquidGuardError as j, HyperliquidInfoClient as k, type HyperliquidMarketIdentityInput as l, HyperliquidTermsError as m, type HyperliquidTimeInForce as n, type HyperliquidTriggerOptions as o, type HyperliquidTriggerType as p, batchModifyHyperliquidOrders as q, buildHyperliquidMarketIdentity as r, cancelAllHyperliquidOrders as s, cancelHyperliquidOrders as t, cancelHyperliquidOrdersByCloid as u, cancelHyperliquidTwapOrder as v, computeHyperliquidMarketIocLimitPrice as w, createHyperliquidSubAccount as x, createMonotonicNonceFactory as y, fetchHyperliquidAssetCtxs as z };
+interface HyperliquidOrderOptions {
+    wallet: WalletFullContext;
+    orders: HyperliquidOrderIntent[];
+    grouping?: HyperliquidGrouping;
+    environment?: HyperliquidEnvironment;
+    vaultAddress?: `0x${string}`;
+    expiresAfter?: number;
+    nonce?: number;
+    nonceSource?: NonceSource;
+}
+type HyperliquidOrderStatus = {
+    resting: {
+        oid: number;
+        cloid?: `0x${string}`;
+    };
+} | {
+    filled: {
+        totalSz: string;
+        avgPx: string;
+        oid: number;
+        cloid?: `0x${string}`;
+    };
+} | {
+    error: string;
+} | "waitingForFill" | "waitingForTrigger";
+interface HyperliquidOrderResponse {
+    status: "ok";
+    response: {
+        type: "order";
+        data: {
+            statuses: HyperliquidOrderStatus[];
+        };
+    };
+}
+interface HyperliquidDepositResult {
+    txHash: `0x${string}`;
+    amount: number;
+    amountUnits: string;
+    environment: HyperliquidEnvironment;
+    bridgeAddress: `0x${string}`;
+}
+interface HyperliquidWithdrawResult {
+    amount: number;
+    destination: `0x${string}`;
+    environment: HyperliquidEnvironment;
+    nonce: number;
+    status: string;
+}
+interface HyperliquidClearinghouseState {
+    ok: boolean;
+    data: Record<string, unknown> | null;
+}
+interface HyperliquidApproveBuilderFeeOptions {
+    environment: HyperliquidEnvironment;
+    wallet: WalletFullContext;
+    nonce?: number;
+    nonceSource?: NonceSource;
+    signatureChainId?: string;
+}
+interface HyperliquidApproveBuilderFeeResponse {
+    status: string;
+    response?: unknown;
+    error?: string;
+}
+declare function placeHyperliquidOrder(options: HyperliquidOrderOptions): Promise<HyperliquidOrderResponse>;
+declare function depositToHyperliquidBridge(options: {
+    environment: HyperliquidEnvironment;
+    amount: string;
+    wallet: WalletFullContext;
+}): Promise<HyperliquidDepositResult>;
+declare function withdrawFromHyperliquid(options: {
+    environment: HyperliquidEnvironment;
+    amount: string;
+    destination: `0x${string}`;
+    wallet: WalletFullContext;
+    nonce?: number;
+    nonceSource?: NonceSource;
+}): Promise<HyperliquidWithdrawResult>;
+declare function fetchHyperliquidClearinghouseState(params: {
+    environment: HyperliquidEnvironment;
+    walletAddress: `0x${string}`;
+}): Promise<HyperliquidClearinghouseState>;
+declare function approveHyperliquidBuilderFee(options: HyperliquidApproveBuilderFeeOptions): Promise<HyperliquidApproveBuilderFeeResponse>;
+declare function getHyperliquidMaxBuilderFee(params: {
+    environment: HyperliquidEnvironment;
+    user: `0x${string}`;
+}): Promise<unknown>;
+declare function createHyperliquidActionHash(params: {
+    action: Record<string, unknown> | ExchangeOrderAction;
+    nonce: number;
+    isTestnet: boolean;
+    vaultAddress?: `0x${string}`;
+    expiresAfter?: number;
+}): `0x${string}`;
+
+declare const DEFAULT_HYPERLIQUID_TPSL_MARKET_SLIPPAGE_BPS = 1000;
+type HyperliquidTpSlExecutionType = "market" | "limit";
+interface HyperliquidTpSlLegInput {
+    triggerPx: string | number | bigint;
+    execution?: HyperliquidTpSlExecutionType;
+    price?: string | number | bigint;
+    clientId?: `0x${string}`;
+}
+interface HyperliquidPlaceOrderWithTpSlOptions {
+    wallet: WalletFullContext;
+    parent: HyperliquidOrderIntent;
+    referencePrice: string | number;
+    takeProfit?: HyperliquidTpSlLegInput | null;
+    stopLoss?: HyperliquidTpSlLegInput | null;
+    environment?: HyperliquidEnvironment;
+    grouping?: Extract<HyperliquidGrouping, "normalTpsl">;
+    vaultAddress?: `0x${string}`;
+    expiresAfter?: number;
+    nonce?: number;
+    nonceSource?: NonceSource;
+    triggerMarketSlippageBps?: number;
+}
+interface HyperliquidPlacePositionTpSlOptions {
+    wallet: WalletFullContext;
+    symbol: string;
+    positionSide: "long" | "short";
+    size: string | number | bigint;
+    referencePrice: string | number;
+    takeProfit?: HyperliquidTpSlLegInput | null;
+    stopLoss?: HyperliquidTpSlLegInput | null;
+    environment?: HyperliquidEnvironment;
+    grouping?: Extract<HyperliquidGrouping, "positionTpsl">;
+    vaultAddress?: `0x${string}`;
+    expiresAfter?: number;
+    nonce?: number;
+    nonceSource?: NonceSource;
+    triggerMarketSlippageBps?: number;
+}
+declare function placeHyperliquidOrderWithTpSl(options: HyperliquidPlaceOrderWithTpSlOptions): Promise<HyperliquidOrderResponse>;
+declare function placeHyperliquidPositionTpSl(options: HyperliquidPlacePositionTpSlOptions): Promise<HyperliquidOrderResponse>;
+
+export { resolveHyperliquidAbstractionFromMode as $, cancelHyperliquidTwapOrder as A, computeHyperliquidMarketIocLimitPrice as B, createHyperliquidSubAccount as C, DEFAULT_HYPERLIQUID_MARKET_SLIPPAGE_BPS as D, createMonotonicNonceFactory as E, fetchHyperliquidAssetCtxs as F, fetchHyperliquidFrontendOpenOrders as G, type HyperliquidAbstraction as H, fetchHyperliquidHistoricalOrders as I, fetchHyperliquidMeta as J, fetchHyperliquidMetaAndAssetCtxs as K, fetchHyperliquidOpenOrders as L, type MarketIdentity as M, fetchHyperliquidOrderStatus as N, fetchHyperliquidPreTransferCheck as O, fetchHyperliquidSpotAssetCtxs as P, fetchHyperliquidSpotClearinghouseState as Q, fetchHyperliquidSpotMeta as R, fetchHyperliquidSpotMetaAndAssetCtxs as S, fetchHyperliquidUserFills as T, fetchHyperliquidUserFillsByTime as U, fetchHyperliquidUserRateLimit as V, modifyHyperliquidOrder as W, placeHyperliquidOrderWithTpSl as X, placeHyperliquidPositionTpSl as Y, placeHyperliquidTwapOrder as Z, reserveHyperliquidRequestWeight as _, DEFAULT_HYPERLIQUID_TPSL_MARKET_SLIPPAGE_BPS as a, scheduleHyperliquidCancel as a0, sendHyperliquidSpot as a1, setHyperliquidAccountAbstractionMode as a2, setHyperliquidDexAbstraction as a3, setHyperliquidPortfolioMargin as a4, transferHyperliquidSubAccount as a5, updateHyperliquidIsolatedMargin as a6, updateHyperliquidLeverage as a7, type NonceSource as a8, toApiDecimal as a9, createL1ActionHash as aa, splitSignature as ab, type HyperliquidApproveBuilderFeeOptions as ac, type HyperliquidApproveBuilderFeeResponse as ad, type HyperliquidClearinghouseState as ae, type HyperliquidDepositResult as af, type HyperliquidOrderOptions as ag, type HyperliquidOrderResponse as ah, type HyperliquidOrderStatus as ai, type HyperliquidWithdrawResult as aj, approveHyperliquidBuilderFee as ak, createHyperliquidActionHash as al, depositToHyperliquidBridge as am, fetchHyperliquidClearinghouseState as an, getHyperliquidMaxBuilderFee as ao, placeHyperliquidOrder as ap, withdrawFromHyperliquid as aq, type HyperliquidAccountMode as b, HyperliquidApiError as c, HyperliquidBuilderApprovalError as d, type HyperliquidBuilderFee as e, type HyperliquidEnvironment as f, HyperliquidExchangeClient as g, type HyperliquidExchangeResponse as h, type HyperliquidGrouping as i, HyperliquidGuardError as j, HyperliquidInfoClient as k, type HyperliquidMarketIdentityInput as l, type HyperliquidOrderIntent as m, type HyperliquidPlaceOrderWithTpSlOptions as n, type HyperliquidPlacePositionTpSlOptions as o, HyperliquidTermsError as p, type HyperliquidTimeInForce as q, type HyperliquidTpSlExecutionType as r, type HyperliquidTpSlLegInput as s, type HyperliquidTriggerOptions as t, type HyperliquidTriggerType as u, batchModifyHyperliquidOrders as v, buildHyperliquidMarketIdentity as w, cancelAllHyperliquidOrders as x, cancelHyperliquidOrders as y, cancelHyperliquidOrdersByCloid as z };

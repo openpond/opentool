@@ -70,6 +70,11 @@ export {
   getHyperliquidMaxBuilderFee,
   createHyperliquidActionHash,
 } from "./actions";
+export {
+  DEFAULT_HYPERLIQUID_TPSL_MARKET_SLIPPAGE_BPS,
+  placeHyperliquidOrderWithTpSl,
+  placeHyperliquidPositionTpSl,
+} from "./tpsl";
 export type {
   HyperliquidOrderOptions,
   HyperliquidOrderStatus,
@@ -80,3 +85,9 @@ export type {
   HyperliquidApproveBuilderFeeOptions,
   HyperliquidApproveBuilderFeeResponse,
 } from "./actions";
+export type {
+  HyperliquidTpSlExecutionType,
+  HyperliquidTpSlLegInput,
+  HyperliquidPlaceOrderWithTpSlOptions,
+  HyperliquidPlacePositionTpSlOptions,
+} from "./tpsl";

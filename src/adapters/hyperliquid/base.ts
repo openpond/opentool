@@ -363,7 +363,64 @@ export class HyperliquidApiError extends Error {
     message: string,
     public readonly response: unknown,
   ) {
-    super(message);
+    const responseRecord =
+      response && typeof response === "object"
+        ? (response as {
+            errors?: unknown;
+            body?: unknown;
+          })
+        : null;
+    const explicitErrors = Array.isArray(responseRecord?.errors)
+      ? responseRecord.errors.filter(
+          (entry): entry is string => typeof entry === "string" && entry.trim().length > 0,
+        )
+      : [];
+    const bodyStatuses =
+      responseRecord?.body &&
+      typeof responseRecord.body === "object" &&
+      responseRecord.body !== null &&
+      "response" in responseRecord.body
+        ? (
+            (
+              (responseRecord.body as {
+                response?: {
+                  data?: {
+                    statuses?: Array<{ error?: unknown }>;
+                    status?: { error?: unknown };
+                  };
+                };
+              }).response?.data?.statuses ?? []
+            )
+              .map((status) => (typeof status?.error === "string" ? status.error : null))
+              .filter((entry): entry is string => Boolean(entry && entry.trim().length > 0))
+          )
+        : [];
+    const singleStatusError =
+      responseRecord?.body &&
+      typeof responseRecord.body === "object" &&
+      responseRecord.body !== null &&
+      "response" in responseRecord.body
+        ? (
+            (responseRecord.body as {
+              response?: {
+                data?: {
+                  status?: { error?: unknown };
+                };
+              };
+            }).response?.data?.status?.error
+          )
+        : null;
+    const details = Array.from(
+      new Set(
+        [
+          ...explicitErrors,
+          ...bodyStatuses,
+          typeof singleStatusError === "string" ? singleStatusError : null,
+        ].filter((entry): entry is string => Boolean(entry && entry.trim().length > 0)),
+      ),
+    );
+    const enrichedMessage = details.length > 0 ? `${message} ${details.join(" | ")}` : message;
+    super(enrichedMessage);
     this.name = "HyperliquidApiError";
   }
 }
