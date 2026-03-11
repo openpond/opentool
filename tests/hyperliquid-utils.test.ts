@@ -12,6 +12,7 @@ import {
   formatHyperliquidSize,
   formatHyperliquidMarketablePrice,
   formatHyperliquidOrderSize,
+  isHyperliquidSpotSymbol,
   normalizeHyperliquidMetaSymbol,
   parseHyperliquidSymbol,
   parseSpotPairSymbol,
@@ -26,6 +27,7 @@ import {
   resolveHyperliquidDcaSymbolEntries,
   resolveHyperliquidErrorDetail,
   resolveHyperliquidLeverageMode,
+  resolveHyperliquidMarketDataCoin,
   resolveHyperliquidMaxPerRunUsd,
   resolveHyperliquidOrderSymbol,
   resolveHyperliquidOrderRef,
@@ -139,9 +141,14 @@ test("symbol helpers normalize perp and spot symbols consistently", () => {
   assert.equal(resolveHyperliquidOrderSymbol("btc-usdc"), "BTC/USDC");
   assert.equal(resolveHyperliquidOrderSymbol("xyz:sol"), "xyz:SOL");
   assert.equal(resolveHyperliquidOrderSymbol("@123"), "@123");
+  assert.equal(resolveHyperliquidMarketDataCoin("SOL-USDC"), "SOL/USDC");
+  assert.equal(resolveHyperliquidMarketDataCoin("PURR/USDC"), "PURR/USDC");
+  assert.equal(resolveHyperliquidMarketDataCoin("xyz:GOLD"), "xyz:GOLD");
+  assert.equal(resolveHyperliquidMarketDataCoin("@107"), "@107");
   assert.deepEqual(parseSpotPairSymbol("btc/usdc"), { base: "BTC", quote: "USDC" });
   assert.deepEqual(resolveSpotMidCandidates("UBTC"), ["UBTC", "BTC"]);
   assert.deepEqual(resolveSpotTokenCandidates("UBTC0"), ["UBTC", "BTC"]);
+  assert.equal(isHyperliquidSpotSymbol("SOL-USDC"), true);
 });
 
 test("parseHyperliquidSymbol returns canonical descriptors for perp, spot, dex, and spot index", () => {

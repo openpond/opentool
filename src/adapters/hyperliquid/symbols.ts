@@ -218,7 +218,23 @@ export function parseSpotPairSymbol(symbol: string): { base: string; quote: stri
 }
 
 export function isHyperliquidSpotSymbol(symbol: string): boolean {
-  return symbol.startsWith("@") || symbol.includes("/");
+  const trimmed = symbol.trim();
+  if (!trimmed) return false;
+  if (trimmed.startsWith("@") || trimmed.includes("/")) return true;
+  if (trimmed.includes(":")) return false;
+  return resolveHyperliquidPair(trimmed) !== null;
+}
+
+export function resolveHyperliquidMarketDataCoin(value?: string | null): string | null {
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  if (trimmed.startsWith("@")) return trimmed;
+  const pair = resolveHyperliquidPair(trimmed);
+  if (pair && !extractHyperliquidDex(trimmed)) {
+    return pair;
+  }
+  return trimmed;
 }
 
 export function resolveSpotMidCandidates(baseSymbol: string): string[] {
