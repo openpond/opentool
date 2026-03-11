@@ -75,6 +75,39 @@ export {
   placeHyperliquidOrderWithTpSl,
   placeHyperliquidPositionTpSl,
 } from "./tpsl";
+export {
+  fetchHyperliquidSizeDecimals,
+  fetchHyperliquidTickSize,
+} from "./market-data";
+export {
+  buildHyperliquidProfileAssets,
+  extractHyperliquidDex,
+  isHyperliquidSpotSymbol,
+  normalizeHyperliquidBaseSymbol,
+  normalizeHyperliquidMetaSymbol,
+  normalizeSpotTokenName,
+  parseHyperliquidSymbol,
+  parseSpotPairSymbol,
+  resolveHyperliquidLeverageMode,
+  resolveHyperliquidOrderSymbol,
+  resolveHyperliquidPair,
+  resolveHyperliquidPerpSymbol,
+  resolveHyperliquidProfileChain,
+  resolveHyperliquidSpotSymbol,
+  resolveHyperliquidSymbol,
+  resolveSpotMidCandidates,
+  resolveSpotTokenCandidates,
+} from "./symbols";
+export {
+  formatHyperliquidMarketablePrice,
+  formatHyperliquidPrice,
+  formatHyperliquidSize,
+} from "./order-utils";
+export {
+  estimateHyperliquidLiquidationPrice,
+} from "./risk-utils";
+export type { HyperliquidApproximateLiquidationParams } from "./risk-utils";
+export type { HyperliquidParsedSymbol, HyperliquidParsedSymbolKind } from "./symbols";
 export type {
   HyperliquidOrderOptions,
   HyperliquidOrderStatus,

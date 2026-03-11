@@ -5,14 +5,15 @@ import {
   HyperliquidApiError,
   buildHyperliquidProfileAssets,
   extractHyperliquidDex,
+  estimateHyperliquidLiquidationPrice,
   extractHyperliquidOrderIds,
   fetchHyperliquidBars,
-  normalizeHyperliquidIndicatorBars,
   formatHyperliquidPrice,
   formatHyperliquidSize,
   formatHyperliquidMarketablePrice,
   formatHyperliquidOrderSize,
   normalizeHyperliquidMetaSymbol,
+  parseHyperliquidSymbol,
   parseSpotPairSymbol,
   clampHyperliquidAbs,
   normalizeHyperliquidDcaEntries,
@@ -143,6 +144,57 @@ test("symbol helpers normalize perp and spot symbols consistently", () => {
   assert.deepEqual(resolveSpotTokenCandidates("UBTC0"), ["UBTC", "BTC"]);
 });
 
+test("parseHyperliquidSymbol returns canonical descriptors for perp, spot, dex, and spot index", () => {
+  assert.deepEqual(parseHyperliquidSymbol("BTC"), {
+    raw: "BTC",
+    kind: "perp",
+    normalized: "BTC",
+    routeTicker: "BTC",
+    displaySymbol: "BTC-USDC",
+    base: "BTC",
+    quote: null,
+    pair: null,
+    dex: null,
+    leverageMode: "cross",
+  });
+  assert.deepEqual(parseHyperliquidSymbol("HYPE-USDC"), {
+    raw: "HYPE-USDC",
+    kind: "spot",
+    normalized: "HYPE/USDC",
+    routeTicker: "HYPE-USDC",
+    displaySymbol: "HYPE-USDC",
+    base: "HYPE",
+    quote: "USDC",
+    pair: "HYPE/USDC",
+    dex: null,
+    leverageMode: "cross",
+  });
+  assert.deepEqual(parseHyperliquidSymbol("xyz:BTC-USDC"), {
+    raw: "xyz:BTC-USDC",
+    kind: "perp",
+    normalized: "xyz:BTC",
+    routeTicker: "xyz:BTC",
+    displaySymbol: "XYZ:BTC-USDC",
+    base: "BTC",
+    quote: null,
+    pair: null,
+    dex: "xyz",
+    leverageMode: "isolated",
+  });
+  assert.deepEqual(parseHyperliquidSymbol("@107"), {
+    raw: "@107",
+    kind: "spotIndex",
+    normalized: "@107",
+    routeTicker: "@107",
+    displaySymbol: "@107",
+    base: null,
+    quote: null,
+    pair: null,
+    dex: null,
+    leverageMode: "cross",
+  });
+});
+
 test("symbol helpers handle empty/unknown variants consistently", () => {
   assert.equal(normalizeHyperliquidBaseSymbol("UNKNOWN"), null);
   assert.equal(normalizeHyperliquidBaseSymbol("  "), null);
@@ -151,6 +203,67 @@ test("symbol helpers handle empty/unknown variants consistently", () => {
   assert.equal(resolveHyperliquidOrderSymbol(null), null);
   assert.equal(resolveHyperliquidSymbol(""), "");
   assert.equal(parseSpotPairSymbol("BTC"), null);
+});
+
+test("marketable price helpers keep directional rounding and tick alignment", () => {
+  assert.equal(
+    formatHyperliquidMarketablePrice({
+      mid: 1.11111,
+      side: "buy",
+      slippageBps: 30,
+    }),
+    "1.11445",
+  );
+  assert.equal(
+    formatHyperliquidMarketablePrice({
+      mid: 1.11111,
+      side: "sell",
+      slippageBps: 30,
+    }),
+    "1.10777",
+  );
+  assert.equal(
+    roundHyperliquidPriceToTick("1.11441", { tickSizeInt: 5n, tickDecimals: 4 }, "buy"),
+    "1.1145",
+  );
+  assert.equal(
+    roundHyperliquidPriceToTick("1.11449", { tickSizeInt: 5n, tickDecimals: 4 }, "sell"),
+    "1.114",
+  );
+});
+
+test("estimateHyperliquidLiquidationPrice uses asset max leverage and mode-aware collateral", () => {
+  const isolatedLong = estimateHyperliquidLiquidationPrice({
+    entryPrice: 2000,
+    side: "buy",
+    notionalUsd: 100,
+    leverage: 5,
+    maxLeverage: 20,
+    marginMode: "isolated",
+  });
+  const crossLong = estimateHyperliquidLiquidationPrice({
+    entryPrice: 2000,
+    side: "buy",
+    notionalUsd: 100,
+    leverage: 5,
+    maxLeverage: 20,
+    marginMode: "cross",
+    availableCollateralUsd: 60,
+  });
+  const isolatedShort = estimateHyperliquidLiquidationPrice({
+    entryPrice: 2000,
+    side: "sell",
+    notionalUsd: 100,
+    leverage: 5,
+    maxLeverage: 20,
+    marginMode: "isolated",
+  });
+
+  assert.ok(isolatedLong != null);
+  assert.ok(crossLong != null);
+  assert.ok(isolatedShort != null);
+  assert.ok((crossLong as number) < (isolatedLong as number));
+  assert.ok((isolatedShort as number) > 2000);
 });
 
 test("shared target sizing helper supports fixed and percent modes", () => {

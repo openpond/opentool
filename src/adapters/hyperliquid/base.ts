@@ -231,7 +231,12 @@ export function computeHyperliquidMarketIocLimitPrice(params: {
   const slippage = bps / 10_000;
   const multiplier = params.side === "buy" ? 1 + slippage : 1 - slippage;
   const price = params.markPrice * multiplier;
-  return formatRoundedDecimal(price, decimals);
+  const precision = Math.max(0, Math.min(12, Math.floor(decimals)));
+  const factor = 10 ** precision;
+  const scaled = price * factor;
+  const directionalRounded =
+    params.side === "buy" ? Math.ceil(scaled) / factor : Math.floor(scaled) / factor;
+  return formatRoundedDecimal(directionalRounded, precision);
 }
 
 export interface HyperliquidTriggerOptions {
@@ -701,7 +706,19 @@ export async function resolveHyperliquidAssetIndex(args: {
 
 export function toApiDecimal(value: string | number | bigint): string {
   if (typeof value === "string") {
-    return value;
+    const trimmed = value.trim();
+    if (!trimmed.length) {
+      throw new Error("Decimal strings must be non-empty.");
+    }
+    if (!/^-?(?:\d+\.?\d*|\.\d+)$/.test(trimmed)) {
+      throw new Error("Decimal strings must be plain base-10 numbers.");
+    }
+    return trimmed
+      .replace(/^(-?)0+(?=\d)/, "$1")
+      .replace(/\.0*$|(\.\d+?)0+$/, "$1")
+      .replace(/^(-?)\./, "$10.")
+      .replace(/^-?$/, "0")
+      .replace(/^-0$/, "0");
   }
 
   if (typeof value === "bigint") {

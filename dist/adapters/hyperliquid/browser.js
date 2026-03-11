@@ -156,7 +156,11 @@ function computeHyperliquidMarketIocLimitPrice(params) {
   const slippage = bps / 1e4;
   const multiplier = params.side === "buy" ? 1 + slippage : 1 - slippage;
   const price = params.markPrice * multiplier;
-  return formatRoundedDecimal(price, decimals);
+  const precision = Math.max(0, Math.min(12, Math.floor(decimals)));
+  const factor = 10 ** precision;
+  const scaled = price * factor;
+  const directionalRounded = params.side === "buy" ? Math.ceil(scaled) / factor : Math.floor(scaled) / factor;
+  return formatRoundedDecimal(directionalRounded, precision);
 }
 var HyperliquidApiError = class extends Error {
   constructor(message, response) {
@@ -404,7 +408,14 @@ async function resolveHyperliquidAssetIndex(args) {
 }
 function toApiDecimal(value) {
   if (typeof value === "string") {
-    return value;
+    const trimmed = value.trim();
+    if (!trimmed.length) {
+      throw new Error("Decimal strings must be non-empty.");
+    }
+    if (!/^-?(?:\d+\.?\d*|\.\d+)$/.test(trimmed)) {
+      throw new Error("Decimal strings must be plain base-10 numbers.");
+    }
+    return trimmed.replace(/^(-?)0+(?=\d)/, "$1").replace(/\.0*$|(\.\d+?)0+$/, "$1").replace(/^(-?)\./, "$10.").replace(/^-?$/, "0").replace(/^-0$/, "0");
   }
   if (typeof value === "bigint") {
     return value.toString();
@@ -1942,6 +1953,78 @@ function createHyperliquidActionHash(params) {
 }
 
 // src/adapters/hyperliquid/symbols.ts
+var UNKNOWN_SYMBOL2 = "UNKNOWN";
+function extractHyperliquidDex(symbol) {
+  const idx = symbol.indexOf(":");
+  if (idx <= 0) return null;
+  const dex = symbol.slice(0, idx).trim().toLowerCase();
+  return dex || null;
+}
+function parseHyperliquidSymbol(value) {
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  if (trimmed.startsWith("@")) {
+    return {
+      raw: trimmed,
+      kind: "spotIndex",
+      normalized: trimmed,
+      routeTicker: trimmed,
+      displaySymbol: trimmed,
+      base: null,
+      quote: null,
+      pair: null,
+      dex: null,
+      leverageMode: "cross"
+    };
+  }
+  const dex = extractHyperliquidDex(trimmed);
+  const pair = resolveHyperliquidPair(trimmed);
+  const base = normalizeHyperliquidBaseSymbol(trimmed);
+  if (dex) {
+    if (!base) return null;
+    return {
+      raw: trimmed,
+      kind: "perp",
+      normalized: `${dex}:${base}`,
+      routeTicker: `${dex}:${base}`,
+      displaySymbol: `${dex.toUpperCase()}:${base}-USDC`,
+      base,
+      quote: null,
+      pair: null,
+      dex,
+      leverageMode: "isolated"
+    };
+  }
+  if (pair) {
+    const [pairBase, pairQuote] = pair.split("/");
+    return {
+      raw: trimmed,
+      kind: "spot",
+      normalized: pair,
+      routeTicker: pair.replace("/", "-"),
+      displaySymbol: pair.replace("/", "-"),
+      base: pairBase ?? null,
+      quote: pairQuote ?? null,
+      pair,
+      dex: null,
+      leverageMode: "cross"
+    };
+  }
+  if (!base) return null;
+  return {
+    raw: trimmed,
+    kind: "perp",
+    normalized: base,
+    routeTicker: base,
+    displaySymbol: `${base}-USDC`,
+    base,
+    quote: null,
+    pair: null,
+    dex: null,
+    leverageMode: "cross"
+  };
+}
 function normalizeSpotTokenName2(value) {
   const raw = (value ?? "").trim();
   if (!raw) return "";
@@ -1950,11 +2033,64 @@ function normalizeSpotTokenName2(value) {
   }
   return raw;
 }
+function normalizeHyperliquidBaseSymbol(value) {
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const withoutDex = trimmed.includes(":") ? trimmed.split(":").slice(1).join(":") : trimmed;
+  const base = withoutDex.split("-")[0] ?? withoutDex;
+  const baseNoPair = base.split("/")[0] ?? base;
+  const normalized = baseNoPair.trim().toUpperCase();
+  if (!normalized || normalized === UNKNOWN_SYMBOL2) return null;
+  return normalized;
+}
 function normalizeHyperliquidMetaSymbol(symbol) {
   const trimmed = symbol.trim();
   const noDex = trimmed.includes(":") ? trimmed.split(":").slice(1).join(":") : trimmed;
   const noPair = noDex.split("-")[0] ?? noDex;
   return (noPair.split("/")[0] ?? noPair).trim();
+}
+function resolveHyperliquidPair(value) {
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const withoutDex = trimmed.includes(":") ? trimmed.split(":").slice(1).join(":") : trimmed;
+  if (withoutDex.includes("/")) {
+    return withoutDex.toUpperCase();
+  }
+  if (withoutDex.includes("-")) {
+    const [base, ...rest] = withoutDex.split("-");
+    const quote = rest.join("-").trim();
+    if (!base || !quote) return null;
+    return `${base.toUpperCase()}/${quote.toUpperCase()}`;
+  }
+  return null;
+}
+function resolveHyperliquidLeverageMode(symbol) {
+  return symbol.includes(":") ? "isolated" : "cross";
+}
+function resolveHyperliquidProfileChain(environment) {
+  return environment === "testnet" ? "hyperliquid-testnet" : "hyperliquid";
+}
+function buildHyperliquidProfileAssets(params) {
+  const chain = resolveHyperliquidProfileChain(params.environment);
+  return params.assets.map((asset) => {
+    const symbols = asset.assetSymbols.map((symbol) => normalizeHyperliquidBaseSymbol(symbol)).filter((symbol) => Boolean(symbol));
+    if (symbols.length === 0) return null;
+    const explicitPair = typeof asset.pair === "string" ? resolveHyperliquidPair(asset.pair) : null;
+    const derivedPair = symbols.length === 1 ? resolveHyperliquidPair(asset.assetSymbols[0] ?? symbols[0]) : null;
+    const pair = explicitPair ?? derivedPair ?? void 0;
+    const leverage = typeof asset.leverage === "number" && Number.isFinite(asset.leverage) && asset.leverage > 0 ? asset.leverage : void 0;
+    const walletAddress = typeof asset.walletAddress === "string" && asset.walletAddress.trim().length > 0 ? asset.walletAddress.trim() : void 0;
+    return {
+      venue: "hyperliquid",
+      chain,
+      assetSymbols: symbols,
+      ...pair ? { pair } : {},
+      ...leverage ? { leverage } : {},
+      ...walletAddress ? { walletAddress } : {}
+    };
+  }).filter((asset) => asset !== null);
 }
 function parseSpotPairSymbol(symbol) {
   const trimmed = symbol.trim();
@@ -1967,6 +2103,96 @@ function parseSpotPairSymbol(symbol) {
 }
 function isHyperliquidSpotSymbol(symbol) {
   return symbol.startsWith("@") || symbol.includes("/");
+}
+function resolveSpotMidCandidates(baseSymbol) {
+  const base = baseSymbol.trim().toUpperCase();
+  if (!base) return [];
+  const candidates = [base];
+  if (base.startsWith("U") && base.length > 1) {
+    candidates.push(base.slice(1));
+  }
+  return Array.from(new Set(candidates));
+}
+function resolveSpotTokenCandidates(value) {
+  const normalized = normalizeSpotTokenName2(value).toUpperCase();
+  if (!normalized) return [];
+  const candidates = [normalized];
+  if (normalized.startsWith("U") && normalized.length > 1) {
+    candidates.push(normalized.slice(1));
+  }
+  return Array.from(new Set(candidates));
+}
+function resolveHyperliquidOrderSymbol(value) {
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  if (trimmed.startsWith("@")) return trimmed;
+  if (trimmed.includes(":")) {
+    const [rawDex, ...restParts] = trimmed.split(":");
+    const dex = rawDex.trim().toLowerCase();
+    const rest = restParts.join(":");
+    const base = rest.split("/")[0]?.split("-")[0] ?? rest;
+    const normalizedBase = base.trim().toUpperCase();
+    if (!dex || !normalizedBase || normalizedBase === UNKNOWN_SYMBOL2) {
+      return null;
+    }
+    return `${dex}:${normalizedBase}`;
+  }
+  const pair = resolveHyperliquidPair(trimmed);
+  if (pair) return pair;
+  return normalizeHyperliquidBaseSymbol(trimmed);
+}
+function resolveHyperliquidSymbol(asset, override) {
+  const raw = override && override.trim().length > 0 ? override.trim() : asset.trim();
+  if (!raw) return raw;
+  if (raw.startsWith("@")) return raw;
+  if (raw.includes(":")) {
+    const [dexRaw, ...restParts] = raw.split(":");
+    const dex = dexRaw.trim().toLowerCase();
+    const rest = restParts.join(":");
+    const base2 = rest.split("/")[0]?.split("-")[0] ?? rest;
+    const normalizedBase = base2.trim().toUpperCase();
+    if (!dex) return normalizedBase;
+    return `${dex}:${normalizedBase}`;
+  }
+  if (raw.includes("/")) {
+    return raw.toUpperCase();
+  }
+  if (raw.includes("-")) {
+    const [base2, ...rest] = raw.split("-");
+    const quote = rest.join("-").trim();
+    if (base2 && quote) {
+      return `${base2.toUpperCase()}/${quote.toUpperCase()}`;
+    }
+  }
+  const base = raw.split("-")[0] ?? raw;
+  const baseNoPair = base.split("/")[0] ?? base;
+  return baseNoPair.trim().toUpperCase();
+}
+function resolveHyperliquidPerpSymbol(asset) {
+  const raw = asset.trim();
+  if (!raw) return raw;
+  const dex = extractHyperliquidDex(raw);
+  const base = normalizeHyperliquidBaseSymbol(raw) ?? raw.toUpperCase();
+  return dex ? `${dex}:${base}` : base;
+}
+function resolveHyperliquidSpotSymbol(asset, defaultQuote = "USDC") {
+  const quote = defaultQuote.trim().toUpperCase() || "USDC";
+  const raw = asset.trim().toUpperCase();
+  if (!raw) {
+    return { symbol: raw, base: raw, quote };
+  }
+  const pair = resolveHyperliquidPair(raw);
+  if (pair) {
+    const [base2, pairQuote] = pair.split("/");
+    return {
+      symbol: pair,
+      base: base2?.trim() ?? raw,
+      quote: pairQuote?.trim() ?? quote
+    };
+  }
+  const base = normalizeHyperliquidBaseSymbol(raw) ?? raw;
+  return { symbol: `${base}/${quote}`, base, quote };
 }
 function gcd(a, b) {
   let left = a < 0n ? -a : a;
@@ -2099,19 +2325,9 @@ async function fetchHyperliquidSizeDecimals(params) {
 }
 
 // src/adapters/hyperliquid/order-utils.ts
-var MAX_HYPERLIQUID_PRICE_DECIMALS = 8;
-function countDecimals(value) {
-  if (!Number.isFinite(value)) return 0;
-  const s = value.toString();
-  const [, dec = ""] = s.split(".");
+function countDecimalPlaces(value) {
+  const [, dec = ""] = value.split(".");
   return dec.length;
-}
-function clampPriceDecimals(value) {
-  if (!Number.isFinite(value) || value <= 0) {
-    throw new Error("Price must be positive.");
-  }
-  const fixed = value.toFixed(MAX_HYPERLIQUID_PRICE_DECIMALS);
-  return fixed.replace(/\.?0+$/, "");
 }
 function assertNumberString(value) {
   if (!/^-?(?:\d+\.?\d*|\.\d+)$/.test(value)) {
@@ -2163,6 +2379,29 @@ var StringMath = {
     const index = value.indexOf(".");
     return index === -1 ? value : value.slice(0, index) || "0";
   },
+  roundInteger(value, mode) {
+    const normalized = normalizeDecimalString(value);
+    const negative = normalized.startsWith("-");
+    if (negative) {
+      throw new RangeError("Directional rounding only supports positive values.");
+    }
+    const [intPartRaw, fracPart = ""] = normalized.split(".");
+    const intPart = intPartRaw.replace(/^0+(?=\d)/, "") || "0";
+    const hasFraction = /[1-9]/.test(fracPart);
+    if (!hasFraction) return intPart;
+    if (mode === "down") return intPart;
+    const digits = intPart.split("");
+    let carry = 1;
+    for (let idx = digits.length - 1; idx >= 0 && carry > 0; idx -= 1) {
+      const next = Number(digits[idx] ?? "0") + carry;
+      digits[idx] = String(next % 10);
+      carry = next >= 10 ? 1 : 0;
+    }
+    if (carry > 0) {
+      digits.unshift("1");
+    }
+    return digits.join("").replace(/^0+(?=\d)/, "") || "0";
+  },
   toPrecisionTruncate(value, precision) {
     if (!Number.isInteger(precision) || precision < 1) {
       throw new RangeError("Precision must be a positive integer.");
@@ -2189,6 +2428,41 @@ var StringMath = {
     return normalizeDecimalString(result);
   }
 };
+function ceilDiv(numerator, denominator) {
+  if (denominator <= 0n) {
+    throw new RangeError("Denominator must be positive.");
+  }
+  return (numerator + denominator - 1n) / denominator;
+}
+function scaleDecimalToInt(value, decimals, mode) {
+  if (!Number.isInteger(decimals) || decimals < 0) {
+    throw new RangeError("Decimals must be a non-negative integer.");
+  }
+  const normalized = normalizeDecimalString(value);
+  assertNumberString(normalized);
+  const negative = normalized.startsWith("-");
+  if (negative) {
+    throw new RangeError("Only positive values are supported.");
+  }
+  const shifted = StringMath.multiplyByPow10(normalized, decimals);
+  const rounded = StringMath.roundInteger(shifted, mode);
+  return BigInt(rounded);
+}
+function formatScaledDecimal(value, decimals) {
+  if (!Number.isInteger(decimals) || decimals < 0) {
+    throw new RangeError("Decimals must be a non-negative integer.");
+  }
+  const negative = value < 0n;
+  const abs = negative ? -value : value;
+  const raw = abs.toString();
+  if (decimals === 0) {
+    return `${negative ? "-" : ""}${raw}`;
+  }
+  const padded = raw.padStart(decimals + 1, "0");
+  const intPart = padded.slice(0, -decimals) || "0";
+  const fracPart = padded.slice(-decimals);
+  return normalizeDecimalString(`${negative ? "-" : ""}${intPart}.${fracPart}`);
+}
 function formatHyperliquidPrice(price, szDecimals, marketType = "perp") {
   const normalized = price.toString().trim();
   assertNumberString(normalized);
@@ -2213,33 +2487,52 @@ function formatHyperliquidSize(size, szDecimals) {
   return truncated;
 }
 function roundHyperliquidPriceToTick(price, tick, side) {
-  if (!Number.isFinite(price) || price <= 0) {
-    throw new Error("Price must be positive.");
-  }
   if (!Number.isFinite(tick.tickDecimals) || tick.tickDecimals < 0) {
     throw new Error("tick.tickDecimals must be a non-negative number.");
   }
   if (tick.tickSizeInt <= 0n) {
     throw new Error("tick.tickSizeInt must be positive.");
   }
-  const scale = 10 ** tick.tickDecimals;
-  const scaled = BigInt(Math.round(price * scale));
+  const normalized = normalizeDecimalString(price.toString());
+  assertNumberString(normalized);
+  if (Number.parseFloat(normalized) <= 0) {
+    throw new Error("Price must be positive.");
+  }
+  const scaled = scaleDecimalToInt(
+    normalized,
+    tick.tickDecimals,
+    side === "buy" ? "up" : "down"
+  );
   const tickSize = tick.tickSizeInt;
   const rounded = side === "sell" ? scaled / tickSize * tickSize : (scaled + tickSize - 1n) / tickSize * tickSize;
-  const integer = Number(rounded) / scale;
-  return clampPriceDecimals(integer);
+  return formatScaledDecimal(rounded, tick.tickDecimals);
 }
 function formatHyperliquidMarketablePrice(params) {
   const { mid, side, slippageBps, tick } = params;
-  const decimals = countDecimals(mid);
-  const factor = 10 ** decimals;
-  const adjusted = mid * (side === "buy" ? 1 + slippageBps / 1e4 : 1 - slippageBps / 1e4);
+  if (!Number.isFinite(mid) || mid <= 0) {
+    throw new Error("mid must be a positive number.");
+  }
+  if (!Number.isFinite(slippageBps) || slippageBps < 0) {
+    throw new Error("slippageBps must be a non-negative number.");
+  }
+  const midString = normalizeDecimalString(mid.toString());
+  const baseDecimals = countDecimalPlaces(midString);
+  const workDecimals = Math.max(baseDecimals + 4, tick?.tickDecimals ?? 0, 8);
+  const scaledMid = scaleDecimalToInt(midString, workDecimals, "down");
+  const slippageNumerator = BigInt(
+    side === "buy" ? 1e4 + slippageBps : 1e4 - slippageBps
+  );
+  const adjustedScaled = side === "buy" ? ceilDiv(scaledMid * slippageNumerator, 10000n) : scaledMid * slippageNumerator / 10000n;
+  const adjusted = formatScaledDecimal(adjustedScaled, workDecimals);
   if (tick) {
     return roundHyperliquidPriceToTick(adjusted, tick, side);
   }
-  const scaled = adjusted * factor;
-  const rounded = side === "buy" ? Math.ceil(scaled) / factor : Math.floor(scaled) / factor;
-  return clampPriceDecimals(rounded);
+  const roundedScaled = scaleDecimalToInt(
+    adjusted,
+    baseDecimals,
+    side === "buy" ? "up" : "down"
+  );
+  return formatScaledDecimal(roundedScaled, baseDecimals);
 }
 
 // src/adapters/hyperliquid/tpsl.ts
@@ -2426,6 +2719,45 @@ async function placeHyperliquidPositionTpSl(options) {
   });
 }
 
-export { DEFAULT_HYPERLIQUID_MARKET_SLIPPAGE_BPS, DEFAULT_HYPERLIQUID_TPSL_MARKET_SLIPPAGE_BPS, HyperliquidApiError, HyperliquidBuilderApprovalError, HyperliquidExchangeClient, HyperliquidGuardError, HyperliquidInfoClient, HyperliquidTermsError, approveHyperliquidBuilderFee, batchModifyHyperliquidOrders, buildHyperliquidMarketIdentity, cancelAllHyperliquidOrders, cancelHyperliquidOrders, cancelHyperliquidOrdersByCloid, cancelHyperliquidTwapOrder, computeHyperliquidMarketIocLimitPrice, createHyperliquidActionHash, createHyperliquidSubAccount, createMonotonicNonceFactory, depositToHyperliquidBridge, fetchHyperliquidAssetCtxs, fetchHyperliquidClearinghouseState, fetchHyperliquidFrontendOpenOrders, fetchHyperliquidHistoricalOrders, fetchHyperliquidMeta, fetchHyperliquidMetaAndAssetCtxs, fetchHyperliquidOpenOrders, fetchHyperliquidOrderStatus, fetchHyperliquidPreTransferCheck, fetchHyperliquidSpotAssetCtxs, fetchHyperliquidSpotClearinghouseState, fetchHyperliquidSpotMeta, fetchHyperliquidSpotMetaAndAssetCtxs, fetchHyperliquidUserFills, fetchHyperliquidUserFillsByTime, fetchHyperliquidUserRateLimit, getHyperliquidMaxBuilderFee, modifyHyperliquidOrder, placeHyperliquidOrder, placeHyperliquidOrderWithTpSl, placeHyperliquidPositionTpSl, placeHyperliquidTwapOrder, reserveHyperliquidRequestWeight, resolveHyperliquidAbstractionFromMode, scheduleHyperliquidCancel, sendHyperliquidSpot, setHyperliquidAccountAbstractionMode, setHyperliquidDexAbstraction, setHyperliquidPortfolioMargin, transferHyperliquidSubAccount, updateHyperliquidIsolatedMargin, updateHyperliquidLeverage, withdrawFromHyperliquid };
+// src/adapters/hyperliquid/risk-utils.ts
+function toFinitePositive(value) {
+  return Number.isFinite(value) && value > 0 ? value : null;
+}
+function estimateMaintenanceLeverage(maxLeverage) {
+  const normalized = toFinitePositive(maxLeverage);
+  if (!normalized) return null;
+  return normalized * 2;
+}
+function estimateHyperliquidLiquidationPrice(params) {
+  const entryPrice = toFinitePositive(params.entryPrice);
+  const notionalUsd = toFinitePositive(params.notionalUsd);
+  const leverage = toFinitePositive(params.leverage);
+  const maintenanceLeverage = estimateMaintenanceLeverage(params.maxLeverage);
+  if (!entryPrice || !notionalUsd || !leverage || !maintenanceLeverage) {
+    return null;
+  }
+  const size = notionalUsd / entryPrice;
+  if (!Number.isFinite(size) || size <= 0) {
+    return null;
+  }
+  const isolatedMargin = notionalUsd / leverage;
+  const marginAvailable = params.marginMode === "cross" ? Math.max(
+    toFinitePositive(params.availableCollateralUsd ?? 0) ?? isolatedMargin,
+    isolatedMargin
+  ) : isolatedMargin;
+  const sideSign = params.side === "buy" ? 1 : -1;
+  const maintenanceFactor = 1 / maintenanceLeverage;
+  const denominator = 1 - maintenanceFactor * sideSign;
+  if (!Number.isFinite(denominator) || denominator <= 0) {
+    return null;
+  }
+  const liquidationPrice = entryPrice - sideSign * (marginAvailable / size) / denominator;
+  if (!Number.isFinite(liquidationPrice) || liquidationPrice <= 0) {
+    return null;
+  }
+  return liquidationPrice;
+}
+
+export { DEFAULT_HYPERLIQUID_MARKET_SLIPPAGE_BPS, DEFAULT_HYPERLIQUID_TPSL_MARKET_SLIPPAGE_BPS, HyperliquidApiError, HyperliquidBuilderApprovalError, HyperliquidExchangeClient, HyperliquidGuardError, HyperliquidInfoClient, HyperliquidTermsError, approveHyperliquidBuilderFee, batchModifyHyperliquidOrders, buildHyperliquidMarketIdentity, buildHyperliquidProfileAssets, cancelAllHyperliquidOrders, cancelHyperliquidOrders, cancelHyperliquidOrdersByCloid, cancelHyperliquidTwapOrder, computeHyperliquidMarketIocLimitPrice, createHyperliquidActionHash, createHyperliquidSubAccount, createMonotonicNonceFactory, depositToHyperliquidBridge, estimateHyperliquidLiquidationPrice, extractHyperliquidDex, fetchHyperliquidAssetCtxs, fetchHyperliquidClearinghouseState, fetchHyperliquidFrontendOpenOrders, fetchHyperliquidHistoricalOrders, fetchHyperliquidMeta, fetchHyperliquidMetaAndAssetCtxs, fetchHyperliquidOpenOrders, fetchHyperliquidOrderStatus, fetchHyperliquidPreTransferCheck, fetchHyperliquidSizeDecimals, fetchHyperliquidSpotAssetCtxs, fetchHyperliquidSpotClearinghouseState, fetchHyperliquidSpotMeta, fetchHyperliquidSpotMetaAndAssetCtxs, fetchHyperliquidTickSize, fetchHyperliquidUserFills, fetchHyperliquidUserFillsByTime, fetchHyperliquidUserRateLimit, formatHyperliquidMarketablePrice, formatHyperliquidPrice, formatHyperliquidSize, getHyperliquidMaxBuilderFee, isHyperliquidSpotSymbol, modifyHyperliquidOrder, normalizeHyperliquidBaseSymbol, normalizeHyperliquidMetaSymbol, normalizeSpotTokenName2 as normalizeSpotTokenName, parseHyperliquidSymbol, parseSpotPairSymbol, placeHyperliquidOrder, placeHyperliquidOrderWithTpSl, placeHyperliquidPositionTpSl, placeHyperliquidTwapOrder, reserveHyperliquidRequestWeight, resolveHyperliquidAbstractionFromMode, resolveHyperliquidLeverageMode, resolveHyperliquidOrderSymbol, resolveHyperliquidPair, resolveHyperliquidPerpSymbol, resolveHyperliquidProfileChain, resolveHyperliquidSpotSymbol, resolveHyperliquidSymbol, resolveSpotMidCandidates, resolveSpotTokenCandidates, scheduleHyperliquidCancel, sendHyperliquidSpot, setHyperliquidAccountAbstractionMode, setHyperliquidDexAbstraction, setHyperliquidPortfolioMargin, transferHyperliquidSubAccount, updateHyperliquidIsolatedMargin, updateHyperliquidLeverage, withdrawFromHyperliquid };
 //# sourceMappingURL=browser.js.map
 //# sourceMappingURL=browser.js.map
