@@ -1,5 +1,11 @@
 # opentool
 
+## 0.15.1
+
+### Patch Changes
+
+- 71cd004: fix hyperliquid naming
+
 ## 0.15.0
 
 ### Minor Changes
