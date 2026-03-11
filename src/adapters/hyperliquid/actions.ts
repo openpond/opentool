@@ -21,6 +21,7 @@ import {
   splitSignature,
   toApiDecimal,
 } from "./base";
+import { supportsHyperliquidBuilderFee } from "./symbols";
 import type {
   ExchangeOrderAction,
   ExchangeSignature,
@@ -240,11 +241,14 @@ export async function placeHyperliquidOrder(
     type: "order",
     orders: preparedOrders,
     grouping,
-    builder: {
+  };
+
+  if (orders.every((intent) => supportsHyperliquidBuilderFee(intent))) {
+    action.builder = {
       b: normalizeAddress(BUILDER_CODE.address),
       f: BUILDER_CODE.fee,
-    },
-  };
+    };
+  }
 
   const effectiveNonce = resolveRequiredNonce({
     nonce,
