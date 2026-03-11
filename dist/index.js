@@ -1987,11 +1987,31 @@ function computeHyperliquidMarketIocLimitPrice(params) {
   const slippage = bps / 1e4;
   const multiplier = params.side === "buy" ? 1 + slippage : 1 - slippage;
   const price = params.markPrice * multiplier;
-  return formatRoundedDecimal(price, decimals);
+  const precision = Math.max(0, Math.min(12, Math.floor(decimals)));
+  const factor = 10 ** precision;
+  const scaled = price * factor;
+  const directionalRounded = params.side === "buy" ? Math.ceil(scaled) / factor : Math.floor(scaled) / factor;
+  return formatRoundedDecimal(directionalRounded, precision);
 }
 var HyperliquidApiError = class extends Error {
   constructor(message, response) {
-    super(message);
+    const responseRecord = response && typeof response === "object" ? response : null;
+    const explicitErrors = Array.isArray(responseRecord?.errors) ? responseRecord.errors.filter(
+      (entry) => typeof entry === "string" && entry.trim().length > 0
+    ) : [];
+    const bodyStatuses = responseRecord?.body && typeof responseRecord.body === "object" && responseRecord.body !== null && "response" in responseRecord.body ? (responseRecord.body.response?.data?.statuses ?? []).map((status) => typeof status?.error === "string" ? status.error : null).filter((entry) => Boolean(entry && entry.trim().length > 0)) : [];
+    const singleStatusError = responseRecord?.body && typeof responseRecord.body === "object" && responseRecord.body !== null && "response" in responseRecord.body ? responseRecord.body.response?.data?.status?.error : null;
+    const details = Array.from(
+      new Set(
+        [
+          ...explicitErrors,
+          ...bodyStatuses,
+          typeof singleStatusError === "string" ? singleStatusError : null
+        ].filter((entry) => Boolean(entry && entry.trim().length > 0))
+      )
+    );
+    const enrichedMessage = details.length > 0 ? `${message} ${details.join(" | ")}` : message;
+    super(enrichedMessage);
     this.response = response;
     this.name = "HyperliquidApiError";
   }
@@ -2219,7 +2239,14 @@ async function resolveHyperliquidAssetIndex(args) {
 }
 function toApiDecimal(value) {
   if (typeof value === "string") {
-    return value;
+    const trimmed = value.trim();
+    if (!trimmed.length) {
+      throw new Error("Decimal strings must be non-empty.");
+    }
+    if (!/^-?(?:\d+\.?\d*|\.\d+)$/.test(trimmed)) {
+      throw new Error("Decimal strings must be plain base-10 numbers.");
+    }
+    return trimmed.replace(/^(-?)0+(?=\d)/, "$1").replace(/\.0*$|(\.\d+?)0+$/, "$1").replace(/^(-?)\./, "$10.").replace(/^-?$/, "0").replace(/^-0$/, "0");
   }
   if (typeof value === "bigint") {
     return value.toString();
@@ -3406,6 +3433,71 @@ function extractHyperliquidDex(symbol) {
   const dex = symbol.slice(0, idx).trim().toLowerCase();
   return dex || null;
 }
+function parseHyperliquidSymbol(value) {
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  if (trimmed.startsWith("@")) {
+    return {
+      raw: trimmed,
+      kind: "spotIndex",
+      normalized: trimmed,
+      routeTicker: trimmed,
+      displaySymbol: trimmed,
+      base: null,
+      quote: null,
+      pair: null,
+      dex: null,
+      leverageMode: "cross"
+    };
+  }
+  const dex = extractHyperliquidDex(trimmed);
+  const pair = resolveHyperliquidPair(trimmed);
+  const base2 = normalizeHyperliquidBaseSymbol(trimmed);
+  if (dex) {
+    if (!base2) return null;
+    return {
+      raw: trimmed,
+      kind: "perp",
+      normalized: `${dex}:${base2}`,
+      routeTicker: `${dex}:${base2}`,
+      displaySymbol: `${dex.toUpperCase()}:${base2}-USDC`,
+      base: base2,
+      quote: null,
+      pair: null,
+      dex,
+      leverageMode: "isolated"
+    };
+  }
+  if (pair) {
+    const [pairBase, pairQuote] = pair.split("/");
+    return {
+      raw: trimmed,
+      kind: "spot",
+      normalized: pair,
+      routeTicker: pair.replace("/", "-"),
+      displaySymbol: pair.replace("/", "-"),
+      base: pairBase ?? null,
+      quote: pairQuote ?? null,
+      pair,
+      dex: null,
+      leverageMode: "cross"
+    };
+  }
+  if (!base2) return null;
+  return {
+    raw: trimmed,
+    kind: "perp",
+    normalized: base2,
+    routeTicker: base2,
+    displaySymbol: `${base2}-USDC`,
+    base: base2,
+    quote: null,
+    pair: null,
+    dex: null,
+    leverageMode: "cross"
+  };
+}
 function normalizeSpotTokenName2(value) {
   const raw = (value ?? "").trim();
   if (!raw) return "";
@@ -3721,19 +3813,9 @@ function planHyperliquidTrade(params) {
 }
 
 // src/adapters/hyperliquid/order-utils.ts
-var MAX_HYPERLIQUID_PRICE_DECIMALS = 8;
-function countDecimals(value) {
-  if (!Number.isFinite(value)) return 0;
-  const s = value.toString();
-  const [, dec = ""] = s.split(".");
+function countDecimalPlaces(value) {
+  const [, dec = ""] = value.split(".");
   return dec.length;
-}
-function clampPriceDecimals(value) {
-  if (!Number.isFinite(value) || value <= 0) {
-    throw new Error("Price must be positive.");
-  }
-  const fixed = value.toFixed(MAX_HYPERLIQUID_PRICE_DECIMALS);
-  return fixed.replace(/\.?0+$/, "");
 }
 function assertNumberString(value) {
   if (!/^-?(?:\d+\.?\d*|\.\d+)$/.test(value)) {
@@ -3785,6 +3867,29 @@ var StringMath = {
     const index = value.indexOf(".");
     return index === -1 ? value : value.slice(0, index) || "0";
   },
+  roundInteger(value, mode) {
+    const normalized = normalizeDecimalString(value);
+    const negative = normalized.startsWith("-");
+    if (negative) {
+      throw new RangeError("Directional rounding only supports positive values.");
+    }
+    const [intPartRaw, fracPart = ""] = normalized.split(".");
+    const intPart = intPartRaw.replace(/^0+(?=\d)/, "") || "0";
+    const hasFraction = /[1-9]/.test(fracPart);
+    if (!hasFraction) return intPart;
+    if (mode === "down") return intPart;
+    const digits = intPart.split("");
+    let carry = 1;
+    for (let idx = digits.length - 1; idx >= 0 && carry > 0; idx -= 1) {
+      const next = Number(digits[idx] ?? "0") + carry;
+      digits[idx] = String(next % 10);
+      carry = next >= 10 ? 1 : 0;
+    }
+    if (carry > 0) {
+      digits.unshift("1");
+    }
+    return digits.join("").replace(/^0+(?=\d)/, "") || "0";
+  },
   toPrecisionTruncate(value, precision) {
     if (!Number.isInteger(precision) || precision < 1) {
       throw new RangeError("Precision must be a positive integer.");
@@ -3811,6 +3916,41 @@ var StringMath = {
     return normalizeDecimalString(result);
   }
 };
+function ceilDiv(numerator, denominator) {
+  if (denominator <= 0n) {
+    throw new RangeError("Denominator must be positive.");
+  }
+  return (numerator + denominator - 1n) / denominator;
+}
+function scaleDecimalToInt(value, decimals, mode) {
+  if (!Number.isInteger(decimals) || decimals < 0) {
+    throw new RangeError("Decimals must be a non-negative integer.");
+  }
+  const normalized = normalizeDecimalString(value);
+  assertNumberString(normalized);
+  const negative = normalized.startsWith("-");
+  if (negative) {
+    throw new RangeError("Only positive values are supported.");
+  }
+  const shifted = StringMath.multiplyByPow10(normalized, decimals);
+  const rounded = StringMath.roundInteger(shifted, mode);
+  return BigInt(rounded);
+}
+function formatScaledDecimal(value, decimals) {
+  if (!Number.isInteger(decimals) || decimals < 0) {
+    throw new RangeError("Decimals must be a non-negative integer.");
+  }
+  const negative = value < 0n;
+  const abs = negative ? -value : value;
+  const raw = abs.toString();
+  if (decimals === 0) {
+    return `${negative ? "-" : ""}${raw}`;
+  }
+  const padded = raw.padStart(decimals + 1, "0");
+  const intPart = padded.slice(0, -decimals) || "0";
+  const fracPart = padded.slice(-decimals);
+  return normalizeDecimalString(`${negative ? "-" : ""}${intPart}.${fracPart}`);
+}
 function formatHyperliquidPrice(price, szDecimals, marketType = "perp") {
   const normalized = price.toString().trim();
   assertNumberString(normalized);
@@ -3843,33 +3983,52 @@ function formatHyperliquidOrderSize(value, szDecimals) {
   }
 }
 function roundHyperliquidPriceToTick(price, tick, side) {
-  if (!Number.isFinite(price) || price <= 0) {
-    throw new Error("Price must be positive.");
-  }
   if (!Number.isFinite(tick.tickDecimals) || tick.tickDecimals < 0) {
     throw new Error("tick.tickDecimals must be a non-negative number.");
   }
   if (tick.tickSizeInt <= 0n) {
     throw new Error("tick.tickSizeInt must be positive.");
   }
-  const scale = 10 ** tick.tickDecimals;
-  const scaled = BigInt(Math.round(price * scale));
+  const normalized = normalizeDecimalString(price.toString());
+  assertNumberString(normalized);
+  if (Number.parseFloat(normalized) <= 0) {
+    throw new Error("Price must be positive.");
+  }
+  const scaled = scaleDecimalToInt(
+    normalized,
+    tick.tickDecimals,
+    side === "buy" ? "up" : "down"
+  );
   const tickSize = tick.tickSizeInt;
   const rounded = side === "sell" ? scaled / tickSize * tickSize : (scaled + tickSize - 1n) / tickSize * tickSize;
-  const integer = Number(rounded) / scale;
-  return clampPriceDecimals(integer);
+  return formatScaledDecimal(rounded, tick.tickDecimals);
 }
 function formatHyperliquidMarketablePrice(params) {
   const { mid, side, slippageBps, tick } = params;
-  const decimals = countDecimals(mid);
-  const factor = 10 ** decimals;
-  const adjusted = mid * (side === "buy" ? 1 + slippageBps / 1e4 : 1 - slippageBps / 1e4);
+  if (!Number.isFinite(mid) || mid <= 0) {
+    throw new Error("mid must be a positive number.");
+  }
+  if (!Number.isFinite(slippageBps) || slippageBps < 0) {
+    throw new Error("slippageBps must be a non-negative number.");
+  }
+  const midString = normalizeDecimalString(mid.toString());
+  const baseDecimals = countDecimalPlaces(midString);
+  const workDecimals = Math.max(baseDecimals + 4, tick?.tickDecimals ?? 0, 8);
+  const scaledMid = scaleDecimalToInt(midString, workDecimals, "down");
+  const slippageNumerator = BigInt(
+    side === "buy" ? 1e4 + slippageBps : 1e4 - slippageBps
+  );
+  const adjustedScaled = side === "buy" ? ceilDiv(scaledMid * slippageNumerator, 10000n) : scaledMid * slippageNumerator / 10000n;
+  const adjusted = formatScaledDecimal(adjustedScaled, workDecimals);
   if (tick) {
     return roundHyperliquidPriceToTick(adjusted, tick, side);
   }
-  const scaled = adjusted * factor;
-  const rounded = side === "buy" ? Math.ceil(scaled) / factor : Math.floor(scaled) / factor;
-  return clampPriceDecimals(rounded);
+  const roundedScaled = scaleDecimalToInt(
+    adjusted,
+    baseDecimals,
+    side === "buy" ? "up" : "down"
+  );
+  return formatScaledDecimal(roundedScaled, baseDecimals);
 }
 function extractHyperliquidOrderIds(responses) {
   const cloids = /* @__PURE__ */ new Set();
@@ -4463,6 +4622,393 @@ var __hyperliquidMarketDataInternals = {
   toScaledInt,
   formatScaledInt
 };
+function resolveRequiredNonce(params) {
+  if (typeof params.nonce === "number") {
+    return params.nonce;
+  }
+  const resolved = params.nonceSource?.() ?? params.wallet?.nonceSource?.();
+  if (resolved === void 0) {
+    throw new Error(`${params.action} requires an explicit nonce or wallet nonce source.`);
+  }
+  return resolved;
+}
+function assertPositiveDecimalInput(value, label) {
+  if (typeof value === "number") {
+    if (!Number.isFinite(value) || value <= 0) {
+      throw new Error(`${label} must be a positive number.`);
+    }
+    return;
+  }
+  if (typeof value === "bigint") {
+    if (value <= 0n) {
+      throw new Error(`${label} must be positive.`);
+    }
+    return;
+  }
+  const trimmed = value.trim();
+  if (!trimmed.length) {
+    throw new Error(`${label} must be a non-empty string.`);
+  }
+  if (!/^(?:\d+\.?\d*|\.\d+)$/.test(trimmed)) {
+    throw new Error(`${label} must be a positive decimal string.`);
+  }
+  const numeric = Number(trimmed);
+  if (!Number.isFinite(numeric) || numeric <= 0) {
+    throw new Error(`${label} must be positive.`);
+  }
+}
+async function placeHyperliquidOrder(options) {
+  const {
+    wallet: wallet2,
+    orders,
+    grouping = "na",
+    environment,
+    vaultAddress,
+    expiresAfter,
+    nonce
+  } = options;
+  if (!wallet2?.account || !wallet2.walletClient) {
+    throw new Error("Hyperliquid order signing requires a wallet with signing capabilities.");
+  }
+  if (!orders.length) {
+    throw new Error("At least one order is required.");
+  }
+  const inferredEnvironment = environment ?? "mainnet";
+  const resolvedBaseUrl = API_BASES[inferredEnvironment];
+  const preparedOrders = await Promise.all(
+    orders.map(async (intent) => {
+      assertPositiveDecimalInput(intent.price, "price");
+      assertPositiveDecimalInput(intent.size, "size");
+      if (intent.trigger) {
+        assertPositiveDecimalInput(intent.trigger.triggerPx, "triggerPx");
+      }
+      const assetIndex = await resolveHyperliquidAssetIndex({
+        symbol: intent.symbol,
+        baseUrl: resolvedBaseUrl,
+        environment: inferredEnvironment,
+        fetcher: (...args) => fetch(...args)
+      });
+      const order = {
+        a: assetIndex,
+        b: intent.side === "buy",
+        p: toApiDecimal(intent.price),
+        s: toApiDecimal(intent.size),
+        r: intent.reduceOnly ?? false,
+        t: intent.trigger ? {
+          trigger: {
+            isMarket: Boolean(intent.trigger.isMarket),
+            triggerPx: toApiDecimal(intent.trigger.triggerPx),
+            tpsl: intent.trigger.tpsl
+          }
+        } : {
+          limit: {
+            tif: intent.tif ?? "Ioc"
+          }
+        },
+        ...intent.clientId ? { c: normalizeCloid(intent.clientId) } : {}
+      };
+      return order;
+    })
+  );
+  const action = {
+    type: "order",
+    orders: preparedOrders,
+    grouping,
+    builder: {
+      b: normalizeAddress(BUILDER_CODE.address),
+      f: BUILDER_CODE.fee
+    }
+  };
+  const effectiveNonce = resolveRequiredNonce({
+    nonce,
+    nonceSource: options.nonceSource,
+    wallet: wallet2,
+    action: "Hyperliquid order submission"
+  });
+  const signature = await signL1Action({
+    wallet: wallet2,
+    action,
+    nonce: effectiveNonce,
+    ...vaultAddress ? { vaultAddress } : {},
+    ...typeof expiresAfter === "number" ? { expiresAfter } : {},
+    isTestnet: inferredEnvironment === "testnet"
+  });
+  const body = {
+    action,
+    nonce: effectiveNonce,
+    signature
+  };
+  if (vaultAddress) {
+    body.vaultAddress = normalizeAddress(vaultAddress);
+  }
+  if (typeof expiresAfter === "number") {
+    body.expiresAfter = expiresAfter;
+  }
+  const response = await fetch(`${resolvedBaseUrl}/exchange`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body)
+  });
+  const rawText = await response.text().catch(() => null);
+  let parsed = null;
+  if (rawText && rawText.length) {
+    try {
+      parsed = JSON.parse(rawText);
+    } catch {
+      parsed = rawText;
+    }
+  }
+  const json = parsed && typeof parsed === "object" && "status" in parsed ? parsed : null;
+  if (!response.ok || !json) {
+    const detail = parsed?.error ?? parsed?.message ?? (typeof parsed === "string" ? parsed : rawText);
+    const suffix = detail ? ` Detail: ${detail}` : "";
+    throw new HyperliquidApiError(
+      `Failed to submit Hyperliquid order.${suffix}`,
+      parsed ?? rawText ?? { status: response.status }
+    );
+  }
+  if (json.status !== "ok") {
+    const detail = parsed?.error ?? rawText;
+    throw new HyperliquidApiError(
+      detail ? `Hyperliquid API returned an error status: ${detail}` : "Hyperliquid API returned an error status.",
+      json
+    );
+  }
+  const statuses = json.response?.data?.statuses ?? [];
+  const errorStatuses = statuses.filter(
+    (entry) => Boolean(
+      entry && typeof entry === "object" && "error" in entry && typeof entry.error === "string"
+    )
+  );
+  if (errorStatuses.length) {
+    const message = errorStatuses.map((entry) => entry.error).join(", ");
+    throw new HyperliquidApiError(message || "Hyperliquid rejected the order.", json);
+  }
+  return json;
+}
+
+// src/adapters/hyperliquid/tpsl.ts
+var DEFAULT_HYPERLIQUID_TPSL_MARKET_SLIPPAGE_BPS = 1e3;
+function toDecimalInput(value, label) {
+  if (typeof value === "bigint") {
+    if (value <= 0n) {
+      throw new Error(`${label} must be positive.`);
+    }
+    return value.toString();
+  }
+  return value;
+}
+function toPositiveNumber(value, label) {
+  if (typeof value === "bigint") {
+    if (value <= 0n) {
+      throw new Error(`${label} must be positive.`);
+    }
+    return Number(value);
+  }
+  const numeric = typeof value === "number" ? value : Number.parseFloat(value.toString().trim());
+  if (!Number.isFinite(numeric) || numeric <= 0) {
+    throw new Error(`${label} must be positive.`);
+  }
+  return numeric;
+}
+function normalizeExecutionType(value) {
+  return value ?? "market";
+}
+function resolveTriggerDirection(params) {
+  const isLong = params.parentSide === "buy";
+  if (params.leg === "tp") {
+    if (isLong && params.triggerPx <= params.referencePrice) {
+      throw new Error("Take profit trigger must be above the current price for long positions.");
+    }
+    if (!isLong && params.triggerPx >= params.referencePrice) {
+      throw new Error("Take profit trigger must be below the current price for short positions.");
+    }
+    return;
+  }
+  if (isLong && params.triggerPx >= params.referencePrice) {
+    throw new Error("Stop loss trigger must be below the current price for long positions.");
+  }
+  if (!isLong && params.triggerPx <= params.referencePrice) {
+    throw new Error("Stop loss trigger must be above the current price for short positions.");
+  }
+}
+async function buildTpSlChildOrder(params) {
+  const marketType = isHyperliquidSpotSymbol(params.symbol) ? "spot" : "perp";
+  const [szDecimals, tick] = await Promise.all([
+    fetchHyperliquidSizeDecimals({
+      environment: params.environment,
+      symbol: params.symbol
+    }),
+    fetchHyperliquidTickSize({
+      environment: params.environment,
+      symbol: params.symbol
+    }).catch(() => null)
+  ]);
+  const childSide = params.parentSide === "buy" ? "sell" : "buy";
+  const triggerPxNumeric = toPositiveNumber(params.leg.triggerPx, `${params.legType} triggerPx`);
+  resolveTriggerDirection({
+    leg: params.legType,
+    parentSide: params.parentSide,
+    referencePrice: params.referencePrice,
+    triggerPx: triggerPxNumeric
+  });
+  const execution = normalizeExecutionType(params.leg.execution);
+  const size = formatHyperliquidSize(toDecimalInput(params.size, "size"), szDecimals);
+  const triggerPx = formatHyperliquidPrice(triggerPxNumeric, szDecimals, marketType);
+  const explicitLimitPrice = params.leg.price != null ? toDecimalInput(params.leg.price, `${params.legType} price`) : null;
+  const explicitLimitPriceNumeric = explicitLimitPrice != null ? toPositiveNumber(explicitLimitPrice, `${params.legType} price`) : null;
+  if (execution === "limit" && explicitLimitPriceNumeric == null) {
+    throw new Error(`${params.legType} limit price is required for limit execution.`);
+  }
+  if (execution === "limit" && explicitLimitPriceNumeric != null) {
+    if (childSide === "sell" && explicitLimitPriceNumeric > triggerPxNumeric) {
+      throw new Error(`${params.legType} sell limit price must be at or below the trigger price.`);
+    }
+    if (childSide === "buy" && explicitLimitPriceNumeric < triggerPxNumeric) {
+      throw new Error(`${params.legType} buy limit price must be at or above the trigger price.`);
+    }
+  }
+  const price = execution === "limit" ? formatHyperliquidPrice(
+    explicitLimitPrice,
+    szDecimals,
+    marketType
+  ) : formatHyperliquidMarketablePrice({
+    mid: triggerPxNumeric,
+    side: childSide,
+    slippageBps: params.triggerMarketSlippageBps,
+    tick
+  });
+  return {
+    symbol: params.symbol,
+    side: childSide,
+    price,
+    size,
+    reduceOnly: true,
+    trigger: {
+      triggerPx,
+      isMarket: execution === "market",
+      tpsl: params.legType
+    },
+    ...params.leg.clientId ? { clientId: params.leg.clientId } : {}
+  };
+}
+async function buildAttachedTpSlOrders(params) {
+  const referencePrice = toPositiveNumber(params.referencePrice, "referencePrice");
+  const legs = await Promise.all(
+    [
+      params.takeProfit ? buildTpSlChildOrder({
+        symbol: params.symbol,
+        parentSide: params.parentSide,
+        size: params.size,
+        referencePrice,
+        legType: "tp",
+        leg: params.takeProfit,
+        environment: params.environment,
+        triggerMarketSlippageBps: params.triggerMarketSlippageBps
+      }) : null,
+      params.stopLoss ? buildTpSlChildOrder({
+        symbol: params.symbol,
+        parentSide: params.parentSide,
+        size: params.size,
+        referencePrice,
+        legType: "sl",
+        leg: params.stopLoss,
+        environment: params.environment,
+        triggerMarketSlippageBps: params.triggerMarketSlippageBps
+      }) : null
+    ]
+  );
+  return legs.filter((entry) => Boolean(entry));
+}
+async function placeHyperliquidOrderWithTpSl(options) {
+  const env = options.environment ?? "mainnet";
+  const childOrders = await buildAttachedTpSlOrders({
+    symbol: options.parent.symbol,
+    parentSide: options.parent.side,
+    size: options.parent.size,
+    referencePrice: options.referencePrice,
+    takeProfit: options.takeProfit ?? null,
+    stopLoss: options.stopLoss ?? null,
+    environment: env,
+    triggerMarketSlippageBps: options.triggerMarketSlippageBps ?? DEFAULT_HYPERLIQUID_TPSL_MARKET_SLIPPAGE_BPS
+  });
+  return placeHyperliquidOrder({
+    wallet: options.wallet,
+    orders: [options.parent, ...childOrders],
+    grouping: options.grouping ?? "normalTpsl",
+    environment: env,
+    ...options.vaultAddress ? { vaultAddress: options.vaultAddress } : {},
+    ...typeof options.expiresAfter === "number" ? { expiresAfter: options.expiresAfter } : {},
+    ...typeof options.nonce === "number" ? { nonce: options.nonce } : {},
+    ...options.nonceSource ? { nonceSource: options.nonceSource } : {}
+  });
+}
+async function placeHyperliquidPositionTpSl(options) {
+  const env = options.environment ?? "mainnet";
+  const parentSide = options.positionSide === "long" ? "buy" : "sell";
+  const childOrders = await buildAttachedTpSlOrders({
+    symbol: options.symbol,
+    parentSide,
+    size: options.size,
+    referencePrice: options.referencePrice,
+    takeProfit: options.takeProfit ?? null,
+    stopLoss: options.stopLoss ?? null,
+    environment: env,
+    triggerMarketSlippageBps: options.triggerMarketSlippageBps ?? DEFAULT_HYPERLIQUID_TPSL_MARKET_SLIPPAGE_BPS
+  });
+  if (childOrders.length === 0) {
+    throw new Error("At least one TP or SL order is required.");
+  }
+  return placeHyperliquidOrder({
+    wallet: options.wallet,
+    orders: childOrders,
+    grouping: options.grouping ?? "positionTpsl",
+    environment: env,
+    ...options.vaultAddress ? { vaultAddress: options.vaultAddress } : {},
+    ...typeof options.expiresAfter === "number" ? { expiresAfter: options.expiresAfter } : {},
+    ...typeof options.nonce === "number" ? { nonce: options.nonce } : {},
+    ...options.nonceSource ? { nonceSource: options.nonceSource } : {}
+  });
+}
+
+// src/adapters/hyperliquid/risk-utils.ts
+function toFinitePositive(value) {
+  return Number.isFinite(value) && value > 0 ? value : null;
+}
+function estimateMaintenanceLeverage(maxLeverage) {
+  const normalized = toFinitePositive(maxLeverage);
+  if (!normalized) return null;
+  return normalized * 2;
+}
+function estimateHyperliquidLiquidationPrice(params) {
+  const entryPrice = toFinitePositive(params.entryPrice);
+  const notionalUsd = toFinitePositive(params.notionalUsd);
+  const leverage = toFinitePositive(params.leverage);
+  const maintenanceLeverage = estimateMaintenanceLeverage(params.maxLeverage);
+  if (!entryPrice || !notionalUsd || !leverage || !maintenanceLeverage) {
+    return null;
+  }
+  const size = notionalUsd / entryPrice;
+  if (!Number.isFinite(size) || size <= 0) {
+    return null;
+  }
+  const isolatedMargin = notionalUsd / leverage;
+  const marginAvailable = params.marginMode === "cross" ? Math.max(
+    toFinitePositive(params.availableCollateralUsd ?? 0) ?? isolatedMargin,
+    isolatedMargin
+  ) : isolatedMargin;
+  const sideSign = params.side === "buy" ? 1 : -1;
+  const maintenanceFactor = 1 / maintenanceLeverage;
+  const denominator = 1 - maintenanceFactor * sideSign;
+  if (!Number.isFinite(denominator) || denominator <= 0) {
+    return null;
+  }
+  const liquidationPrice = entryPrice - sideSign * (marginAvailable / size) / denominator;
+  if (!Number.isFinite(liquidationPrice) || liquidationPrice <= 0) {
+    return null;
+  }
+  return liquidationPrice;
+}
 
 // src/adapters/hyperliquid/utils.ts
 var DEFAULT_HYPERLIQUID_CADENCE_CRON = {
@@ -4537,7 +5083,7 @@ function resolveHyperliquidCadenceFromResolution(resolution) {
 }
 
 // src/adapters/hyperliquid/index.ts
-function resolveRequiredNonce(params) {
+function resolveRequiredNonce2(params) {
   if (typeof params.nonce === "number") {
     return params.nonce;
   }
@@ -4547,7 +5093,7 @@ function resolveRequiredNonce(params) {
   }
   return resolved;
 }
-function assertPositiveDecimalInput(value, label) {
+function assertPositiveDecimalInput2(value, label) {
   if (typeof value === "number") {
     if (!Number.isFinite(value) || value <= 0) {
       throw new Error(`${label} must be a positive number.`);
@@ -4587,7 +5133,7 @@ function normalizePositiveDecimalString(raw, label) {
   }
   return normalized;
 }
-async function placeHyperliquidOrder(options) {
+async function placeHyperliquidOrder2(options) {
   const {
     wallet: wallet2,
     orders,
@@ -4608,10 +5154,10 @@ async function placeHyperliquidOrder(options) {
   const resolvedBaseUrl = API_BASES[inferredEnvironment];
   const preparedOrders = await Promise.all(
     orders.map(async (intent) => {
-      assertPositiveDecimalInput(intent.price, "price");
-      assertPositiveDecimalInput(intent.size, "size");
+      assertPositiveDecimalInput2(intent.price, "price");
+      assertPositiveDecimalInput2(intent.size, "size");
       if (intent.trigger) {
-        assertPositiveDecimalInput(intent.trigger.triggerPx, "triggerPx");
+        assertPositiveDecimalInput2(intent.trigger.triggerPx, "triggerPx");
       }
       const assetIndex = await resolveHyperliquidAssetIndex({
         symbol: intent.symbol,
@@ -4655,7 +5201,7 @@ async function placeHyperliquidOrder(options) {
       f: effectiveBuilder.fee
     };
   }
-  const effectiveNonce = resolveRequiredNonce({
+  const effectiveNonce = resolveRequiredNonce2({
     nonce,
     nonceSource: options.nonceSource,
     wallet: wallet2,
@@ -4776,7 +5322,7 @@ async function withdrawFromHyperliquid(options) {
     chainId: Number.parseInt(signatureChainId, 16),
     verifyingContract: ZERO_ADDRESS
   };
-  const nonce = resolveRequiredNonce({
+  const nonce = resolveRequiredNonce2({
     nonce: options.nonce,
     nonceSource: options.nonceSource,
     wallet: wallet2,
@@ -4862,7 +5408,7 @@ async function approveHyperliquidBuilderFee(options) {
   const inferredEnvironment = environment ?? "mainnet";
   const resolvedBaseUrl = API_BASES[inferredEnvironment];
   const maxFeeRate = formattedPercent;
-  const effectiveNonce = resolveRequiredNonce({
+  const effectiveNonce = resolveRequiredNonce2({
     nonce,
     nonceSource: options.nonceSource,
     wallet: wallet2,
@@ -6844,6 +7390,6 @@ function buildBacktestDecisionSeriesInput(request) {
   };
 }
 
-export { AIAbortError, AIError, AIFetchError, AIResponseError, BACKTEST_DECISION_MODE, DEFAULT_BASE_URL, DEFAULT_CHAIN, DEFAULT_FACILITATOR, DEFAULT_HYPERLIQUID_CADENCE_CRON, DEFAULT_HYPERLIQUID_MARKET_SLIPPAGE_BPS, DEFAULT_MODEL, DEFAULT_OPENPOND_GATEWAY_URL2 as DEFAULT_OPENPOND_GATEWAY_URL, DEFAULT_TIMEOUT_MS, DEFAULT_TOKENS, HTTP_METHODS2 as HTTP_METHODS, HyperliquidApiError, HyperliquidBuilderApprovalError, HyperliquidExchangeClient, HyperliquidGuardError, HyperliquidInfoClient, HyperliquidTermsError, NewsSignalClient, PAYMENT_HEADERS, POLYMARKET_CHAIN_ID, POLYMARKET_CLOB_AUTH_DOMAIN, POLYMARKET_CLOB_DOMAIN, POLYMARKET_ENDPOINTS, POLYMARKET_EXCHANGE_ADDRESSES, PolymarketApiError, PolymarketAuthError, PolymarketExchangeClient, PolymarketInfoClient, SUPPORTED_CURRENCIES, StoreError, WEBSEARCH_TOOL_DEFINITION, WEBSEARCH_TOOL_NAME, X402BrowserClient, X402Client, X402PaymentRequiredError, __hyperliquidInternals, __hyperliquidMarketDataInternals, approveHyperliquidBuilderFee, backtestDecisionRequestSchema, batchModifyHyperliquidOrders, buildBacktestDecisionSeriesInput, buildHmacSignature, buildHyperliquidMarketIdentity, buildHyperliquidProfileAssets, buildHyperliquidSpotUsdPriceMap, buildL1Headers, buildL2Headers, buildPolymarketOrderAmounts, buildSignedOrderPayload, cancelAllHyperliquidOrders, cancelAllPolymarketOrders, cancelHyperliquidOrders, cancelHyperliquidOrdersByCloid, cancelHyperliquidTwapOrder, cancelMarketPolymarketOrders, cancelPolymarketOrder, cancelPolymarketOrders, chains, clampHyperliquidAbs, clampHyperliquidFloat, clampHyperliquidInt, computeHyperliquidMarketIocLimitPrice, createAIClient, createDevServer, createHyperliquidSubAccount, createMcpAdapter, createMonotonicNonceFactory, createPolymarketApiKey, createStdioServer, defineX402Payment, depositToHyperliquidBridge, derivePolymarketApiKey, ensureTextContent, estimateCountBack, evaluateNewsContinuationGate, executeTool, extractHyperliquidDex, extractHyperliquidOrderIds, fetchHyperliquidAllMids, fetchHyperliquidAssetCtxs, fetchHyperliquidBars, fetchHyperliquidClearinghouseState, fetchHyperliquidFrontendOpenOrders, fetchHyperliquidHistoricalOrders, fetchHyperliquidMeta, fetchHyperliquidMetaAndAssetCtxs, fetchHyperliquidOpenOrders, fetchHyperliquidOrderStatus, fetchHyperliquidPerpMarketInfo, fetchHyperliquidPreTransferCheck, fetchHyperliquidSizeDecimals, fetchHyperliquidSpotAccountValue, fetchHyperliquidSpotAssetCtxs, fetchHyperliquidSpotClearinghouseState, fetchHyperliquidSpotMarketInfo, fetchHyperliquidSpotMeta, fetchHyperliquidSpotMetaAndAssetCtxs, fetchHyperliquidSpotTickSize, fetchHyperliquidSpotUsdPriceMap, fetchHyperliquidTickSize, fetchHyperliquidUserFills, fetchHyperliquidUserFillsByTime, fetchHyperliquidUserRateLimit, fetchNewsEventSignal, fetchNewsPropositionSignal, fetchPolymarketMarket, fetchPolymarketMarkets, fetchPolymarketMidpoint, fetchPolymarketOrderbook, fetchPolymarketPrice, fetchPolymarketPriceHistory, flattenMessageContent, formatHyperliquidMarketablePrice, formatHyperliquidOrderSize, formatHyperliquidPrice, formatHyperliquidSize, generateText, getHyperliquidMaxBuilderFee, getModelConfig, getMyPerformance, getMyTools, getRpcUrl, getX402PaymentContext, isHyperliquidSpotSymbol, isStreamingSupported, isToolCallingSupported, listModels, modifyHyperliquidOrder, normalizeHyperliquidBaseSymbol, normalizeHyperliquidDcaEntries, normalizeHyperliquidIndicatorBars, normalizeHyperliquidMetaSymbol, normalizeModelName, normalizeNumberArrayish, normalizeSpotTokenName2 as normalizeSpotTokenName, normalizeStringArrayish, parseHyperliquidJson, parseSpotPairSymbol, parseTimeToSeconds, payX402, payX402WithWallet, placeHyperliquidOrder, placeHyperliquidTwapOrder, placePolymarketOrder, planHyperliquidTrade, postAgentDigest, readHyperliquidAccountValue, readHyperliquidNumber, readHyperliquidPerpPosition, readHyperliquidPerpPositionSize, readHyperliquidSpotAccountValue, readHyperliquidSpotBalance, readHyperliquidSpotBalanceSize, recordHyperliquidBuilderApproval, recordHyperliquidTermsAcceptance, registry, requireX402Payment, reserveHyperliquidRequestWeight, resolutionToSeconds, resolveBacktestAccountValueUsd, resolveBacktestMode, resolveBacktestWindow, resolveConfig2 as resolveConfig, resolveExchangeAddress, resolveHyperliquidAbstractionFromMode, resolveHyperliquidBudgetUsd, resolveHyperliquidCadenceCron, resolveHyperliquidCadenceFromResolution, resolveHyperliquidChain, resolveHyperliquidChainConfig, resolveHyperliquidDcaSymbolEntries, resolveHyperliquidErrorDetail, resolveHyperliquidHourlyInterval, resolveHyperliquidIntervalCron, resolveHyperliquidLeverageMode, resolveHyperliquidMaxPerRunUsd, resolveHyperliquidOrderRef, resolveHyperliquidOrderSymbol, resolveHyperliquidPair, resolveHyperliquidPerpSymbol, resolveHyperliquidProfileChain, resolveHyperliquidRpcEnvVar, resolveHyperliquidScheduleEvery, resolveHyperliquidScheduleUnit, resolveHyperliquidSpotSymbol, resolveHyperliquidStoreNetwork, resolveHyperliquidSymbol, resolveHyperliquidTargetSize, resolveNewsGatewayBase, resolvePolymarketBaseUrl, resolveRuntimePath, resolveSpotMidCandidates, resolveSpotTokenCandidates, resolveToolset, responseToToolResponse, retrieve, roundHyperliquidPriceToTick, scheduleHyperliquidCancel, sendHyperliquidSpot, setHyperliquidAccountAbstractionMode, setHyperliquidDexAbstraction, setHyperliquidPortfolioMargin, store, streamText, tokens, transferHyperliquidSubAccount, updateHyperliquidIsolatedMargin, updateHyperliquidLeverage, wallet, walletToolkit, withX402Payment, withdrawFromHyperliquid };
+export { AIAbortError, AIError, AIFetchError, AIResponseError, BACKTEST_DECISION_MODE, DEFAULT_BASE_URL, DEFAULT_CHAIN, DEFAULT_FACILITATOR, DEFAULT_HYPERLIQUID_CADENCE_CRON, DEFAULT_HYPERLIQUID_MARKET_SLIPPAGE_BPS, DEFAULT_HYPERLIQUID_TPSL_MARKET_SLIPPAGE_BPS, DEFAULT_MODEL, DEFAULT_OPENPOND_GATEWAY_URL2 as DEFAULT_OPENPOND_GATEWAY_URL, DEFAULT_TIMEOUT_MS, DEFAULT_TOKENS, HTTP_METHODS2 as HTTP_METHODS, HyperliquidApiError, HyperliquidBuilderApprovalError, HyperliquidExchangeClient, HyperliquidGuardError, HyperliquidInfoClient, HyperliquidTermsError, NewsSignalClient, PAYMENT_HEADERS, POLYMARKET_CHAIN_ID, POLYMARKET_CLOB_AUTH_DOMAIN, POLYMARKET_CLOB_DOMAIN, POLYMARKET_ENDPOINTS, POLYMARKET_EXCHANGE_ADDRESSES, PolymarketApiError, PolymarketAuthError, PolymarketExchangeClient, PolymarketInfoClient, SUPPORTED_CURRENCIES, StoreError, WEBSEARCH_TOOL_DEFINITION, WEBSEARCH_TOOL_NAME, X402BrowserClient, X402Client, X402PaymentRequiredError, __hyperliquidInternals, __hyperliquidMarketDataInternals, approveHyperliquidBuilderFee, backtestDecisionRequestSchema, batchModifyHyperliquidOrders, buildBacktestDecisionSeriesInput, buildHmacSignature, buildHyperliquidMarketIdentity, buildHyperliquidProfileAssets, buildHyperliquidSpotUsdPriceMap, buildL1Headers, buildL2Headers, buildPolymarketOrderAmounts, buildSignedOrderPayload, cancelAllHyperliquidOrders, cancelAllPolymarketOrders, cancelHyperliquidOrders, cancelHyperliquidOrdersByCloid, cancelHyperliquidTwapOrder, cancelMarketPolymarketOrders, cancelPolymarketOrder, cancelPolymarketOrders, chains, clampHyperliquidAbs, clampHyperliquidFloat, clampHyperliquidInt, computeHyperliquidMarketIocLimitPrice, createAIClient, createDevServer, createHyperliquidSubAccount, createMcpAdapter, createMonotonicNonceFactory, createPolymarketApiKey, createStdioServer, defineX402Payment, depositToHyperliquidBridge, derivePolymarketApiKey, ensureTextContent, estimateCountBack, estimateHyperliquidLiquidationPrice, evaluateNewsContinuationGate, executeTool, extractHyperliquidDex, extractHyperliquidOrderIds, fetchHyperliquidAllMids, fetchHyperliquidAssetCtxs, fetchHyperliquidBars, fetchHyperliquidClearinghouseState, fetchHyperliquidFrontendOpenOrders, fetchHyperliquidHistoricalOrders, fetchHyperliquidMeta, fetchHyperliquidMetaAndAssetCtxs, fetchHyperliquidOpenOrders, fetchHyperliquidOrderStatus, fetchHyperliquidPerpMarketInfo, fetchHyperliquidPreTransferCheck, fetchHyperliquidSizeDecimals, fetchHyperliquidSpotAccountValue, fetchHyperliquidSpotAssetCtxs, fetchHyperliquidSpotClearinghouseState, fetchHyperliquidSpotMarketInfo, fetchHyperliquidSpotMeta, fetchHyperliquidSpotMetaAndAssetCtxs, fetchHyperliquidSpotTickSize, fetchHyperliquidSpotUsdPriceMap, fetchHyperliquidTickSize, fetchHyperliquidUserFills, fetchHyperliquidUserFillsByTime, fetchHyperliquidUserRateLimit, fetchNewsEventSignal, fetchNewsPropositionSignal, fetchPolymarketMarket, fetchPolymarketMarkets, fetchPolymarketMidpoint, fetchPolymarketOrderbook, fetchPolymarketPrice, fetchPolymarketPriceHistory, flattenMessageContent, formatHyperliquidMarketablePrice, formatHyperliquidOrderSize, formatHyperliquidPrice, formatHyperliquidSize, generateText, getHyperliquidMaxBuilderFee, getModelConfig, getMyPerformance, getMyTools, getRpcUrl, getX402PaymentContext, isHyperliquidSpotSymbol, isStreamingSupported, isToolCallingSupported, listModels, modifyHyperliquidOrder, normalizeHyperliquidBaseSymbol, normalizeHyperliquidDcaEntries, normalizeHyperliquidIndicatorBars, normalizeHyperliquidMetaSymbol, normalizeModelName, normalizeNumberArrayish, normalizeSpotTokenName2 as normalizeSpotTokenName, normalizeStringArrayish, parseHyperliquidJson, parseHyperliquidSymbol, parseSpotPairSymbol, parseTimeToSeconds, payX402, payX402WithWallet, placeHyperliquidOrder2 as placeHyperliquidOrder, placeHyperliquidOrderWithTpSl, placeHyperliquidPositionTpSl, placeHyperliquidTwapOrder, placePolymarketOrder, planHyperliquidTrade, postAgentDigest, readHyperliquidAccountValue, readHyperliquidNumber, readHyperliquidPerpPosition, readHyperliquidPerpPositionSize, readHyperliquidSpotAccountValue, readHyperliquidSpotBalance, readHyperliquidSpotBalanceSize, recordHyperliquidBuilderApproval, recordHyperliquidTermsAcceptance, registry, requireX402Payment, reserveHyperliquidRequestWeight, resolutionToSeconds, resolveBacktestAccountValueUsd, resolveBacktestMode, resolveBacktestWindow, resolveConfig2 as resolveConfig, resolveExchangeAddress, resolveHyperliquidAbstractionFromMode, resolveHyperliquidBudgetUsd, resolveHyperliquidCadenceCron, resolveHyperliquidCadenceFromResolution, resolveHyperliquidChain, resolveHyperliquidChainConfig, resolveHyperliquidDcaSymbolEntries, resolveHyperliquidErrorDetail, resolveHyperliquidHourlyInterval, resolveHyperliquidIntervalCron, resolveHyperliquidLeverageMode, resolveHyperliquidMaxPerRunUsd, resolveHyperliquidOrderRef, resolveHyperliquidOrderSymbol, resolveHyperliquidPair, resolveHyperliquidPerpSymbol, resolveHyperliquidProfileChain, resolveHyperliquidRpcEnvVar, resolveHyperliquidScheduleEvery, resolveHyperliquidScheduleUnit, resolveHyperliquidSpotSymbol, resolveHyperliquidStoreNetwork, resolveHyperliquidSymbol, resolveHyperliquidTargetSize, resolveNewsGatewayBase, resolvePolymarketBaseUrl, resolveRuntimePath, resolveSpotMidCandidates, resolveSpotTokenCandidates, resolveToolset, responseToToolResponse, retrieve, roundHyperliquidPriceToTick, scheduleHyperliquidCancel, sendHyperliquidSpot, setHyperliquidAccountAbstractionMode, setHyperliquidDexAbstraction, setHyperliquidPortfolioMargin, store, streamText, tokens, transferHyperliquidSubAccount, updateHyperliquidIsolatedMargin, updateHyperliquidLeverage, wallet, walletToolkit, withX402Payment, withdrawFromHyperliquid };
 //# sourceMappingURL=index.js.map
 //# sourceMappingURL=index.js.map

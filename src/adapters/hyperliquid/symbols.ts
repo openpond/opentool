@@ -2,11 +2,97 @@ import type { HyperliquidEnvironment } from "./base";
 
 const UNKNOWN_SYMBOL = "UNKNOWN";
 
+export type HyperliquidParsedSymbolKind = "perp" | "spot" | "spotIndex";
+
+export type HyperliquidParsedSymbol = {
+  raw: string;
+  kind: HyperliquidParsedSymbolKind;
+  normalized: string;
+  routeTicker: string;
+  displaySymbol: string;
+  base: string | null;
+  quote: string | null;
+  pair: string | null;
+  dex: string | null;
+  leverageMode: "cross" | "isolated";
+};
+
 export function extractHyperliquidDex(symbol: string): string | null {
   const idx = symbol.indexOf(":");
   if (idx <= 0) return null;
   const dex = symbol.slice(0, idx).trim().toLowerCase();
   return dex || null;
+}
+
+export function parseHyperliquidSymbol(value?: string | null): HyperliquidParsedSymbol | null {
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+
+  if (trimmed.startsWith("@")) {
+    return {
+      raw: trimmed,
+      kind: "spotIndex",
+      normalized: trimmed,
+      routeTicker: trimmed,
+      displaySymbol: trimmed,
+      base: null,
+      quote: null,
+      pair: null,
+      dex: null,
+      leverageMode: "cross",
+    };
+  }
+
+  const dex = extractHyperliquidDex(trimmed);
+  const pair = resolveHyperliquidPair(trimmed);
+  const base = normalizeHyperliquidBaseSymbol(trimmed);
+
+  if (dex) {
+    if (!base) return null;
+    return {
+      raw: trimmed,
+      kind: "perp",
+      normalized: `${dex}:${base}`,
+      routeTicker: `${dex}:${base}`,
+      displaySymbol: `${dex.toUpperCase()}:${base}-USDC`,
+      base,
+      quote: null,
+      pair: null,
+      dex,
+      leverageMode: "isolated",
+    };
+  }
+
+  if (pair) {
+    const [pairBase, pairQuote] = pair.split("/");
+    return {
+      raw: trimmed,
+      kind: "spot",
+      normalized: pair,
+      routeTicker: pair.replace("/", "-"),
+      displaySymbol: pair.replace("/", "-"),
+      base: pairBase ?? null,
+      quote: pairQuote ?? null,
+      pair,
+      dex: null,
+      leverageMode: "cross",
+    };
+  }
+
+  if (!base) return null;
+  return {
+    raw: trimmed,
+    kind: "perp",
+    normalized: base,
+    routeTicker: base,
+    displaySymbol: `${base}-USDC`,
+    base,
+    quote: null,
+    pair: null,
+    dex: null,
+    leverageMode: "cross",
+  };
 }
 
 export function normalizeSpotTokenName(value?: string | null): string {

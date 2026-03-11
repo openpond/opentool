@@ -231,7 +231,12 @@ export function computeHyperliquidMarketIocLimitPrice(params: {
   const slippage = bps / 10_000;
   const multiplier = params.side === "buy" ? 1 + slippage : 1 - slippage;
   const price = params.markPrice * multiplier;
-  return formatRoundedDecimal(price, decimals);
+  const precision = Math.max(0, Math.min(12, Math.floor(decimals)));
+  const factor = 10 ** precision;
+  const scaled = price * factor;
+  const directionalRounded =
+    params.side === "buy" ? Math.ceil(scaled) / factor : Math.floor(scaled) / factor;
+  return formatRoundedDecimal(directionalRounded, precision);
 }
 
 export interface HyperliquidTriggerOptions {
@@ -363,7 +368,64 @@ export class HyperliquidApiError extends Error {
     message: string,
     public readonly response: unknown,
   ) {
-    super(message);
+    const responseRecord =
+      response && typeof response === "object"
+        ? (response as {
+            errors?: unknown;
+            body?: unknown;
+          })
+        : null;
+    const explicitErrors = Array.isArray(responseRecord?.errors)
+      ? responseRecord.errors.filter(
+          (entry): entry is string => typeof entry === "string" && entry.trim().length > 0,
+        )
+      : [];
+    const bodyStatuses =
+      responseRecord?.body &&
+      typeof responseRecord.body === "object" &&
+      responseRecord.body !== null &&
+      "response" in responseRecord.body
+        ? (
+            (
+              (responseRecord.body as {
+                response?: {
+                  data?: {
+                    statuses?: Array<{ error?: unknown }>;
+                    status?: { error?: unknown };
+                  };
+                };
+              }).response?.data?.statuses ?? []
+            )
+              .map((status) => (typeof status?.error === "string" ? status.error : null))
+              .filter((entry): entry is string => Boolean(entry && entry.trim().length > 0))
+          )
+        : [];
+    const singleStatusError =
+      responseRecord?.body &&
+      typeof responseRecord.body === "object" &&
+      responseRecord.body !== null &&
+      "response" in responseRecord.body
+        ? (
+            (responseRecord.body as {
+              response?: {
+                data?: {
+                  status?: { error?: unknown };
+                };
+              };
+            }).response?.data?.status?.error
+          )
+        : null;
+    const details = Array.from(
+      new Set(
+        [
+          ...explicitErrors,
+          ...bodyStatuses,
+          typeof singleStatusError === "string" ? singleStatusError : null,
+        ].filter((entry): entry is string => Boolean(entry && entry.trim().length > 0)),
+      ),
+    );
+    const enrichedMessage = details.length > 0 ? `${message} ${details.join(" | ")}` : message;
+    super(enrichedMessage);
     this.name = "HyperliquidApiError";
   }
 }
@@ -644,7 +706,19 @@ export async function resolveHyperliquidAssetIndex(args: {
 
 export function toApiDecimal(value: string | number | bigint): string {
   if (typeof value === "string") {
-    return value;
+    const trimmed = value.trim();
+    if (!trimmed.length) {
+      throw new Error("Decimal strings must be non-empty.");
+    }
+    if (!/^-?(?:\d+\.?\d*|\.\d+)$/.test(trimmed)) {
+      throw new Error("Decimal strings must be plain base-10 numbers.");
+    }
+    return trimmed
+      .replace(/^(-?)0+(?=\d)/, "$1")
+      .replace(/\.0*$|(\.\d+?)0+$/, "$1")
+      .replace(/^(-?)\./, "$10.")
+      .replace(/^-?$/, "0")
+      .replace(/^-0$/, "0");
   }
 
   if (typeof value === "bigint") {

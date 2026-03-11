@@ -6,6 +6,7 @@ export type HyperliquidTickSize = {
 };
 
 export type HyperliquidMarketType = "perp" | "spot";
+type HyperliquidDirectionalMode = "down" | "up";
 
 type HyperliquidOrderResponseLike = {
   response?: {
@@ -15,21 +16,9 @@ type HyperliquidOrderResponseLike = {
   };
 };
 
-const MAX_HYPERLIQUID_PRICE_DECIMALS = 8;
-
-function countDecimals(value: number): number {
-  if (!Number.isFinite(value)) return 0;
-  const s = value.toString();
-  const [, dec = ""] = s.split(".");
+function countDecimalPlaces(value: string): number {
+  const [, dec = ""] = value.split(".");
   return dec.length;
-}
-
-function clampPriceDecimals(value: number): string {
-  if (!Number.isFinite(value) || value <= 0) {
-    throw new Error("Price must be positive.");
-  }
-  const fixed = value.toFixed(MAX_HYPERLIQUID_PRICE_DECIMALS);
-  return fixed.replace(/\.?0+$/, "");
 }
 
 function assertNumberString(value: string): void {
@@ -94,6 +83,30 @@ const StringMath = {
     const index = value.indexOf(".");
     return index === -1 ? value : value.slice(0, index) || "0";
   },
+  roundInteger(value: string, mode: HyperliquidDirectionalMode): string {
+    const normalized = normalizeDecimalString(value);
+    const negative = normalized.startsWith("-");
+    if (negative) {
+      throw new RangeError("Directional rounding only supports positive values.");
+    }
+    const [intPartRaw, fracPart = ""] = normalized.split(".");
+    const intPart = intPartRaw.replace(/^0+(?=\d)/, "") || "0";
+    const hasFraction = /[1-9]/.test(fracPart);
+    if (!hasFraction) return intPart;
+    if (mode === "down") return intPart;
+
+    const digits = intPart.split("");
+    let carry = 1;
+    for (let idx = digits.length - 1; idx >= 0 && carry > 0; idx -= 1) {
+      const next = Number(digits[idx] ?? "0") + carry;
+      digits[idx] = String(next % 10);
+      carry = next >= 10 ? 1 : 0;
+    }
+    if (carry > 0) {
+      digits.unshift("1");
+    }
+    return digits.join("").replace(/^0+(?=\d)/, "") || "0";
+  },
   toPrecisionTruncate(value: string, precision: number): string {
     if (!Number.isInteger(precision) || precision < 1) {
       throw new RangeError("Precision must be a positive integer.");
@@ -121,6 +134,48 @@ const StringMath = {
     return normalizeDecimalString(result);
   },
 };
+
+function ceilDiv(numerator: bigint, denominator: bigint): bigint {
+  if (denominator <= 0n) {
+    throw new RangeError("Denominator must be positive.");
+  }
+  return (numerator + denominator - 1n) / denominator;
+}
+
+function scaleDecimalToInt(
+  value: string,
+  decimals: number,
+  mode: HyperliquidDirectionalMode,
+): bigint {
+  if (!Number.isInteger(decimals) || decimals < 0) {
+    throw new RangeError("Decimals must be a non-negative integer.");
+  }
+  const normalized = normalizeDecimalString(value);
+  assertNumberString(normalized);
+  const negative = normalized.startsWith("-");
+  if (negative) {
+    throw new RangeError("Only positive values are supported.");
+  }
+  const shifted = StringMath.multiplyByPow10(normalized, decimals);
+  const rounded = StringMath.roundInteger(shifted, mode);
+  return BigInt(rounded);
+}
+
+function formatScaledDecimal(value: bigint, decimals: number): string {
+  if (!Number.isInteger(decimals) || decimals < 0) {
+    throw new RangeError("Decimals must be a non-negative integer.");
+  }
+  const negative = value < 0n;
+  const abs = negative ? -value : value;
+  const raw = abs.toString();
+  if (decimals === 0) {
+    return `${negative ? "-" : ""}${raw}`;
+  }
+  const padded = raw.padStart(decimals + 1, "0");
+  const intPart = padded.slice(0, -decimals) || "0";
+  const fracPart = padded.slice(-decimals);
+  return normalizeDecimalString(`${negative ? "-" : ""}${intPart}.${fracPart}`);
+}
 
 export function formatHyperliquidPrice(
   price: string | number,
@@ -162,13 +217,10 @@ export function formatHyperliquidOrderSize(value: number, szDecimals: number): s
 }
 
 export function roundHyperliquidPriceToTick(
-  price: number,
+  price: string | number,
   tick: HyperliquidTickSize,
   side: "buy" | "sell",
 ): string {
-  if (!Number.isFinite(price) || price <= 0) {
-    throw new Error("Price must be positive.");
-  }
   if (!Number.isFinite(tick.tickDecimals) || tick.tickDecimals < 0) {
     throw new Error("tick.tickDecimals must be a non-negative number.");
   }
@@ -176,15 +228,23 @@ export function roundHyperliquidPriceToTick(
     throw new Error("tick.tickSizeInt must be positive.");
   }
 
-  const scale = 10 ** tick.tickDecimals;
-  const scaled = BigInt(Math.round(price * scale));
+  const normalized = normalizeDecimalString(price.toString());
+  assertNumberString(normalized);
+  if (Number.parseFloat(normalized) <= 0) {
+    throw new Error("Price must be positive.");
+  }
+
+  const scaled = scaleDecimalToInt(
+    normalized,
+    tick.tickDecimals,
+    side === "buy" ? "up" : "down",
+  );
   const tickSize = tick.tickSizeInt;
   const rounded =
     side === "sell"
       ? (scaled / tickSize) * tickSize
       : ((scaled + tickSize - 1n) / tickSize) * tickSize;
-  const integer = Number(rounded) / scale;
-  return clampPriceDecimals(integer);
+  return formatScaledDecimal(rounded, tick.tickDecimals);
 }
 
 export function formatHyperliquidMarketablePrice(params: {
@@ -194,17 +254,36 @@ export function formatHyperliquidMarketablePrice(params: {
   tick?: HyperliquidTickSize | null;
 }): string {
   const { mid, side, slippageBps, tick } = params;
-  const decimals = countDecimals(mid);
-  const factor = 10 ** decimals;
-  const adjusted = mid * (side === "buy" ? 1 + slippageBps / 10_000 : 1 - slippageBps / 10_000);
+  if (!Number.isFinite(mid) || mid <= 0) {
+    throw new Error("mid must be a positive number.");
+  }
+  if (!Number.isFinite(slippageBps) || slippageBps < 0) {
+    throw new Error("slippageBps must be a non-negative number.");
+  }
+
+  const midString = normalizeDecimalString(mid.toString());
+  const baseDecimals = countDecimalPlaces(midString);
+  const workDecimals = Math.max(baseDecimals + 4, tick?.tickDecimals ?? 0, 8);
+  const scaledMid = scaleDecimalToInt(midString, workDecimals, "down");
+  const slippageNumerator = BigInt(
+    side === "buy" ? 10_000 + slippageBps : 10_000 - slippageBps,
+  );
+  const adjustedScaled =
+    side === "buy"
+      ? ceilDiv(scaledMid * slippageNumerator, 10_000n)
+      : (scaledMid * slippageNumerator) / 10_000n;
+  const adjusted = formatScaledDecimal(adjustedScaled, workDecimals);
 
   if (tick) {
     return roundHyperliquidPriceToTick(adjusted, tick, side);
   }
 
-  const scaled = adjusted * factor;
-  const rounded = side === "buy" ? Math.ceil(scaled) / factor : Math.floor(scaled) / factor;
-  return clampPriceDecimals(rounded);
+  const roundedScaled = scaleDecimalToInt(
+    adjusted,
+    baseDecimals,
+    side === "buy" ? "up" : "down",
+  );
+  return formatScaledDecimal(roundedScaled, baseDecimals);
 }
 
 export function extractHyperliquidOrderIds(responses: HyperliquidOrderResponseLike[]): {
