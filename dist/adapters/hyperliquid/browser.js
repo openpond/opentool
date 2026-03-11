@@ -582,37 +582,6 @@ async function signUserPortfolioMargin(args) {
   });
   return splitSignature(signatureHex);
 }
-async function signUserDexAbstraction(args) {
-  const { wallet, action } = args;
-  const domain = {
-    name: "HyperliquidSignTransaction",
-    version: "1",
-    chainId: Number.parseInt(action.signatureChainId, 16),
-    verifyingContract: ZERO_ADDRESS
-  };
-  const message = {
-    hyperliquidChain: action.hyperliquidChain,
-    user: action.user,
-    enabled: action.enabled,
-    nonce: BigInt(action.nonce)
-  };
-  const types = {
-    "HyperliquidTransaction:UserDexAbstraction": [
-      { name: "hyperliquidChain", type: "string" },
-      { name: "user", type: "address" },
-      { name: "enabled", type: "bool" },
-      { name: "nonce", type: "uint64" }
-    ]
-  };
-  const signatureHex = await wallet.walletClient.signTypedData({
-    account: wallet.account,
-    domain,
-    types,
-    primaryType: "HyperliquidTransaction:UserDexAbstraction",
-    message
-  });
-  return splitSignature(signatureHex);
-}
 async function signUserSetAbstraction(args) {
   const { wallet, action } = args;
   const domain = {
@@ -1027,17 +996,6 @@ var HyperliquidExchangeClient = class {
       ...params
     });
   }
-  setDexAbstraction(params) {
-    const base = {
-      wallet: this.wallet,
-      enabled: params.enabled,
-      environment: this.environment,
-      vaultAddress: this.vaultAddress,
-      expiresAfter: this.expiresAfter,
-      nonceSource: this.nonceSource
-    };
-    return setHyperliquidDexAbstraction(params.user ? { ...base, user: params.user } : base);
-  }
   setAccountAbstractionMode(params) {
     const base = {
       wallet: this.wallet,
@@ -1087,46 +1045,6 @@ async function setHyperliquidPortfolioMargin(options) {
     nonce
   };
   const signature = await signUserPortfolioMargin({
-    wallet: options.wallet,
-    action
-  });
-  const body = {
-    action,
-    nonce,
-    signature
-  };
-  if (options.vaultAddress) {
-    body.vaultAddress = normalizeAddress(options.vaultAddress);
-  }
-  if (typeof options.expiresAfter === "number") {
-    body.expiresAfter = options.expiresAfter;
-  }
-  return postExchange(env, body);
-}
-async function setHyperliquidDexAbstraction(options) {
-  const env = options.environment ?? "mainnet";
-  if (!options.wallet?.account || !options.wallet.walletClient) {
-    throw new Error("Wallet with signing capability is required for dex abstraction.");
-  }
-  const nonce = resolveRequiredExchangeNonce({
-    nonce: options.nonce,
-    nonceSource: options.nonceSource,
-    walletNonceProvider: options.walletNonceProvider,
-    wallet: options.wallet,
-    action: "Hyperliquid dex abstraction"
-  });
-  const signatureChainId = getSignatureChainId(env);
-  const hyperliquidChain = HL_CHAIN_LABEL[env];
-  const user = normalizeAddress(options.user ?? options.wallet.address);
-  const action = {
-    type: "userDexAbstraction",
-    enabled: Boolean(options.enabled),
-    hyperliquidChain,
-    signatureChainId,
-    user,
-    nonce
-  };
-  const signature = await signUserDexAbstraction({
     wallet: options.wallet,
     action
   });
@@ -2783,6 +2701,6 @@ function estimateHyperliquidLiquidationPrice(params) {
   return liquidationPrice;
 }
 
-export { DEFAULT_HYPERLIQUID_MARKET_SLIPPAGE_BPS, DEFAULT_HYPERLIQUID_TPSL_MARKET_SLIPPAGE_BPS, HyperliquidApiError, HyperliquidBuilderApprovalError, HyperliquidExchangeClient, HyperliquidGuardError, HyperliquidInfoClient, HyperliquidTermsError, approveHyperliquidBuilderFee, batchModifyHyperliquidOrders, buildHyperliquidMarketIdentity, buildHyperliquidProfileAssets, cancelAllHyperliquidOrders, cancelHyperliquidOrders, cancelHyperliquidOrdersByCloid, cancelHyperliquidTwapOrder, computeHyperliquidMarketIocLimitPrice, createHyperliquidActionHash, createHyperliquidSubAccount, createMonotonicNonceFactory, depositToHyperliquidBridge, estimateHyperliquidLiquidationPrice, extractHyperliquidDex, fetchHyperliquidAssetCtxs, fetchHyperliquidClearinghouseState, fetchHyperliquidFrontendOpenOrders, fetchHyperliquidHistoricalOrders, fetchHyperliquidMeta, fetchHyperliquidMetaAndAssetCtxs, fetchHyperliquidOpenOrders, fetchHyperliquidOrderStatus, fetchHyperliquidPreTransferCheck, fetchHyperliquidSizeDecimals, fetchHyperliquidSpotAssetCtxs, fetchHyperliquidSpotClearinghouseState, fetchHyperliquidSpotMeta, fetchHyperliquidSpotMetaAndAssetCtxs, fetchHyperliquidTickSize, fetchHyperliquidUserFills, fetchHyperliquidUserFillsByTime, fetchHyperliquidUserRateLimit, formatHyperliquidMarketablePrice, formatHyperliquidPrice, formatHyperliquidSize, getHyperliquidMaxBuilderFee, isHyperliquidSpotSymbol, modifyHyperliquidOrder, normalizeHyperliquidBaseSymbol, normalizeHyperliquidMetaSymbol, normalizeSpotTokenName2 as normalizeSpotTokenName, parseHyperliquidSymbol, parseSpotPairSymbol, placeHyperliquidOrder, placeHyperliquidOrderWithTpSl, placeHyperliquidPositionTpSl, placeHyperliquidTwapOrder, reserveHyperliquidRequestWeight, resolveHyperliquidAbstractionFromMode, resolveHyperliquidLeverageMode, resolveHyperliquidMarketDataCoin, resolveHyperliquidOrderSymbol, resolveHyperliquidPair, resolveHyperliquidPerpSymbol, resolveHyperliquidProfileChain, resolveHyperliquidSpotSymbol, resolveHyperliquidSymbol, resolveSpotMidCandidates, resolveSpotTokenCandidates, scheduleHyperliquidCancel, sendHyperliquidSpot, setHyperliquidAccountAbstractionMode, setHyperliquidDexAbstraction, setHyperliquidPortfolioMargin, supportsHyperliquidBuilderFee, transferHyperliquidSubAccount, updateHyperliquidIsolatedMargin, updateHyperliquidLeverage, withdrawFromHyperliquid };
+export { DEFAULT_HYPERLIQUID_MARKET_SLIPPAGE_BPS, DEFAULT_HYPERLIQUID_TPSL_MARKET_SLIPPAGE_BPS, HyperliquidApiError, HyperliquidBuilderApprovalError, HyperliquidExchangeClient, HyperliquidGuardError, HyperliquidInfoClient, HyperliquidTermsError, approveHyperliquidBuilderFee, batchModifyHyperliquidOrders, buildHyperliquidMarketIdentity, buildHyperliquidProfileAssets, cancelAllHyperliquidOrders, cancelHyperliquidOrders, cancelHyperliquidOrdersByCloid, cancelHyperliquidTwapOrder, computeHyperliquidMarketIocLimitPrice, createHyperliquidActionHash, createHyperliquidSubAccount, createMonotonicNonceFactory, depositToHyperliquidBridge, estimateHyperliquidLiquidationPrice, extractHyperliquidDex, fetchHyperliquidAssetCtxs, fetchHyperliquidClearinghouseState, fetchHyperliquidFrontendOpenOrders, fetchHyperliquidHistoricalOrders, fetchHyperliquidMeta, fetchHyperliquidMetaAndAssetCtxs, fetchHyperliquidOpenOrders, fetchHyperliquidOrderStatus, fetchHyperliquidPreTransferCheck, fetchHyperliquidSizeDecimals, fetchHyperliquidSpotAssetCtxs, fetchHyperliquidSpotClearinghouseState, fetchHyperliquidSpotMeta, fetchHyperliquidSpotMetaAndAssetCtxs, fetchHyperliquidTickSize, fetchHyperliquidUserFills, fetchHyperliquidUserFillsByTime, fetchHyperliquidUserRateLimit, formatHyperliquidMarketablePrice, formatHyperliquidPrice, formatHyperliquidSize, getHyperliquidMaxBuilderFee, isHyperliquidSpotSymbol, modifyHyperliquidOrder, normalizeHyperliquidBaseSymbol, normalizeHyperliquidMetaSymbol, normalizeSpotTokenName2 as normalizeSpotTokenName, parseHyperliquidSymbol, parseSpotPairSymbol, placeHyperliquidOrder, placeHyperliquidOrderWithTpSl, placeHyperliquidPositionTpSl, placeHyperliquidTwapOrder, reserveHyperliquidRequestWeight, resolveHyperliquidAbstractionFromMode, resolveHyperliquidLeverageMode, resolveHyperliquidMarketDataCoin, resolveHyperliquidOrderSymbol, resolveHyperliquidPair, resolveHyperliquidPerpSymbol, resolveHyperliquidProfileChain, resolveHyperliquidSpotSymbol, resolveHyperliquidSymbol, resolveSpotMidCandidates, resolveSpotTokenCandidates, scheduleHyperliquidCancel, sendHyperliquidSpot, setHyperliquidAccountAbstractionMode, setHyperliquidPortfolioMargin, supportsHyperliquidBuilderFee, transferHyperliquidSubAccount, updateHyperliquidIsolatedMargin, updateHyperliquidLeverage, withdrawFromHyperliquid };
 //# sourceMappingURL=browser.js.map
 //# sourceMappingURL=browser.js.map
