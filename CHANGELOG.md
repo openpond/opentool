@@ -1,5 +1,11 @@
 # opentool
 
+## 0.15.0
+
+### Minor Changes
+
+- 5a4bbfd: more hyperliquid fixes and normalizations
+
 ## 0.14.0
 
 ### Minor Changes
