@@ -42,6 +42,7 @@ import {
   resolveHyperliquidIntervalCron,
   resolveSpotMidCandidates,
   resolveSpotTokenCandidates,
+  supportsHyperliquidBuilderFee,
   roundHyperliquidPriceToTick,
   clampHyperliquidInt,
   clampHyperliquidFloat,
@@ -149,6 +150,9 @@ test("symbol helpers normalize perp and spot symbols consistently", () => {
   assert.deepEqual(resolveSpotMidCandidates("UBTC"), ["UBTC", "BTC"]);
   assert.deepEqual(resolveSpotTokenCandidates("UBTC0"), ["UBTC", "BTC"]);
   assert.equal(isHyperliquidSpotSymbol("SOL-USDC"), true);
+  assert.equal(supportsHyperliquidBuilderFee({ symbol: "BTC", side: "buy" }), true);
+  assert.equal(supportsHyperliquidBuilderFee({ symbol: "PURR-USDC", side: "buy" }), false);
+  assert.equal(supportsHyperliquidBuilderFee({ symbol: "PURR-USDC", side: "sell" }), true);
 });
 
 test("parseHyperliquidSymbol returns canonical descriptors for perp, spot, dex, and spot index", () => {
@@ -200,6 +204,18 @@ test("parseHyperliquidSymbol returns canonical descriptors for perp, spot, dex, 
     dex: null,
     leverageMode: "cross",
   });
+  assert.deepEqual(parseHyperliquidSymbol("kPEPE"), {
+    raw: "kPEPE",
+    kind: "perp",
+    normalized: "kPEPE",
+    routeTicker: "kPEPE",
+    displaySymbol: "kPEPE-USDC",
+    base: "kPEPE",
+    quote: null,
+    pair: null,
+    dex: null,
+    leverageMode: "cross",
+  });
 });
 
 test("symbol helpers handle empty/unknown variants consistently", () => {
@@ -210,6 +226,16 @@ test("symbol helpers handle empty/unknown variants consistently", () => {
   assert.equal(resolveHyperliquidOrderSymbol(null), null);
   assert.equal(resolveHyperliquidSymbol(""), "");
   assert.equal(parseSpotPairSymbol("BTC"), null);
+});
+
+test("symbol helpers preserve canonical mixed-case symbols", () => {
+  assert.equal(normalizeHyperliquidBaseSymbol("kPEPE"), "kPEPE");
+  assert.equal(resolveHyperliquidOrderSymbol("kPEPE"), "kPEPE");
+  assert.equal(resolveHyperliquidMarketDataCoin("kPEPE"), "kPEPE");
+  assert.equal(resolveHyperliquidOrderSymbol("cash:USA500"), "cash:USA500");
+  assert.equal(resolveHyperliquidMarketDataCoin("cash:USA500"), "cash:USA500");
+  assert.equal(resolveHyperliquidPair("HYPE-USDT0"), "HYPE/USDT0");
+  assert.equal(resolveHyperliquidPair("HYPE/USDE"), "HYPE/USDE");
 });
 
 test("marketable price helpers keep directional rounding and tick alignment", () => {

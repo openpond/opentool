@@ -2,6 +2,7 @@ import { API_BASES, HyperliquidApiError, HyperliquidEnvironment, normalizeAddres
 
 type InfoPayload =
   | { type: "meta" }
+  | { type: "meta"; dex: string }
   | { type: "metaAndAssetCtxs" }
   | { type: "spotMeta" }
   | { type: "spotMetaAndAssetCtxs" }
@@ -136,6 +137,13 @@ export class HyperliquidInfoClient {
 
 export async function fetchHyperliquidMeta(environment: HyperliquidEnvironment = "mainnet") {
   return postInfo(environment, { type: "meta" });
+}
+
+export async function fetchHyperliquidDexMeta(
+  environment: HyperliquidEnvironment = "mainnet",
+  dex: string,
+) {
+  return postInfo(environment, { type: "meta", dex });
 }
 
 export async function fetchHyperliquidMetaAndAssetCtxs(

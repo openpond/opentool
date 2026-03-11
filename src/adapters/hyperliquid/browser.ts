@@ -89,6 +89,7 @@ export {
   parseHyperliquidSymbol,
   parseSpotPairSymbol,
   resolveHyperliquidLeverageMode,
+  supportsHyperliquidBuilderFee,
   resolveHyperliquidMarketDataCoin,
   resolveHyperliquidOrderSymbol,
   resolveHyperliquidPair,

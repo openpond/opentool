@@ -2,69 +2,92 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import {
-  fetchHyperliquidAllMids,
+  fetchHyperliquidDexMeta,
   fetchHyperliquidMeta,
   fetchHyperliquidSpotMeta,
-  normalizeHyperliquidBaseSymbol,
-  parseSpotPairSymbol,
+  parseHyperliquidSymbol,
+  resolveHyperliquidMarketDataCoin,
+  resolveHyperliquidOrderSymbol,
   resolveHyperliquidPair,
 } from "../src/adapters/hyperliquid";
 
-test("live hyperliquid /info meta returns canonical perp symbols", async () => {
-  const meta = (await fetchHyperliquidMeta("mainnet")) as {
-    universe?: Array<{ name?: string }>;
-  };
-  const universe = Array.isArray(meta?.universe) ? meta.universe : [];
+const LIVE_DEXES = ["xyz", "flx", "vntl", "hyna", "km", "cash"] as const;
 
-  assert.ok(universe.length > 0, "expected perp universe from hyperliquid /info meta");
+type MetaUniverseEntry = { name?: string };
+type SpotMetaUniverseEntry = { name?: string };
 
-  const names = universe
-    .map((asset) => (typeof asset?.name === "string" ? asset.name.trim() : ""))
-    .filter((name) => name.length > 0)
-    .slice(0, 50);
+test("live hyperliquid market universe round-trips through shared symbol helpers", async () => {
+  const [meta, spotMeta, ...dexMetas] = await Promise.all([
+    fetchHyperliquidMeta("mainnet") as Promise<{ universe?: MetaUniverseEntry[] }>,
+    fetchHyperliquidSpotMeta("mainnet") as Promise<{ universe?: SpotMetaUniverseEntry[] }>,
+    ...LIVE_DEXES.map((dex) =>
+      fetchHyperliquidDexMeta("mainnet", dex) as Promise<{ universe?: MetaUniverseEntry[] }>,
+    ),
+  ]);
 
-  assert.ok(names.includes("BTC"), "expected BTC in perp universe");
-
-  for (const name of names) {
-    const base = normalizeHyperliquidBaseSymbol(name);
-    assert.ok(base && base.length > 0, `expected normalized base for ${name}`);
-    assert.equal(base?.includes(":"), false);
-    assert.equal(base?.includes("/"), false);
-  }
-});
-
-test("live hyperliquid /info spotMeta includes spot pairs that parse as base/quote", async () => {
-  const spotMeta = (await fetchHyperliquidSpotMeta("mainnet")) as {
-    universe?: Array<{ name?: string }>;
-    tokens?: Array<{ name?: string }>;
-  };
-  const universe = Array.isArray(spotMeta?.universe) ? spotMeta.universe : [];
-  const tokens = Array.isArray(spotMeta?.tokens) ? spotMeta.tokens : [];
-
-  assert.ok(universe.length > 0, "expected spot universe from hyperliquid /info spotMeta");
-  assert.ok(tokens.length > 0, "expected spot token registry from hyperliquid /info spotMeta");
-
-  const spotPairName = universe
+  const perpNames = (meta.universe ?? [])
     .map((entry) => (typeof entry?.name === "string" ? entry.name.trim() : ""))
-    .find((name) => name.includes("/"));
-
-  assert.ok(spotPairName, "expected at least one explicit spot pair symbol");
-
-  const pair = resolveHyperliquidPair(spotPairName);
-  assert.ok(pair, `expected pair normalization for ${spotPairName}`);
-  const parsed = parseSpotPairSymbol(pair ?? "");
-  assert.ok(parsed, `expected base/quote parse for ${pair}`);
-  assert.equal(pair?.startsWith("hl:"), false);
-});
-
-test("live hyperliquid /info allMids returns non-empty mid map", async () => {
-  const mids = await fetchHyperliquidAllMids("mainnet");
-  const keys = Object.keys(mids ?? {});
-  assert.ok(keys.length > 0, "expected mids map from hyperliquid /info allMids");
-
-  const btcMid = mids?.BTC;
-  assert.ok(
-    typeof btcMid === "string" || typeof btcMid === "number",
-    "expected BTC mid in allMids payload",
+    .filter((name) => name.length > 0);
+  const spotNames = (spotMeta.universe ?? [])
+    .map((entry) => (typeof entry?.name === "string" ? entry.name.trim() : ""))
+    .filter((name) => name.length > 0);
+  const dexNames = dexMetas.flatMap((dexMeta) =>
+    (dexMeta.universe ?? [])
+      .map((entry) => (typeof entry?.name === "string" ? entry.name.trim() : ""))
+      .filter((name) => name.length > 0),
   );
+
+  assert.ok(perpNames.length > 0, "expected live perp universe");
+  assert.ok(spotNames.length > 0, "expected live spot universe");
+  assert.ok(dexNames.length > 0, "expected live dex universes");
+
+  for (const name of perpNames) {
+    const parsed = parseHyperliquidSymbol(name);
+    assert.ok(parsed, `expected parsed perp symbol for ${name}`);
+    assert.equal(parsed?.kind, "perp", `expected perp kind for ${name}`);
+    assert.equal(parsed?.normalized, name, `expected canonical perp symbol for ${name}`);
+    assert.equal(resolveHyperliquidOrderSymbol(name), name, `expected order symbol for ${name}`);
+    assert.equal(
+      resolveHyperliquidMarketDataCoin(name),
+      name,
+      `expected market-data coin for ${name}`,
+    );
+  }
+
+  for (const name of spotNames) {
+    const expectedPair = name.startsWith("@") ? name : resolveHyperliquidPair(name);
+    assert.ok(expectedPair, `expected canonical spot form for ${name}`);
+    const parsed = parseHyperliquidSymbol(name);
+    assert.ok(parsed, `expected parsed spot symbol for ${name}`);
+    if (name.startsWith("@")) {
+      assert.equal(parsed?.kind, "spotIndex", `expected spot index kind for ${name}`);
+      assert.equal(parsed?.normalized, name, `expected spot index normalized for ${name}`);
+    } else {
+      assert.equal(parsed?.kind, "spot", `expected spot kind for ${name}`);
+      assert.equal(parsed?.normalized, expectedPair, `expected canonical spot pair for ${name}`);
+    }
+    assert.equal(
+      resolveHyperliquidOrderSymbol(name),
+      expectedPair,
+      `expected order symbol for ${name}`,
+    );
+    assert.equal(
+      resolveHyperliquidMarketDataCoin(name),
+      expectedPair,
+      `expected market-data coin for ${name}`,
+    );
+  }
+
+  for (const name of dexNames) {
+    const parsed = parseHyperliquidSymbol(name);
+    assert.ok(parsed, `expected parsed dex symbol for ${name}`);
+    assert.equal(parsed?.kind, "perp", `expected perp kind for ${name}`);
+    assert.equal(parsed?.normalized, name, `expected canonical dex symbol for ${name}`);
+    assert.equal(resolveHyperliquidOrderSymbol(name), name, `expected order symbol for ${name}`);
+    assert.equal(
+      resolveHyperliquidMarketDataCoin(name),
+      name,
+      `expected market-data coin for ${name}`,
+    );
+  }
 });

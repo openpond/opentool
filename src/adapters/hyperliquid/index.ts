@@ -21,6 +21,7 @@ import {
   splitSignature,
   toApiDecimal,
 } from "./base";
+import { supportsHyperliquidBuilderFee } from "./symbols";
 import type {
   HyperliquidEnvironment,
   HyperliquidGrouping,
@@ -244,8 +245,6 @@ export async function placeHyperliquidOrder(
     nonce,
   } = options;
 
-  const effectiveBuilder = BUILDER_CODE;
-
   if (!wallet?.account || !wallet.walletClient) {
     throw new Error("Hyperliquid order signing requires a wallet with signing capabilities.");
   }
@@ -308,10 +307,10 @@ export async function placeHyperliquidOrder(
     grouping,
   };
 
-  if (effectiveBuilder) {
+  if (orders.every((intent) => supportsHyperliquidBuilderFee(intent))) {
     action.builder = {
-      b: normalizeAddress(effectiveBuilder.address),
-      f: effectiveBuilder.fee,
+      b: normalizeAddress(BUILDER_CODE.address),
+      f: BUILDER_CODE.fee,
     };
   }
 

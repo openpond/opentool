@@ -104,6 +104,12 @@ export function normalizeSpotTokenName(value?: string | null): string {
   return raw;
 }
 
+function canonicalizeHyperliquidTokenCase(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+  return trimmed === trimmed.toLowerCase() ? trimmed.toUpperCase() : trimmed;
+}
+
 export function normalizeHyperliquidBaseSymbol(value?: string | null): string | null {
   if (!value) return null;
   const trimmed = value.trim();
@@ -111,7 +117,7 @@ export function normalizeHyperliquidBaseSymbol(value?: string | null): string | 
   const withoutDex = trimmed.includes(":") ? trimmed.split(":").slice(1).join(":") : trimmed;
   const base = withoutDex.split("-")[0] ?? withoutDex;
   const baseNoPair = base.split("/")[0] ?? base;
-  const normalized = baseNoPair.trim().toUpperCase();
+  const normalized = canonicalizeHyperliquidTokenCase(baseNoPair);
   if (!normalized || normalized === UNKNOWN_SYMBOL) return null;
   return normalized;
 }
@@ -129,13 +135,16 @@ export function resolveHyperliquidPair(value?: string | null): string | null {
   if (!trimmed) return null;
   const withoutDex = trimmed.includes(":") ? trimmed.split(":").slice(1).join(":") : trimmed;
   if (withoutDex.includes("/")) {
-    return withoutDex.toUpperCase();
+    const [base, ...rest] = withoutDex.split("/");
+    const quote = rest.join("/").trim();
+    if (!base || !quote) return null;
+    return `${canonicalizeHyperliquidTokenCase(base)}/${canonicalizeHyperliquidTokenCase(quote)}`;
   }
   if (withoutDex.includes("-")) {
     const [base, ...rest] = withoutDex.split("-");
     const quote = rest.join("-").trim();
     if (!base || !quote) return null;
-    return `${base.toUpperCase()}/${quote.toUpperCase()}`;
+    return `${canonicalizeHyperliquidTokenCase(base)}/${canonicalizeHyperliquidTokenCase(quote)}`;
   }
   return null;
 }
@@ -237,6 +246,16 @@ export function resolveHyperliquidMarketDataCoin(value?: string | null): string 
   return trimmed;
 }
 
+export function supportsHyperliquidBuilderFee(params: {
+  symbol: string;
+  side: "buy" | "sell";
+}): boolean {
+  if (!isHyperliquidSpotSymbol(params.symbol)) {
+    return true;
+  }
+  return params.side === "sell";
+}
+
 export function resolveSpotMidCandidates(baseSymbol: string): string[] {
   const base = baseSymbol.trim().toUpperCase();
   if (!base) return [];
@@ -266,8 +285,7 @@ export function resolveHyperliquidOrderSymbol(value?: string | null): string | n
     const [rawDex, ...restParts] = trimmed.split(":");
     const dex = rawDex.trim().toLowerCase();
     const rest = restParts.join(":");
-    const base = rest.split("/")[0]?.split("-")[0] ?? rest;
-    const normalizedBase = base.trim().toUpperCase();
+    const normalizedBase = normalizeHyperliquidBaseSymbol(rest);
     if (!dex || !normalizedBase || normalizedBase === UNKNOWN_SYMBOL) {
       return null;
     }
@@ -286,24 +304,17 @@ export function resolveHyperliquidSymbol(asset: string, override?: string): stri
     const [dexRaw, ...restParts] = raw.split(":");
     const dex = dexRaw.trim().toLowerCase();
     const rest = restParts.join(":");
-    const base = rest.split("/")[0]?.split("-")[0] ?? rest;
-    const normalizedBase = base.trim().toUpperCase();
+    const normalizedBase = normalizeHyperliquidBaseSymbol(rest) ?? canonicalizeHyperliquidTokenCase(rest);
     if (!dex) return normalizedBase;
     return `${dex}:${normalizedBase}`;
   }
   if (raw.includes("/")) {
-    return raw.toUpperCase();
+    return resolveHyperliquidPair(raw) ?? raw;
   }
   if (raw.includes("-")) {
-    const [base, ...rest] = raw.split("-");
-    const quote = rest.join("-").trim();
-    if (base && quote) {
-      return `${base.toUpperCase()}/${quote.toUpperCase()}`;
-    }
+    return resolveHyperliquidPair(raw) ?? raw;
   }
-  const base = raw.split("-")[0] ?? raw;
-  const baseNoPair = base.split("/")[0] ?? base;
-  return baseNoPair.trim().toUpperCase();
+  return normalizeHyperliquidBaseSymbol(raw) ?? canonicalizeHyperliquidTokenCase(raw);
 }
 
 export function resolveHyperliquidPerpSymbol(asset: string): string {
