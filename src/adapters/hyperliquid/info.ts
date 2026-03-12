@@ -10,6 +10,7 @@ type InfoPayload =
   | { type: "meta" }
   | { type: "meta"; dex: string }
   | { type: "metaAndAssetCtxs" }
+  | { type: "metaAndAssetCtxs"; dex: string }
   | { type: "spotMeta" }
   | { type: "spotMetaAndAssetCtxs" }
   | { type: "assetCtxs" }
@@ -217,6 +218,13 @@ export async function fetchHyperliquidMetaAndAssetCtxs(
   environment: HyperliquidEnvironment = "mainnet",
 ) {
   return postInfo(environment, { type: "metaAndAssetCtxs" });
+}
+
+export async function fetchHyperliquidDexMetaAndAssetCtxs(
+  environment: HyperliquidEnvironment = "mainnet",
+  dex: string,
+) {
+  return postInfo(environment, { type: "metaAndAssetCtxs", dex });
 }
 
 export async function fetchHyperliquidSpotMeta(environment: HyperliquidEnvironment = "mainnet") {

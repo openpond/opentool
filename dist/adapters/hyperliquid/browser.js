@@ -754,6 +754,12 @@ function parseHyperliquidSymbol(value) {
     leverageMode: "cross"
   };
 }
+function normalizeHyperliquidQuoteSymbol(value) {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  return canonicalizeHyperliquidTokenCase(trimmed).toUpperCase();
+}
 function normalizeSpotTokenName2(value) {
   const raw = (value ?? "").trim();
   if (!raw) return "";
@@ -802,6 +808,69 @@ function resolveHyperliquidPair(value) {
     return `${canonicalizeHyperliquidTokenCase(base)}/${canonicalizeHyperliquidTokenCase(quote)}`;
   }
   return null;
+}
+function buildHyperliquidMarketDescriptor(input) {
+  const rawSymbol = input.symbol?.trim();
+  if (!rawSymbol) return null;
+  const parsed = parseHyperliquidSymbol(rawSymbol);
+  if (!parsed) return null;
+  const explicitPair = resolveHyperliquidPair(input.pair);
+  const explicitQuote = normalizeHyperliquidQuoteSymbol(input.quote);
+  if (parsed.kind === "spot" || parsed.kind === "spotIndex") {
+    const canonicalPair2 = explicitPair ?? parsed.pair;
+    const pair = canonicalPair2;
+    const [pairBase, pairQuote] = (canonicalPair2 ?? "").split("/").map((part) => canonicalizeHyperliquidTokenCase(part).toUpperCase());
+    const base2 = pairBase || parsed.base;
+    const quote2 = pairQuote || explicitQuote || parsed.quote;
+    const normalized2 = pair ?? parsed.normalized;
+    const routeTicker = pair && base2 && quote2 ? `${base2}-${quote2}` : parsed.routeTicker;
+    const displaySymbol2 = input.displaySymbol?.trim() || (pair && base2 && quote2 ? `${base2}-${quote2}` : parsed.displaySymbol);
+    const orderSymbol2 = input.orderSymbol?.trim() || resolveHyperliquidOrderSymbol(normalized2);
+    const marketDataCoin2 = input.marketDataCoin?.trim() || (typeof input.spotIndex === "number" ? `@${input.spotIndex}` : resolveHyperliquidMarketDataCoin(normalized2));
+    if (!orderSymbol2 || !marketDataCoin2) return null;
+    return {
+      rawSymbol,
+      kind: parsed.kind,
+      routeTicker,
+      displaySymbol: displaySymbol2,
+      normalized: normalized2,
+      orderSymbol: orderSymbol2,
+      marketDataCoin: marketDataCoin2,
+      base: base2 ?? null,
+      quote: quote2 ?? null,
+      pair,
+      canonicalPair: pair,
+      dex: null,
+      leverageMode: "cross",
+      spotIndex: input.spotIndex ?? null,
+      assetId: input.assetId ?? null
+    };
+  }
+  const base = parsed.base;
+  const quote = explicitQuote;
+  const canonicalPair = base && quote ? `${base}/${quote}` : null;
+  const displaySymbol = input.displaySymbol?.trim() || (canonicalPair ? canonicalPair.replace("/", "-") : parsed.dex ? base ?? parsed.normalized : parsed.displaySymbol);
+  const normalized = parsed.normalized;
+  const orderSymbol = input.orderSymbol?.trim() || resolveHyperliquidOrderSymbol(normalized);
+  const marketDataCoin = input.marketDataCoin?.trim() || resolveHyperliquidMarketDataCoin(normalized);
+  if (!orderSymbol || !marketDataCoin) return null;
+  return {
+    rawSymbol,
+    kind: parsed.kind,
+    routeTicker: parsed.routeTicker,
+    displaySymbol,
+    normalized,
+    orderSymbol,
+    marketDataCoin,
+    base,
+    quote,
+    pair: null,
+    canonicalPair,
+    dex: parsed.dex,
+    leverageMode: parsed.leverageMode,
+    spotIndex: input.spotIndex ?? null,
+    assetId: input.assetId ?? null
+  };
 }
 function resolveHyperliquidLeverageMode(symbol) {
   return symbol.includes(":") ? "isolated" : "cross";
@@ -1078,6 +1147,9 @@ async function fetchHyperliquidMeta(environment = "mainnet") {
 }
 async function fetchHyperliquidMetaAndAssetCtxs(environment = "mainnet") {
   return postInfo(environment, { type: "metaAndAssetCtxs" });
+}
+async function fetchHyperliquidDexMetaAndAssetCtxs(environment = "mainnet", dex) {
+  return postInfo(environment, { type: "metaAndAssetCtxs", dex });
 }
 async function fetchHyperliquidSpotMeta(environment = "mainnet") {
   return postInfo(environment, { type: "spotMeta" });
@@ -2507,47 +2579,47 @@ async function fetchHyperliquidResolvedMarketDescriptor(params) {
       quote: parsed.quote ?? "USDC",
       ...params.mids !== void 0 ? { mids: params.mids } : {}
     });
-    const orderSymbol2 = resolveHyperliquidOrderSymbol(spotInfo.symbol);
-    if (!orderSymbol2) {
+    const orderSymbol = resolveHyperliquidOrderSymbol(spotInfo.symbol);
+    if (!orderSymbol) {
       throw new Error(`Unable to resolve Hyperliquid spot order symbol: ${params.symbol}`);
     }
-    return {
-      rawSymbol: params.symbol,
-      kind: "spot",
-      routeTicker: `${spotInfo.base}-${spotInfo.quote}`,
-      displaySymbol: `${spotInfo.base}-${spotInfo.quote}`,
-      normalized: spotInfo.symbol,
-      orderSymbol: orderSymbol2,
-      marketDataCoin: `@${spotInfo.marketIndex}`,
-      base: spotInfo.base,
-      quote: spotInfo.quote,
+    const descriptor2 = buildHyperliquidMarketDescriptor({
+      symbol: params.symbol,
       pair: spotInfo.symbol,
-      dex: null,
-      leverageMode: "cross",
+      quote: spotInfo.quote,
+      displaySymbol: `${spotInfo.base}-${spotInfo.quote}`,
+      orderSymbol,
+      marketDataCoin: `@${spotInfo.marketIndex}`,
       spotIndex: spotInfo.marketIndex,
       assetId: spotInfo.assetId
-    };
+    });
+    if (!descriptor2) {
+      throw new Error(`Unable to build Hyperliquid spot market descriptor: ${params.symbol}`);
+    }
+    return descriptor2;
   }
-  const orderSymbol = resolveHyperliquidOrderSymbol(parsed.normalized);
-  if (!orderSymbol) {
-    throw new Error(`Unable to resolve Hyperliquid order symbol: ${params.symbol}`);
+  const quote = parsed.dex ? await (async () => {
+    const dex = parsed.dex;
+    if (!dex) return null;
+    const [dexMetaAndCtxs, spotMetaRaw] = await Promise.all([
+      fetchHyperliquidDexMetaAndAssetCtxs(params.environment, dex),
+      fetchHyperliquidSpotMeta(params.environment)
+    ]);
+    const metaHeader = Array.isArray(dexMetaAndCtxs) && dexMetaAndCtxs.length > 0 ? dexMetaAndCtxs[0] : null;
+    const collateralToken = typeof metaHeader?.collateralToken === "number" ? metaHeader.collateralToken : null;
+    if (collateralToken == null) return null;
+    const spotMeta = spotMetaRaw;
+    const token = (spotMeta.tokens ?? []).find((entry) => entry?.index === collateralToken) ?? null;
+    return normalizeSpotTokenName2(token?.name).toUpperCase() || null;
+  })() : "USDC";
+  const descriptor = buildHyperliquidMarketDescriptor({
+    symbol: params.symbol,
+    ...quote ? { quote } : {}
+  });
+  if (!descriptor) {
+    throw new Error(`Unable to build Hyperliquid market descriptor: ${params.symbol}`);
   }
-  return {
-    rawSymbol: params.symbol,
-    kind: parsed.kind,
-    routeTicker: parsed.routeTicker,
-    displaySymbol: parsed.displaySymbol,
-    normalized: parsed.normalized,
-    orderSymbol,
-    marketDataCoin: parsed.normalized,
-    base: parsed.base,
-    quote: parsed.quote,
-    pair: parsed.pair,
-    dex: parsed.dex,
-    leverageMode: parsed.leverageMode,
-    spotIndex: null,
-    assetId: null
-  };
+  return descriptor;
 }
 async function fetchHyperliquidSizeDecimals(params) {
   const { symbol, environment } = params;
@@ -3001,6 +3073,6 @@ function estimateHyperliquidLiquidationPrice(params) {
   return liquidationPrice;
 }
 
-export { DEFAULT_HYPERLIQUID_MARKET_SLIPPAGE_BPS, DEFAULT_HYPERLIQUID_TPSL_MARKET_SLIPPAGE_BPS, HYPERLIQUID_HIP3_DEXES, HyperliquidApiError, HyperliquidBuilderApprovalError, HyperliquidExchangeClient, HyperliquidGuardError, HyperliquidInfoClient, HyperliquidTermsError, approveHyperliquidBuilderFee, batchModifyHyperliquidOrders, buildHyperliquidMarketIdentity, buildHyperliquidProfileAssets, cancelAllHyperliquidOrders, cancelHyperliquidOrders, cancelHyperliquidOrdersByCloid, cancelHyperliquidTwapOrder, computeHyperliquidMarketIocLimitPrice, createHyperliquidActionHash, createHyperliquidSubAccount, createMonotonicNonceFactory, depositToHyperliquidBridge, estimateHyperliquidLiquidationPrice, extractHyperliquidDex, fetchHyperliquidActiveAsset, fetchHyperliquidAssetCtxs, fetchHyperliquidClearinghouseState, fetchHyperliquidFrontendOpenOrders, fetchHyperliquidFrontendOpenOrdersAcrossDexes, fetchHyperliquidHistoricalOrders, fetchHyperliquidMeta, fetchHyperliquidMetaAndAssetCtxs, fetchHyperliquidOpenOrders, fetchHyperliquidOpenOrdersAcrossDexes, fetchHyperliquidOrderStatus, fetchHyperliquidPreTransferCheck, fetchHyperliquidResolvedMarketDescriptor, fetchHyperliquidSizeDecimals, fetchHyperliquidSpotAssetCtxs, fetchHyperliquidSpotClearinghouseState, fetchHyperliquidSpotMeta, fetchHyperliquidSpotMetaAndAssetCtxs, fetchHyperliquidTickSize, fetchHyperliquidUserFills, fetchHyperliquidUserFillsByTime, fetchHyperliquidUserRateLimit, formatHyperliquidMarketablePrice, formatHyperliquidPrice, formatHyperliquidSize, getHyperliquidMaxBuilderFee, getKnownHyperliquidDexes, isHyperliquidSpotSymbol, modifyHyperliquidOrder, normalizeHyperliquidBaseSymbol, normalizeHyperliquidMetaSymbol, normalizeSpotTokenName2 as normalizeSpotTokenName, parseHyperliquidSymbol, parseSpotPairSymbol, placeHyperliquidOrder, placeHyperliquidOrderWithTpSl, placeHyperliquidPositionTpSl, placeHyperliquidTwapOrder, reserveHyperliquidRequestWeight, resolveHyperliquidAbstractionFromMode, resolveHyperliquidLeverageMode, resolveHyperliquidMarketDataCoin, resolveHyperliquidOrderSymbol, resolveHyperliquidPair, resolveHyperliquidPerpSymbol, resolveHyperliquidProfileChain, resolveHyperliquidSpotSymbol, resolveHyperliquidSymbol, resolveSpotMidCandidates, resolveSpotTokenCandidates, scheduleHyperliquidCancel, sendHyperliquidSpot, setHyperliquidAccountAbstractionMode, setHyperliquidPortfolioMargin, supportsHyperliquidBuilderFee, transferHyperliquidSubAccount, updateHyperliquidIsolatedMargin, updateHyperliquidLeverage, withdrawFromHyperliquid };
+export { DEFAULT_HYPERLIQUID_MARKET_SLIPPAGE_BPS, DEFAULT_HYPERLIQUID_TPSL_MARKET_SLIPPAGE_BPS, HYPERLIQUID_HIP3_DEXES, HyperliquidApiError, HyperliquidBuilderApprovalError, HyperliquidExchangeClient, HyperliquidGuardError, HyperliquidInfoClient, HyperliquidTermsError, approveHyperliquidBuilderFee, batchModifyHyperliquidOrders, buildHyperliquidMarketDescriptor, buildHyperliquidMarketIdentity, buildHyperliquidProfileAssets, cancelAllHyperliquidOrders, cancelHyperliquidOrders, cancelHyperliquidOrdersByCloid, cancelHyperliquidTwapOrder, computeHyperliquidMarketIocLimitPrice, createHyperliquidActionHash, createHyperliquidSubAccount, createMonotonicNonceFactory, depositToHyperliquidBridge, estimateHyperliquidLiquidationPrice, extractHyperliquidDex, fetchHyperliquidActiveAsset, fetchHyperliquidAssetCtxs, fetchHyperliquidClearinghouseState, fetchHyperliquidDexMetaAndAssetCtxs, fetchHyperliquidFrontendOpenOrders, fetchHyperliquidFrontendOpenOrdersAcrossDexes, fetchHyperliquidHistoricalOrders, fetchHyperliquidMeta, fetchHyperliquidMetaAndAssetCtxs, fetchHyperliquidOpenOrders, fetchHyperliquidOpenOrdersAcrossDexes, fetchHyperliquidOrderStatus, fetchHyperliquidPreTransferCheck, fetchHyperliquidResolvedMarketDescriptor, fetchHyperliquidSizeDecimals, fetchHyperliquidSpotAssetCtxs, fetchHyperliquidSpotClearinghouseState, fetchHyperliquidSpotMeta, fetchHyperliquidSpotMetaAndAssetCtxs, fetchHyperliquidTickSize, fetchHyperliquidUserFills, fetchHyperliquidUserFillsByTime, fetchHyperliquidUserRateLimit, formatHyperliquidMarketablePrice, formatHyperliquidPrice, formatHyperliquidSize, getHyperliquidMaxBuilderFee, getKnownHyperliquidDexes, isHyperliquidSpotSymbol, modifyHyperliquidOrder, normalizeHyperliquidBaseSymbol, normalizeHyperliquidMetaSymbol, normalizeSpotTokenName2 as normalizeSpotTokenName, parseHyperliquidSymbol, parseSpotPairSymbol, placeHyperliquidOrder, placeHyperliquidOrderWithTpSl, placeHyperliquidPositionTpSl, placeHyperliquidTwapOrder, reserveHyperliquidRequestWeight, resolveHyperliquidAbstractionFromMode, resolveHyperliquidLeverageMode, resolveHyperliquidMarketDataCoin, resolveHyperliquidOrderSymbol, resolveHyperliquidPair, resolveHyperliquidPerpSymbol, resolveHyperliquidProfileChain, resolveHyperliquidSpotSymbol, resolveHyperliquidSymbol, resolveSpotMidCandidates, resolveSpotTokenCandidates, scheduleHyperliquidCancel, sendHyperliquidSpot, setHyperliquidAccountAbstractionMode, setHyperliquidPortfolioMargin, supportsHyperliquidBuilderFee, transferHyperliquidSubAccount, updateHyperliquidIsolatedMargin, updateHyperliquidLeverage, withdrawFromHyperliquid };
 //# sourceMappingURL=browser.js.map
 //# sourceMappingURL=browser.js.map

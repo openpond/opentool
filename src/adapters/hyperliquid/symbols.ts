@@ -17,6 +17,35 @@ export type HyperliquidParsedSymbol = {
   leverageMode: "cross" | "isolated";
 };
 
+export type HyperliquidMarketDescriptor = {
+  rawSymbol: string;
+  kind: HyperliquidParsedSymbolKind;
+  routeTicker: string;
+  displaySymbol: string;
+  normalized: string;
+  orderSymbol: string;
+  marketDataCoin: string;
+  base: string | null;
+  quote: string | null;
+  pair: string | null;
+  canonicalPair: string | null;
+  dex: string | null;
+  leverageMode: "cross" | "isolated";
+  spotIndex: number | null;
+  assetId: number | null;
+};
+
+export type HyperliquidMarketDescriptorInput = {
+  symbol: string;
+  quote?: string | null;
+  pair?: string | null;
+  displaySymbol?: string | null;
+  orderSymbol?: string | null;
+  marketDataCoin?: string | null;
+  spotIndex?: number | null;
+  assetId?: number | null;
+};
+
 export function extractHyperliquidDex(symbol: string): string | null {
   const idx = symbol.indexOf(":");
   if (idx <= 0) return null;
@@ -95,6 +124,13 @@ export function parseHyperliquidSymbol(value?: string | null): HyperliquidParsed
   };
 }
 
+function normalizeHyperliquidQuoteSymbol(value?: string | null): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  return canonicalizeHyperliquidTokenCase(trimmed).toUpperCase();
+}
+
 export function normalizeSpotTokenName(value?: string | null): string {
   const raw = (value ?? "").trim();
   if (!raw) return "";
@@ -147,6 +183,96 @@ export function resolveHyperliquidPair(value?: string | null): string | null {
     return `${canonicalizeHyperliquidTokenCase(base)}/${canonicalizeHyperliquidTokenCase(quote)}`;
   }
   return null;
+}
+
+export function buildHyperliquidMarketDescriptor(
+  input: HyperliquidMarketDescriptorInput,
+): HyperliquidMarketDescriptor | null {
+  const rawSymbol = input.symbol?.trim();
+  if (!rawSymbol) return null;
+
+  const parsed = parseHyperliquidSymbol(rawSymbol);
+  if (!parsed) return null;
+
+  const explicitPair = resolveHyperliquidPair(input.pair);
+  const explicitQuote = normalizeHyperliquidQuoteSymbol(input.quote);
+
+  if (parsed.kind === "spot" || parsed.kind === "spotIndex") {
+    const canonicalPair = explicitPair ?? parsed.pair;
+    const pair = canonicalPair;
+    const [pairBase, pairQuote] = (canonicalPair ?? "")
+      .split("/")
+      .map((part) => canonicalizeHyperliquidTokenCase(part).toUpperCase());
+    const base = pairBase || parsed.base;
+    const quote = pairQuote || explicitQuote || parsed.quote;
+    const normalized = pair ?? parsed.normalized;
+    const routeTicker =
+      pair && base && quote ? `${base}-${quote}` : parsed.routeTicker;
+    const displaySymbol =
+      input.displaySymbol?.trim() ||
+      (pair && base && quote ? `${base}-${quote}` : parsed.displaySymbol);
+    const orderSymbol =
+      input.orderSymbol?.trim() || resolveHyperliquidOrderSymbol(normalized);
+    const marketDataCoin =
+      input.marketDataCoin?.trim() ||
+      (typeof input.spotIndex === "number" ? `@${input.spotIndex}` : resolveHyperliquidMarketDataCoin(normalized));
+
+    if (!orderSymbol || !marketDataCoin) return null;
+
+    return {
+      rawSymbol,
+      kind: parsed.kind,
+      routeTicker,
+      displaySymbol,
+      normalized,
+      orderSymbol,
+      marketDataCoin,
+      base: base ?? null,
+      quote: quote ?? null,
+      pair,
+      canonicalPair: pair,
+      dex: null,
+      leverageMode: "cross",
+      spotIndex: input.spotIndex ?? null,
+      assetId: input.assetId ?? null,
+    };
+  }
+
+  const base = parsed.base;
+  const quote = explicitQuote;
+  const canonicalPair = base && quote ? `${base}/${quote}` : null;
+  const displaySymbol =
+    input.displaySymbol?.trim() ||
+    (canonicalPair
+      ? canonicalPair.replace("/", "-")
+      : parsed.dex
+        ? base ?? parsed.normalized
+        : parsed.displaySymbol);
+  const normalized = parsed.normalized;
+  const orderSymbol =
+    input.orderSymbol?.trim() || resolveHyperliquidOrderSymbol(normalized);
+  const marketDataCoin =
+    input.marketDataCoin?.trim() || resolveHyperliquidMarketDataCoin(normalized);
+
+  if (!orderSymbol || !marketDataCoin) return null;
+
+  return {
+    rawSymbol,
+    kind: parsed.kind,
+    routeTicker: parsed.routeTicker,
+    displaySymbol,
+    normalized,
+    orderSymbol,
+    marketDataCoin,
+    base,
+    quote,
+    pair: null,
+    canonicalPair,
+    dex: parsed.dex,
+    leverageMode: parsed.leverageMode,
+    spotIndex: input.spotIndex ?? null,
+    assetId: input.assetId ?? null,
+  };
 }
 
 export function resolveHyperliquidLeverageMode(symbol: string): "cross" | "isolated" {

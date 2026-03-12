@@ -24,6 +24,7 @@ export {
   buildHyperliquidMarketIdentity,
 } from "./base";
 export {
+  fetchHyperliquidDexMetaAndAssetCtxs,
   fetchHyperliquidMeta,
   fetchHyperliquidMetaAndAssetCtxs,
   fetchHyperliquidSpotMeta,
@@ -85,6 +86,7 @@ export {
   fetchHyperliquidResolvedMarketDescriptor,
 } from "./market-data";
 export {
+  buildHyperliquidMarketDescriptor,
   buildHyperliquidProfileAssets,
   extractHyperliquidDex,
   isHyperliquidSpotSymbol,
@@ -114,7 +116,12 @@ export {
   estimateHyperliquidLiquidationPrice,
 } from "./risk-utils";
 export type { HyperliquidApproximateLiquidationParams } from "./risk-utils";
-export type { HyperliquidParsedSymbol, HyperliquidParsedSymbolKind } from "./symbols";
+export type {
+  HyperliquidMarketDescriptor,
+  HyperliquidMarketDescriptorInput,
+  HyperliquidParsedSymbol,
+  HyperliquidParsedSymbolKind,
+} from "./symbols";
 export type { HyperliquidActiveAsset, HyperliquidHip3Dex } from "./info";
 export type {
   HyperliquidOrderOptions,

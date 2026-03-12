@@ -4,6 +4,7 @@ import { test } from "node:test";
 import {
   HYPERLIQUID_HIP3_DEXES,
   HyperliquidApiError,
+  buildHyperliquidMarketDescriptor,
   buildHyperliquidProfileAssets,
   extractHyperliquidDex,
   estimateHyperliquidLiquidationPrice,
@@ -254,6 +255,31 @@ test("resolved market descriptor separates spot order symbol from spot market-da
   assert.equal(descriptor.orderSymbol, "HYPE/USDC");
   assert.equal(descriptor.marketDataCoin, "@107");
   assert.equal(descriptor.spotIndex, 107);
+  assert.equal(descriptor.canonicalPair, "HYPE/USDC");
+});
+
+test("buildHyperliquidMarketDescriptor applies metadata-aware quote assets for HIP-3 perps", () => {
+  const descriptor = buildHyperliquidMarketDescriptor({
+    symbol: "hyna:BTC",
+    quote: "USDE",
+  });
+  assert.ok(descriptor);
+  assert.equal(descriptor?.kind, "perp");
+  assert.equal(descriptor?.normalized, "hyna:BTC");
+  assert.equal(descriptor?.orderSymbol, "hyna:BTC");
+  assert.equal(descriptor?.marketDataCoin, "hyna:BTC");
+  assert.equal(descriptor?.displaySymbol, "BTC-USDE");
+  assert.equal(descriptor?.canonicalPair, "BTC/USDE");
+  assert.equal(descriptor?.routeTicker, "hyna:BTC");
+});
+
+test("buildHyperliquidMarketDescriptor does not invent USDC for raw HIP-3 symbols without metadata", () => {
+  const descriptor = buildHyperliquidMarketDescriptor({
+    symbol: "xyz:GOLD",
+  });
+  assert.ok(descriptor);
+  assert.equal(descriptor?.displaySymbol, "GOLD");
+  assert.equal(descriptor?.canonicalPair, null);
 });
 
 test("known dex helper returns HIP-3 dexes only on mainnet", () => {
