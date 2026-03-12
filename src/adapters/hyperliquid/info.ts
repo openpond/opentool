@@ -1,4 +1,10 @@
-import { API_BASES, HyperliquidApiError, HyperliquidEnvironment, normalizeAddress } from "./base";
+import {
+  API_BASES,
+  HyperliquidApiError,
+  HyperliquidEnvironment,
+  normalizeAddress,
+} from "./base";
+import { resolveHyperliquidOrderSymbol } from "./symbols";
 
 type InfoPayload =
   | { type: "meta" }
@@ -8,10 +14,10 @@ type InfoPayload =
   | { type: "spotMetaAndAssetCtxs" }
   | { type: "assetCtxs" }
   | { type: "spotAssetCtxs" }
-  | { type: "openOrders"; user: `0x${string}` }
-  | { type: "frontendOpenOrders"; user: `0x${string}` }
+  | { type: "openOrders"; user: `0x${string}`; dex?: string }
+  | { type: "frontendOpenOrders"; user: `0x${string}`; dex?: string }
   | { type: "orderStatus"; user: `0x${string}`; oid: number | string }
-  | { type: "historicalOrders"; user: `0x${string}` }
+  | { type: "historicalOrders"; user: `0x${string}`; dex?: string }
   | { type: "userHistoricalOrders"; user: `0x${string}` }
   | { type: "userFills"; user: `0x${string}` }
   | {
@@ -22,7 +28,32 @@ type InfoPayload =
     }
   | { type: "userRateLimit"; user: `0x${string}` }
   | { type: "preTransferCheck"; user: `0x${string}`; source: `0x${string}` }
-  | { type: "spotClearinghouseState"; user: `0x${string}` };
+  | { type: "spotClearinghouseState"; user: `0x${string}` }
+  | { type: "activeAssetData"; user: `0x${string}`; coin: string };
+
+export const HYPERLIQUID_HIP3_DEXES = [
+  "xyz",
+  "flx",
+  "vntl",
+  "hyna",
+  "km",
+  "cash",
+] as const;
+
+export type HyperliquidHip3Dex = (typeof HYPERLIQUID_HIP3_DEXES)[number];
+
+export type HyperliquidOpenOrderLike = {
+  oid?: number;
+  cloid?: string | null;
+  [key: string]: unknown;
+};
+
+export type HyperliquidActiveAsset = {
+  coin: string;
+  leverage: number | null;
+  leverageType: string | null;
+  raw: unknown;
+};
 
 async function postInfo(environment: HyperliquidEnvironment, payload: InfoPayload) {
   const baseUrl = API_BASES[environment];
@@ -40,6 +71,34 @@ async function postInfo(environment: HyperliquidEnvironment, payload: InfoPayloa
     );
   }
   return data;
+}
+
+function mergeHyperliquidOpenOrders<T extends HyperliquidOpenOrderLike>(batches: T[][]): T[] {
+  const merged = new Map<string, T>();
+  for (const batch of batches) {
+    for (const order of batch) {
+      const oid =
+        typeof order.oid === "number" || typeof order.oid === "string"
+          ? String(order.oid)
+          : "no-oid";
+      const cloid = typeof order.cloid === "string" && order.cloid.trim().length > 0
+        ? order.cloid
+        : "no-cloid";
+      merged.set(`${oid}:${cloid}`, order);
+    }
+  }
+  return [...merged.values()];
+}
+
+function readNumber(value: unknown): number | null {
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value : null;
+  }
+  if (typeof value === "string" && value.trim().length > 0) {
+    const parsed = Number.parseFloat(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
 }
 
 export class HyperliquidInfoClient {
@@ -133,6 +192,14 @@ export class HyperliquidInfoClient {
       environment: this.environment,
     });
   }
+
+  activeAsset(user: `0x${string}`, symbol: string) {
+    return fetchHyperliquidActiveAsset({
+      user,
+      symbol,
+      environment: this.environment,
+    });
+  }
 }
 
 export async function fetchHyperliquidMeta(environment: HyperliquidEnvironment = "mainnet") {
@@ -175,19 +242,26 @@ export async function fetchHyperliquidSpotAssetCtxs(
 export async function fetchHyperliquidOpenOrders(params: {
   environment?: HyperliquidEnvironment;
   user: `0x${string}`;
+  dex?: string | null;
 }) {
   const env = params.environment ?? "mainnet";
-  return postInfo(env, { type: "openOrders", user: normalizeAddress(params.user) });
+  return postInfo(env, {
+    type: "openOrders",
+    user: normalizeAddress(params.user),
+    ...(params.dex ? { dex: params.dex.trim().toLowerCase() } : {}),
+  });
 }
 
 export async function fetchHyperliquidFrontendOpenOrders(params: {
   environment?: HyperliquidEnvironment;
   user: `0x${string}`;
+  dex?: string | null;
 }) {
   const env = params.environment ?? "mainnet";
   return postInfo(env, {
     type: "frontendOpenOrders",
     user: normalizeAddress(params.user),
+    ...(params.dex ? { dex: params.dex.trim().toLowerCase() } : {}),
   });
 }
 
@@ -207,11 +281,13 @@ export async function fetchHyperliquidOrderStatus(params: {
 export async function fetchHyperliquidHistoricalOrders(params: {
   environment?: HyperliquidEnvironment;
   user: `0x${string}`;
+  dex?: string | null;
 }) {
   const env = params.environment ?? "mainnet";
   return postInfo(env, {
     type: "historicalOrders",
     user: normalizeAddress(params.user),
+    ...(params.dex ? { dex: params.dex.trim().toLowerCase() } : {}),
   });
 }
 
@@ -274,4 +350,97 @@ export async function fetchHyperliquidSpotClearinghouseState(params: {
     type: "spotClearinghouseState",
     user: normalizeAddress(params.user),
   });
+}
+
+export function getKnownHyperliquidDexes(environment: HyperliquidEnvironment = "mainnet"): string[] {
+  return environment === "mainnet" ? [...HYPERLIQUID_HIP3_DEXES] : [];
+}
+
+export async function fetchHyperliquidOpenOrdersAcrossDexes<T extends HyperliquidOpenOrderLike>(
+  params: {
+    environment?: HyperliquidEnvironment;
+    user: `0x${string}`;
+    dexes?: string[];
+    includePrimary?: boolean;
+  },
+): Promise<T[]> {
+  const environment = params.environment ?? "mainnet";
+  const requests = [
+    ...(params.includePrimary === false
+      ? []
+      : [fetchHyperliquidOpenOrders({ environment, user: params.user }) as Promise<T[]>]),
+    ...getKnownHyperliquidDexes(environment)
+      .filter((dex) => !(params.dexes && !params.dexes.includes(dex)))
+      .map((dex) =>
+        fetchHyperliquidOpenOrders({
+          environment,
+          user: params.user,
+          dex,
+        }) as Promise<T[]>,
+      ),
+  ];
+  const batches = await Promise.all(requests);
+  return mergeHyperliquidOpenOrders(batches);
+}
+
+export async function fetchHyperliquidFrontendOpenOrdersAcrossDexes<
+  T extends HyperliquidOpenOrderLike,
+>(params: {
+  environment?: HyperliquidEnvironment;
+  user: `0x${string}`;
+  dexes?: string[];
+  includePrimary?: boolean;
+}): Promise<T[]> {
+  const environment = params.environment ?? "mainnet";
+  const requests = [
+    ...(params.includePrimary === false
+      ? []
+      : [fetchHyperliquidFrontendOpenOrders({ environment, user: params.user }) as Promise<T[]>]),
+    ...getKnownHyperliquidDexes(environment)
+      .filter((dex) => !(params.dexes && !params.dexes.includes(dex)))
+      .map((dex) =>
+        fetchHyperliquidFrontendOpenOrders({
+          environment,
+          user: params.user,
+          dex,
+        }) as Promise<T[]>,
+      ),
+  ];
+  const batches = await Promise.all(requests);
+  return mergeHyperliquidOpenOrders(batches);
+}
+
+export async function fetchHyperliquidActiveAsset(params: {
+  environment?: HyperliquidEnvironment;
+  user: `0x${string}`;
+  symbol: string;
+}): Promise<HyperliquidActiveAsset> {
+  const environment = params.environment ?? "mainnet";
+  const coin = resolveHyperliquidOrderSymbol(params.symbol);
+  if (!coin) {
+    throw new Error(`Unable to resolve Hyperliquid active asset symbol: ${params.symbol}`);
+  }
+  const raw = await postInfo(environment, {
+    type: "activeAssetData",
+    user: normalizeAddress(params.user),
+    coin,
+  });
+  const record =
+    raw && typeof raw === "object" && !Array.isArray(raw)
+      ? (raw as Record<string, unknown>)
+      : null;
+  const leverageRecord =
+    record?.leverage && typeof record.leverage === "object" && !Array.isArray(record.leverage)
+      ? (record.leverage as Record<string, unknown>)
+      : null;
+  return {
+    coin,
+    leverage:
+      leverageRecord && "value" in leverageRecord
+        ? readNumber(leverageRecord.value)
+        : readNumber(record?.leverage),
+    leverageType:
+      leverageRecord && typeof leverageRecord.type === "string" ? leverageRecord.type : null,
+    raw,
+  };
 }
