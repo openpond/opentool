@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import {
+  fetchHyperliquidResolvedMarketDescriptor,
   fetchHyperliquidDexMeta,
   fetchHyperliquidMeta,
   fetchHyperliquidSpotMeta,
@@ -88,6 +89,29 @@ test("live hyperliquid market universe round-trips through shared symbol helpers
       resolveHyperliquidMarketDataCoin(name),
       name,
       `expected market-data coin for ${name}`,
+    );
+  }
+});
+
+test("live hyperliquid spot universe resolves to metadata-backed order and market-data symbols", async () => {
+  const spotMeta = (await fetchHyperliquidSpotMeta("mainnet")) as { universe?: SpotMetaUniverseEntry[] };
+  const spotNames = (spotMeta.universe ?? [])
+    .map((entry) => (typeof entry?.name === "string" ? entry.name.trim() : ""))
+    .filter((name) => name.length > 0 && !name.startsWith("@"));
+
+  assert.ok(spotNames.length > 0, "expected live spot universe");
+
+  for (const name of spotNames) {
+    const descriptor = await fetchHyperliquidResolvedMarketDescriptor({
+      environment: "mainnet",
+      symbol: name,
+    });
+    assert.equal(descriptor.kind, "spot", `expected spot descriptor for ${name}`);
+    assert.ok(descriptor.orderSymbol.includes("/"), `expected pair order symbol for ${name}`);
+    assert.ok(descriptor.marketDataCoin.startsWith("@"), `expected spot index market-data coin for ${name}`);
+    assert.ok(
+      typeof descriptor.spotIndex === "number" && Number.isFinite(descriptor.spotIndex),
+      `expected spot index for ${name}`,
     );
   }
 });

@@ -10,7 +10,9 @@ import {
   isHyperliquidSpotSymbol,
   normalizeHyperliquidMetaSymbol,
   normalizeSpotTokenName,
+  parseHyperliquidSymbol,
   parseSpotPairSymbol,
+  resolveHyperliquidOrderSymbol,
   resolveSpotMidCandidates,
   resolveSpotTokenCandidates,
 } from "./symbols";
@@ -87,6 +89,23 @@ export type HyperliquidSpotMarketInfo = {
   marketIndex: number;
   price: number;
   szDecimals: number;
+};
+
+export type HyperliquidResolvedMarketDescriptor = {
+  rawSymbol: string;
+  kind: "perp" | "spot" | "spotIndex";
+  routeTicker: string;
+  displaySymbol: string;
+  normalized: string;
+  orderSymbol: string;
+  marketDataCoin: string;
+  base: string | null;
+  quote: string | null;
+  pair: string | null;
+  dex: string | null;
+  leverageMode: "cross" | "isolated";
+  spotIndex: number | null;
+  assetId: number | null;
 };
 
 const META_CACHE_TTL_MS = 5 * 60 * 1000;
@@ -527,6 +546,153 @@ export async function fetchHyperliquidSpotMarketInfo(params: {
   }
 
   throw new Error(`Unknown Hyperliquid spot market: ${normalizedBase}/${normalizedQuote}`);
+}
+
+async function fetchHyperliquidSpotMarketInfoByIndex(params: {
+  environment: HyperliquidEnvironment;
+  marketIndex: number;
+  mids?: Record<string, string | number> | null;
+}): Promise<HyperliquidSpotMarketInfo> {
+  const mids =
+    params.mids === undefined
+      ? await fetchHyperliquidAllMids(params.environment).catch(() => null)
+      : params.mids;
+
+  const data = (await fetchHyperliquidSpotMetaAndAssetCtxs(params.environment)) as [
+    { universe?: SpotUniverseItem[]; tokens?: SpotToken[] },
+    SpotAssetContext[],
+  ];
+
+  const universe = data?.[0]?.universe ?? [];
+  const tokens = data?.[0]?.tokens ?? [];
+  const contexts = data?.[1] ?? [];
+
+  const tokenMap = new Map<number, { name: string; szDecimals: number }>();
+  for (const token of tokens) {
+    const index = token?.index;
+    const szDecimals = readHyperliquidNumber(token?.szDecimals);
+    if (typeof index !== "number" || szDecimals == null) continue;
+    tokenMap.set(index, {
+      name: normalizeSpotTokenName(token?.name),
+      szDecimals,
+    });
+  }
+
+  for (let idx = 0; idx < universe.length; idx += 1) {
+    const market = universe[idx];
+    const marketIndex = typeof market?.index === "number" ? market.index : idx;
+    if (marketIndex !== params.marketIndex) continue;
+
+    const [baseIndex, quoteIndex] = Array.isArray(market?.tokens) ? market.tokens : [];
+    const baseToken = tokenMap.get(baseIndex ?? -1);
+    const quoteToken = tokenMap.get(quoteIndex ?? -1);
+    if (!baseToken || !quoteToken) {
+      break;
+    }
+
+    const ctx =
+      (marketIndex >= 0 && marketIndex < contexts.length ? contexts[marketIndex] : null) ??
+      contexts[idx] ??
+      null;
+
+    let price: number | null = null;
+    if (mids) {
+      for (const candidate of resolveSpotMidCandidates(baseToken.name)) {
+        const mid = readHyperliquidNumber(mids[candidate]);
+        if (mid != null && mid > 0) {
+          price = mid;
+          break;
+        }
+      }
+    }
+    if (!price || price <= 0) {
+      price = readHyperliquidNumber(ctx?.markPx ?? ctx?.midPx ?? ctx?.oraclePx);
+    }
+    if (!price || price <= 0) {
+      throw new Error(`No spot price available for @${params.marketIndex}`);
+    }
+
+    return {
+      symbol: `${baseToken.name.toUpperCase()}/${quoteToken.name.toUpperCase()}`,
+      base: baseToken.name.toUpperCase(),
+      quote: quoteToken.name.toUpperCase(),
+      assetId: 10000 + marketIndex,
+      marketIndex,
+      price,
+      szDecimals: baseToken.szDecimals,
+    };
+  }
+
+  throw new Error(`Unknown Hyperliquid spot market index: @${params.marketIndex}`);
+}
+
+export async function fetchHyperliquidResolvedMarketDescriptor(params: {
+  environment: HyperliquidEnvironment;
+  symbol: string;
+  mids?: Record<string, string | number> | null;
+}): Promise<HyperliquidResolvedMarketDescriptor> {
+  const parsed = parseHyperliquidSymbol(params.symbol);
+  if (!parsed) {
+    throw new Error(`Unable to parse Hyperliquid symbol: ${params.symbol}`);
+  }
+
+  if (parsed.kind === "spot" || parsed.kind === "spotIndex") {
+    const spotInfo =
+      parsed.kind === "spotIndex"
+        ? await fetchHyperliquidSpotMarketInfoByIndex({
+            environment: params.environment,
+            marketIndex: Number.parseInt(parsed.normalized.slice(1), 10),
+            ...(params.mids !== undefined ? { mids: params.mids } : {}),
+          })
+        : await fetchHyperliquidSpotMarketInfo({
+            environment: params.environment,
+            base: parsed.base ?? "",
+            quote: parsed.quote ?? "USDC",
+            ...(params.mids !== undefined ? { mids: params.mids } : {}),
+          });
+    const orderSymbol = resolveHyperliquidOrderSymbol(spotInfo.symbol);
+    if (!orderSymbol) {
+      throw new Error(`Unable to resolve Hyperliquid spot order symbol: ${params.symbol}`);
+    }
+    return {
+      rawSymbol: params.symbol,
+      kind: "spot",
+      routeTicker: `${spotInfo.base}-${spotInfo.quote}`,
+      displaySymbol: `${spotInfo.base}-${spotInfo.quote}`,
+      normalized: spotInfo.symbol,
+      orderSymbol,
+      marketDataCoin: `@${spotInfo.marketIndex}`,
+      base: spotInfo.base,
+      quote: spotInfo.quote,
+      pair: spotInfo.symbol,
+      dex: null,
+      leverageMode: "cross",
+      spotIndex: spotInfo.marketIndex,
+      assetId: spotInfo.assetId,
+    };
+  }
+
+  const orderSymbol = resolveHyperliquidOrderSymbol(parsed.normalized);
+  if (!orderSymbol) {
+    throw new Error(`Unable to resolve Hyperliquid order symbol: ${params.symbol}`);
+  }
+
+  return {
+    rawSymbol: params.symbol,
+    kind: parsed.kind,
+    routeTicker: parsed.routeTicker,
+    displaySymbol: parsed.displaySymbol,
+    normalized: parsed.normalized,
+    orderSymbol,
+    marketDataCoin: parsed.normalized,
+    base: parsed.base,
+    quote: parsed.quote,
+    pair: parsed.pair,
+    dex: parsed.dex,
+    leverageMode: parsed.leverageMode,
+    spotIndex: null,
+    assetId: null,
+  };
 }
 
 export async function fetchHyperliquidSizeDecimals(params: {

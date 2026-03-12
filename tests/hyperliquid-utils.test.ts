@@ -27,6 +27,7 @@ import {
   resolveHyperliquidDcaSymbolEntries,
   resolveHyperliquidErrorDetail,
   resolveHyperliquidLeverageMode,
+  fetchHyperliquidResolvedMarketDescriptor,
   resolveHyperliquidMarketDataCoin,
   resolveHyperliquidMaxPerRunUsd,
   resolveHyperliquidOrderSymbol,
@@ -236,6 +237,18 @@ test("symbol helpers preserve canonical mixed-case symbols", () => {
   assert.equal(resolveHyperliquidMarketDataCoin("cash:USA500"), "cash:USA500");
   assert.equal(resolveHyperliquidPair("HYPE-USDT0"), "HYPE/USDT0");
   assert.equal(resolveHyperliquidPair("HYPE/USDE"), "HYPE/USDE");
+});
+
+test("resolved market descriptor separates spot order symbol from spot market-data coin", async () => {
+  const descriptor = await fetchHyperliquidResolvedMarketDescriptor({
+    environment: "mainnet",
+    symbol: "HYPE-USDC",
+  });
+  assert.equal(descriptor.kind, "spot");
+  assert.equal(descriptor.routeTicker, "HYPE-USDC");
+  assert.equal(descriptor.orderSymbol, "HYPE/USDC");
+  assert.equal(descriptor.marketDataCoin, "@107");
+  assert.equal(descriptor.spotIndex, 107);
 });
 
 test("marketable price helpers keep directional rounding and tick alignment", () => {
