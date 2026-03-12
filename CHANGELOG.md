@@ -1,5 +1,11 @@
 # opentool
 
+## 0.18.0
+
+### Minor Changes
+
+- e742132: fix bug in display names
+
 ## 0.17.2
 
 ### Patch Changes
