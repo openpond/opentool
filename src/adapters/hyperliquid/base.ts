@@ -334,15 +334,6 @@ export type HyperliquidUserPortfolioMarginAction = {
   nonce: number;
 };
 
-export type HyperliquidUserDexAbstractionAction = {
-  type: "userDexAbstraction";
-  enabled: boolean;
-  hyperliquidChain: string;
-  signatureChainId: string;
-  user: `0x${string}`;
-  nonce: number;
-};
-
 export type HyperliquidUserSetAbstractionAction = {
   type: "userSetAbstraction";
   abstraction: HyperliquidAbstraction;
@@ -932,45 +923,6 @@ export async function signUserPortfolioMargin(args: {
     domain,
     types,
     primaryType: "HyperliquidTransaction:UserPortfolioMargin",
-    message,
-  });
-
-  return splitSignature(signatureHex);
-}
-
-export async function signUserDexAbstraction(args: {
-  wallet: WalletFullContext;
-  action: HyperliquidUserDexAbstractionAction;
-}): Promise<ExchangeSignature> {
-  const { wallet, action } = args;
-  const domain = {
-    name: "HyperliquidSignTransaction",
-    version: "1",
-    chainId: Number.parseInt(action.signatureChainId, 16),
-    verifyingContract: ZERO_ADDRESS,
-  } as const;
-
-  const message = {
-    hyperliquidChain: action.hyperliquidChain,
-    user: action.user,
-    enabled: action.enabled,
-    nonce: BigInt(action.nonce),
-  };
-
-  const types = {
-    "HyperliquidTransaction:UserDexAbstraction": [
-      { name: "hyperliquidChain", type: "string" },
-      { name: "user", type: "address" },
-      { name: "enabled", type: "bool" },
-      { name: "nonce", type: "uint64" },
-    ],
-  } as const;
-
-  const signatureHex = await wallet.walletClient.signTypedData({
-    account: wallet.account,
-    domain,
-    types,
-    primaryType: "HyperliquidTransaction:UserDexAbstraction",
     message,
   });
 

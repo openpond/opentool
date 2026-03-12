@@ -44,7 +44,6 @@ export {
 export {
   HyperliquidExchangeClient,
   setHyperliquidPortfolioMargin,
-  setHyperliquidDexAbstraction,
   setHyperliquidAccountAbstractionMode,
   cancelHyperliquidOrders,
   cancelHyperliquidOrdersByCloid,

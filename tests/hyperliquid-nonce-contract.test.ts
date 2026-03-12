@@ -6,7 +6,6 @@ import {
   placeHyperliquidOrder,
   withdrawFromHyperliquid,
 } from "../src/adapters/hyperliquid";
-import { setHyperliquidDexAbstraction } from "../src/adapters/hyperliquid/exchange";
 import type { WalletFullContext } from "../src/wallet/types";
 
 const mockWallet = {
@@ -65,18 +64,6 @@ test("hyperliquid withdraw requires nonce source when nonce is omitted", async (
         environment: "testnet",
         amount: "10",
         destination: "0x0000000000000000000000000000000000000002",
-      }),
-    /nonce source/i,
-  );
-});
-
-test("hyperliquid dex abstraction requires nonce source when nonce is omitted", async () => {
-  await assert.rejects(
-    () =>
-      setHyperliquidDexAbstraction({
-        wallet: mockWallet,
-        environment: "testnet",
-        enabled: true,
       }),
     /nonce source/i,
   );
