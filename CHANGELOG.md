@@ -1,5 +1,11 @@
 # opentool
 
+## 0.17.2
+
+### Patch Changes
+
+- 6b6c4d0: more hyperliquid helpers
+
 ## 0.17.1
 
 ### Patch Changes
