@@ -1,5 +1,11 @@
 # opentool
 
+## 0.17.0
+
+### Minor Changes
+
+- 5c1e22a: removed dex absatrction
+
 ## 0.16.0
 
 ### Minor Changes
