@@ -1,5 +1,11 @@
 # opentool
 
+## 0.17.1
+
+### Patch Changes
+
+- 5e654be: gix hyperliquid symbol match
+
 ## 0.17.0
 
 ### Minor Changes
