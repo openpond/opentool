@@ -77,6 +77,7 @@ export {
 export {
   fetchHyperliquidSizeDecimals,
   fetchHyperliquidTickSize,
+  fetchHyperliquidResolvedMarketDescriptor,
 } from "./market-data";
 export {
   buildHyperliquidProfileAssets,
@@ -119,6 +120,7 @@ export type {
   HyperliquidApproveBuilderFeeOptions,
   HyperliquidApproveBuilderFeeResponse,
 } from "./actions";
+export type { HyperliquidResolvedMarketDescriptor } from "./market-data";
 export type {
   HyperliquidTpSlExecutionType,
   HyperliquidTpSlLegInput,
