@@ -62,8 +62,11 @@ export {
   fetchHyperliquidSpotMetaAndAssetCtxs,
   fetchHyperliquidAssetCtxs,
   fetchHyperliquidSpotAssetCtxs,
+  fetchHyperliquidActiveAsset,
   fetchHyperliquidOpenOrders,
+  fetchHyperliquidOpenOrdersAcrossDexes,
   fetchHyperliquidFrontendOpenOrders,
+  fetchHyperliquidFrontendOpenOrdersAcrossDexes,
   fetchHyperliquidOrderStatus,
   fetchHyperliquidHistoricalOrders,
   fetchHyperliquidUserFills,
@@ -71,6 +74,8 @@ export {
   fetchHyperliquidUserRateLimit,
   fetchHyperliquidPreTransferCheck,
   fetchHyperliquidSpotClearinghouseState,
+  getKnownHyperliquidDexes,
+  HYPERLIQUID_HIP3_DEXES,
   HyperliquidInfoClient,
 } from "./info";
 

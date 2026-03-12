@@ -2,11 +2,15 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import {
+  HYPERLIQUID_HIP3_DEXES,
   HyperliquidApiError,
   buildHyperliquidProfileAssets,
   extractHyperliquidDex,
   estimateHyperliquidLiquidationPrice,
   extractHyperliquidOrderIds,
+  fetchHyperliquidActiveAsset,
+  fetchHyperliquidFrontendOpenOrdersAcrossDexes,
+  fetchHyperliquidOpenOrdersAcrossDexes,
   fetchHyperliquidBars,
   formatHyperliquidPrice,
   formatHyperliquidSize,
@@ -48,6 +52,7 @@ import {
   clampHyperliquidInt,
   clampHyperliquidFloat,
   parseHyperliquidJson,
+  getKnownHyperliquidDexes,
   resolveHyperliquidTargetSize,
   resolveHyperliquidStoreNetwork,
 } from "../src/adapters/hyperliquid";
@@ -249,6 +254,86 @@ test("resolved market descriptor separates spot order symbol from spot market-da
   assert.equal(descriptor.orderSymbol, "HYPE/USDC");
   assert.equal(descriptor.marketDataCoin, "@107");
   assert.equal(descriptor.spotIndex, 107);
+});
+
+test("known dex helper returns HIP-3 dexes only on mainnet", () => {
+  assert.deepEqual(getKnownHyperliquidDexes("mainnet"), [...HYPERLIQUID_HIP3_DEXES]);
+  assert.deepEqual(getKnownHyperliquidDexes("testnet"), []);
+});
+
+test("open order aggregation merges primary and dex-scoped open orders", async (t) => {
+  const originalFetch = globalThis.fetch;
+  const seenBodies: Array<Record<string, unknown>> = [];
+  globalThis.fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+    const body = init?.body ? (JSON.parse(String(init.body)) as Record<string, unknown>) : {};
+    seenBodies.push(body);
+    const dex = typeof body.dex === "string" ? body.dex : null;
+    const payload =
+      body.type === "frontendOpenOrders"
+        ? dex === "xyz"
+          ? [{ oid: 2, cloid: "0xxyz", coin: "xyz:GOLD" }]
+          : [{ oid: 1, cloid: "0xbase", coin: "BTC" }]
+        : dex === "xyz"
+          ? [{ oid: 2, cloid: "0xxyz", coin: "xyz:GOLD" }]
+          : [{ oid: 1, cloid: "0xbase", coin: "BTC" }, { oid: 2, cloid: "0xxyz", coin: "xyz:GOLD" }];
+    return new Response(JSON.stringify(payload), { status: 200 });
+  }) as typeof globalThis.fetch;
+
+  t.after(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  const openOrders = await fetchHyperliquidOpenOrdersAcrossDexes({
+    environment: "mainnet",
+    user: "0x0000000000000000000000000000000000000001",
+    dexes: ["xyz"],
+  });
+  assert.equal(openOrders.length, 2);
+  assert.deepEqual(
+    seenBodies.map((body) => body.dex ?? null),
+    [null, "xyz"],
+  );
+
+  seenBodies.length = 0;
+  const frontendOrders = await fetchHyperliquidFrontendOpenOrdersAcrossDexes({
+    environment: "mainnet",
+    user: "0x0000000000000000000000000000000000000001",
+    dexes: ["xyz"],
+  });
+  assert.equal(frontendOrders.length, 2);
+  assert.deepEqual(
+    seenBodies.map((body) => body.dex ?? null),
+    [null, "xyz"],
+  );
+});
+
+test("active asset helper resolves canonical order symbol before request", async (t) => {
+  const originalFetch = globalThis.fetch;
+  let seenBody: Record<string, unknown> | null = null;
+  globalThis.fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+    seenBody = init?.body ? (JSON.parse(String(init.body)) as Record<string, unknown>) : null;
+    return new Response(
+      JSON.stringify({
+        leverage: { value: "5", type: "cross" },
+      }),
+      { status: 200 },
+    );
+  }) as typeof globalThis.fetch;
+
+  t.after(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  const asset = await fetchHyperliquidActiveAsset({
+    environment: "mainnet",
+    user: "0x0000000000000000000000000000000000000001",
+    symbol: "xyz:GOLD-USDC",
+  });
+  assert.equal(seenBody?.type, "activeAssetData");
+  assert.equal(seenBody?.coin, "xyz:GOLD");
+  assert.equal(asset.coin, "xyz:GOLD");
+  assert.equal(asset.leverage, 5);
+  assert.equal(asset.leverageType, "cross");
 });
 
 test("marketable price helpers keep directional rounding and tick alignment", () => {

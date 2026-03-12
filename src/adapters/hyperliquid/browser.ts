@@ -30,8 +30,11 @@ export {
   fetchHyperliquidSpotMetaAndAssetCtxs,
   fetchHyperliquidAssetCtxs,
   fetchHyperliquidSpotAssetCtxs,
+  fetchHyperliquidActiveAsset,
   fetchHyperliquidOpenOrders,
+  fetchHyperliquidOpenOrdersAcrossDexes,
   fetchHyperliquidFrontendOpenOrders,
+  fetchHyperliquidFrontendOpenOrdersAcrossDexes,
   fetchHyperliquidOrderStatus,
   fetchHyperliquidHistoricalOrders,
   fetchHyperliquidUserFills,
@@ -39,6 +42,8 @@ export {
   fetchHyperliquidUserRateLimit,
   fetchHyperliquidPreTransferCheck,
   fetchHyperliquidSpotClearinghouseState,
+  getKnownHyperliquidDexes,
+  HYPERLIQUID_HIP3_DEXES,
   HyperliquidInfoClient,
 } from "./info";
 export {
@@ -110,6 +115,7 @@ export {
 } from "./risk-utils";
 export type { HyperliquidApproximateLiquidationParams } from "./risk-utils";
 export type { HyperliquidParsedSymbol, HyperliquidParsedSymbolKind } from "./symbols";
+export type { HyperliquidActiveAsset, HyperliquidHip3Dex } from "./info";
 export type {
   HyperliquidOrderOptions,
   HyperliquidOrderStatus,

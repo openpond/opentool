@@ -124,6 +124,19 @@ declare function createL1ActionHash(args: {
     expiresAfter?: number | undefined;
 }): `0x${string}`;
 
+declare const HYPERLIQUID_HIP3_DEXES: readonly ["xyz", "flx", "vntl", "hyna", "km", "cash"];
+type HyperliquidHip3Dex = (typeof HYPERLIQUID_HIP3_DEXES)[number];
+type HyperliquidOpenOrderLike = {
+    oid?: number;
+    cloid?: string | null;
+    [key: string]: unknown;
+};
+type HyperliquidActiveAsset = {
+    coin: string;
+    leverage: number | null;
+    leverageType: string | null;
+    raw: unknown;
+};
 declare class HyperliquidInfoClient {
     private readonly environment;
     constructor(environment?: HyperliquidEnvironment);
@@ -142,6 +155,7 @@ declare class HyperliquidInfoClient {
     userRateLimit(user: `0x${string}`): Promise<any>;
     preTransferCheck(user: `0x${string}`, source: `0x${string}`): Promise<any>;
     spotClearinghouseState(user: `0x${string}`): Promise<any>;
+    activeAsset(user: `0x${string}`, symbol: string): Promise<HyperliquidActiveAsset>;
 }
 declare function fetchHyperliquidMeta(environment?: HyperliquidEnvironment): Promise<any>;
 declare function fetchHyperliquidDexMeta(environment: HyperliquidEnvironment | undefined, dex: string): Promise<any>;
@@ -153,10 +167,12 @@ declare function fetchHyperliquidSpotAssetCtxs(environment?: HyperliquidEnvironm
 declare function fetchHyperliquidOpenOrders(params: {
     environment?: HyperliquidEnvironment;
     user: `0x${string}`;
+    dex?: string | null;
 }): Promise<any>;
 declare function fetchHyperliquidFrontendOpenOrders(params: {
     environment?: HyperliquidEnvironment;
     user: `0x${string}`;
+    dex?: string | null;
 }): Promise<any>;
 declare function fetchHyperliquidOrderStatus(params: {
     environment?: HyperliquidEnvironment;
@@ -166,6 +182,7 @@ declare function fetchHyperliquidOrderStatus(params: {
 declare function fetchHyperliquidHistoricalOrders(params: {
     environment?: HyperliquidEnvironment;
     user: `0x${string}`;
+    dex?: string | null;
 }): Promise<any>;
 declare function fetchHyperliquidUserFills(params: {
     environment?: HyperliquidEnvironment;
@@ -190,6 +207,24 @@ declare function fetchHyperliquidSpotClearinghouseState(params: {
     environment?: HyperliquidEnvironment;
     user: `0x${string}`;
 }): Promise<any>;
+declare function getKnownHyperliquidDexes(environment?: HyperliquidEnvironment): string[];
+declare function fetchHyperliquidOpenOrdersAcrossDexes<T extends HyperliquidOpenOrderLike>(params: {
+    environment?: HyperliquidEnvironment;
+    user: `0x${string}`;
+    dexes?: string[];
+    includePrimary?: boolean;
+}): Promise<T[]>;
+declare function fetchHyperliquidFrontendOpenOrdersAcrossDexes<T extends HyperliquidOpenOrderLike>(params: {
+    environment?: HyperliquidEnvironment;
+    user: `0x${string}`;
+    dexes?: string[];
+    includePrimary?: boolean;
+}): Promise<T[]>;
+declare function fetchHyperliquidActiveAsset(params: {
+    environment?: HyperliquidEnvironment;
+    user: `0x${string}`;
+    symbol: string;
+}): Promise<HyperliquidActiveAsset>;
 
 type CommonActionOptions = {
     environment?: HyperliquidEnvironment;
@@ -716,4 +751,4 @@ type HyperliquidApproximateLiquidationParams = {
 };
 declare function estimateHyperliquidLiquidationPrice(params: HyperliquidApproximateLiquidationParams): number | null;
 
-export { fetchHyperliquidAllMids as $, type HyperliquidResolvedMarketDescriptor as A, type HyperliquidSpotMarketInfo as B, HyperliquidTermsError as C, DEFAULT_HYPERLIQUID_MARKET_SLIPPAGE_BPS as D, type HyperliquidTickSize as E, type HyperliquidTimeInForce as F, type HyperliquidTpSlExecutionType as G, type HyperliquidAbstraction as H, type HyperliquidTpSlLegInput as I, type HyperliquidTriggerOptions as J, type HyperliquidTriggerType as K, batchModifyHyperliquidOrders as L, type MarketIdentity as M, buildHyperliquidMarketIdentity as N, buildHyperliquidProfileAssets as O, buildHyperliquidSpotUsdPriceMap as P, cancelAllHyperliquidOrders as Q, cancelHyperliquidOrders as R, cancelHyperliquidOrdersByCloid as S, cancelHyperliquidTwapOrder as T, computeHyperliquidMarketIocLimitPrice as U, createHyperliquidSubAccount as V, createMonotonicNonceFactory as W, estimateHyperliquidLiquidationPrice as X, extractHyperliquidDex as Y, extractHyperliquidOrderIds as Z, __hyperliquidMarketDataInternals as _, DEFAULT_HYPERLIQUID_TPSL_MARKET_SLIPPAGE_BPS as a, type NonceSource as a$, fetchHyperliquidAssetCtxs as a0, fetchHyperliquidBars as a1, fetchHyperliquidDexMeta as a2, fetchHyperliquidFrontendOpenOrders as a3, fetchHyperliquidHistoricalOrders as a4, fetchHyperliquidMeta as a5, fetchHyperliquidMetaAndAssetCtxs as a6, fetchHyperliquidOpenOrders as a7, fetchHyperliquidOrderStatus as a8, fetchHyperliquidPerpMarketInfo as a9, parseSpotPairSymbol as aA, placeHyperliquidOrderWithTpSl as aB, placeHyperliquidPositionTpSl as aC, placeHyperliquidTwapOrder as aD, reserveHyperliquidRequestWeight as aE, resolveHyperliquidAbstractionFromMode as aF, resolveHyperliquidErrorDetail as aG, resolveHyperliquidLeverageMode as aH, resolveHyperliquidMarketDataCoin as aI, resolveHyperliquidOrderRef as aJ, resolveHyperliquidOrderSymbol as aK, resolveHyperliquidPair as aL, resolveHyperliquidPerpSymbol as aM, resolveHyperliquidProfileChain as aN, resolveHyperliquidSpotSymbol as aO, resolveHyperliquidSymbol as aP, resolveSpotMidCandidates as aQ, resolveSpotTokenCandidates as aR, roundHyperliquidPriceToTick as aS, scheduleHyperliquidCancel as aT, sendHyperliquidSpot as aU, setHyperliquidAccountAbstractionMode as aV, setHyperliquidPortfolioMargin as aW, supportsHyperliquidBuilderFee as aX, transferHyperliquidSubAccount as aY, updateHyperliquidIsolatedMargin as aZ, updateHyperliquidLeverage as a_, fetchHyperliquidPreTransferCheck as aa, fetchHyperliquidResolvedMarketDescriptor as ab, fetchHyperliquidSizeDecimals as ac, fetchHyperliquidSpotAccountValue as ad, fetchHyperliquidSpotAssetCtxs as ae, fetchHyperliquidSpotClearinghouseState as af, fetchHyperliquidSpotMarketInfo as ag, fetchHyperliquidSpotMeta as ah, fetchHyperliquidSpotMetaAndAssetCtxs as ai, fetchHyperliquidSpotTickSize as aj, fetchHyperliquidSpotUsdPriceMap as ak, fetchHyperliquidTickSize as al, fetchHyperliquidUserFills as am, fetchHyperliquidUserFillsByTime as an, fetchHyperliquidUserRateLimit as ao, formatHyperliquidMarketablePrice as ap, formatHyperliquidOrderSize as aq, formatHyperliquidPrice as ar, formatHyperliquidSize as as, isHyperliquidSpotSymbol as at, modifyHyperliquidOrder as au, normalizeHyperliquidBaseSymbol as av, normalizeHyperliquidIndicatorBars as aw, normalizeHyperliquidMetaSymbol as ax, normalizeSpotTokenName as ay, parseHyperliquidSymbol as az, type HyperliquidAccountMode as b, toApiDecimal as b0, createL1ActionHash as b1, splitSignature as b2, type HyperliquidApproveBuilderFeeOptions as b3, type HyperliquidApproveBuilderFeeResponse as b4, type HyperliquidClearinghouseState as b5, type HyperliquidDepositResult as b6, type HyperliquidOrderOptions as b7, type HyperliquidOrderResponse as b8, type HyperliquidOrderStatus as b9, type HyperliquidWithdrawResult as ba, approveHyperliquidBuilderFee as bb, createHyperliquidActionHash as bc, depositToHyperliquidBridge as bd, fetchHyperliquidClearinghouseState as be, getHyperliquidMaxBuilderFee as bf, placeHyperliquidOrder as bg, withdrawFromHyperliquid as bh, HyperliquidApiError as c, type HyperliquidApproximateLiquidationParams as d, type HyperliquidBar as e, type HyperliquidBarResolution as f, HyperliquidBuilderApprovalError as g, type HyperliquidBuilderFee as h, type HyperliquidEnvironment as i, HyperliquidExchangeClient as j, type HyperliquidExchangeResponse as k, type HyperliquidGrouping as l, HyperliquidGuardError as m, type HyperliquidIndicatorBar as n, HyperliquidInfoClient as o, type HyperliquidMarketIdentityInput as p, type HyperliquidMarketType as q, type HyperliquidOrderIntent as r, type HyperliquidParsedSymbol as s, type HyperliquidParsedSymbolKind as t, type HyperliquidPerpMarketInfo as u, type HyperliquidPlaceOrderWithTpSlOptions as v, type HyperliquidPlacePositionTpSlOptions as w, type HyperliquidProfileAsset as x, type HyperliquidProfileAssetInput as y, type HyperliquidProfileChain as z };
+export { createMonotonicNonceFactory as $, type HyperliquidPlacePositionTpSlOptions as A, type HyperliquidProfileAsset as B, type HyperliquidProfileAssetInput as C, DEFAULT_HYPERLIQUID_MARKET_SLIPPAGE_BPS as D, type HyperliquidProfileChain as E, type HyperliquidResolvedMarketDescriptor as F, type HyperliquidSpotMarketInfo as G, HYPERLIQUID_HIP3_DEXES as H, HyperliquidTermsError as I, type HyperliquidTickSize as J, type HyperliquidTimeInForce as K, type HyperliquidTpSlExecutionType as L, type HyperliquidTpSlLegInput as M, type HyperliquidTriggerOptions as N, type HyperliquidTriggerType as O, type MarketIdentity as P, batchModifyHyperliquidOrders as Q, buildHyperliquidMarketIdentity as R, buildHyperliquidProfileAssets as S, buildHyperliquidSpotUsdPriceMap as T, cancelAllHyperliquidOrders as U, cancelHyperliquidOrders as V, cancelHyperliquidOrdersByCloid as W, cancelHyperliquidTwapOrder as X, computeHyperliquidMarketIocLimitPrice as Y, createHyperliquidSubAccount as Z, __hyperliquidMarketDataInternals as _, DEFAULT_HYPERLIQUID_TPSL_MARKET_SLIPPAGE_BPS as a, scheduleHyperliquidCancel as a$, estimateHyperliquidLiquidationPrice as a0, extractHyperliquidDex as a1, extractHyperliquidOrderIds as a2, fetchHyperliquidActiveAsset as a3, fetchHyperliquidAllMids as a4, fetchHyperliquidAssetCtxs as a5, fetchHyperliquidBars as a6, fetchHyperliquidDexMeta as a7, fetchHyperliquidFrontendOpenOrders as a8, fetchHyperliquidFrontendOpenOrdersAcrossDexes as a9, getKnownHyperliquidDexes as aA, isHyperliquidSpotSymbol as aB, modifyHyperliquidOrder as aC, normalizeHyperliquidBaseSymbol as aD, normalizeHyperliquidIndicatorBars as aE, normalizeHyperliquidMetaSymbol as aF, normalizeSpotTokenName as aG, parseHyperliquidSymbol as aH, parseSpotPairSymbol as aI, placeHyperliquidOrderWithTpSl as aJ, placeHyperliquidPositionTpSl as aK, placeHyperliquidTwapOrder as aL, reserveHyperliquidRequestWeight as aM, resolveHyperliquidAbstractionFromMode as aN, resolveHyperliquidErrorDetail as aO, resolveHyperliquidLeverageMode as aP, resolveHyperliquidMarketDataCoin as aQ, resolveHyperliquidOrderRef as aR, resolveHyperliquidOrderSymbol as aS, resolveHyperliquidPair as aT, resolveHyperliquidPerpSymbol as aU, resolveHyperliquidProfileChain as aV, resolveHyperliquidSpotSymbol as aW, resolveHyperliquidSymbol as aX, resolveSpotMidCandidates as aY, resolveSpotTokenCandidates as aZ, roundHyperliquidPriceToTick as a_, fetchHyperliquidHistoricalOrders as aa, fetchHyperliquidMeta as ab, fetchHyperliquidMetaAndAssetCtxs as ac, fetchHyperliquidOpenOrders as ad, fetchHyperliquidOpenOrdersAcrossDexes as ae, fetchHyperliquidOrderStatus as af, fetchHyperliquidPerpMarketInfo as ag, fetchHyperliquidPreTransferCheck as ah, fetchHyperliquidResolvedMarketDescriptor as ai, fetchHyperliquidSizeDecimals as aj, fetchHyperliquidSpotAccountValue as ak, fetchHyperliquidSpotAssetCtxs as al, fetchHyperliquidSpotClearinghouseState as am, fetchHyperliquidSpotMarketInfo as an, fetchHyperliquidSpotMeta as ao, fetchHyperliquidSpotMetaAndAssetCtxs as ap, fetchHyperliquidSpotTickSize as aq, fetchHyperliquidSpotUsdPriceMap as ar, fetchHyperliquidTickSize as as, fetchHyperliquidUserFills as at, fetchHyperliquidUserFillsByTime as au, fetchHyperliquidUserRateLimit as av, formatHyperliquidMarketablePrice as aw, formatHyperliquidOrderSize as ax, formatHyperliquidPrice as ay, formatHyperliquidSize as az, type HyperliquidAbstraction as b, sendHyperliquidSpot as b0, setHyperliquidAccountAbstractionMode as b1, setHyperliquidPortfolioMargin as b2, supportsHyperliquidBuilderFee as b3, transferHyperliquidSubAccount as b4, updateHyperliquidIsolatedMargin as b5, updateHyperliquidLeverage as b6, type NonceSource as b7, toApiDecimal as b8, createL1ActionHash as b9, splitSignature as ba, type HyperliquidApproveBuilderFeeOptions as bb, type HyperliquidApproveBuilderFeeResponse as bc, type HyperliquidClearinghouseState as bd, type HyperliquidDepositResult as be, type HyperliquidOrderOptions as bf, type HyperliquidOrderResponse as bg, type HyperliquidOrderStatus as bh, type HyperliquidWithdrawResult as bi, approveHyperliquidBuilderFee as bj, createHyperliquidActionHash as bk, depositToHyperliquidBridge as bl, fetchHyperliquidClearinghouseState as bm, getHyperliquidMaxBuilderFee as bn, placeHyperliquidOrder as bo, withdrawFromHyperliquid as bp, type HyperliquidAccountMode as c, type HyperliquidActiveAsset as d, HyperliquidApiError as e, type HyperliquidApproximateLiquidationParams as f, type HyperliquidBar as g, type HyperliquidBarResolution as h, HyperliquidBuilderApprovalError as i, type HyperliquidBuilderFee as j, type HyperliquidEnvironment as k, HyperliquidExchangeClient as l, type HyperliquidExchangeResponse as m, type HyperliquidGrouping as n, HyperliquidGuardError as o, type HyperliquidHip3Dex as p, type HyperliquidIndicatorBar as q, HyperliquidInfoClient as r, type HyperliquidMarketIdentityInput as s, type HyperliquidMarketType as t, type HyperliquidOpenOrderLike as u, type HyperliquidOrderIntent as v, type HyperliquidParsedSymbol as w, type HyperliquidParsedSymbolKind as x, type HyperliquidPerpMarketInfo as y, type HyperliquidPlaceOrderWithTpSlOptions as z };

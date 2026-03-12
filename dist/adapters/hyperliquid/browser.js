@@ -681,7 +681,279 @@ function assertPositiveNumber(value, label) {
   }
 }
 
+// src/adapters/hyperliquid/symbols.ts
+var UNKNOWN_SYMBOL2 = "UNKNOWN";
+function extractHyperliquidDex(symbol) {
+  const idx = symbol.indexOf(":");
+  if (idx <= 0) return null;
+  const dex = symbol.slice(0, idx).trim().toLowerCase();
+  return dex || null;
+}
+function parseHyperliquidSymbol(value) {
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  if (trimmed.startsWith("@")) {
+    return {
+      raw: trimmed,
+      kind: "spotIndex",
+      normalized: trimmed,
+      routeTicker: trimmed,
+      displaySymbol: trimmed,
+      base: null,
+      quote: null,
+      pair: null,
+      dex: null,
+      leverageMode: "cross"
+    };
+  }
+  const dex = extractHyperliquidDex(trimmed);
+  const pair = resolveHyperliquidPair(trimmed);
+  const base = normalizeHyperliquidBaseSymbol(trimmed);
+  if (dex) {
+    if (!base) return null;
+    return {
+      raw: trimmed,
+      kind: "perp",
+      normalized: `${dex}:${base}`,
+      routeTicker: `${dex}:${base}`,
+      displaySymbol: `${dex.toUpperCase()}:${base}-USDC`,
+      base,
+      quote: null,
+      pair: null,
+      dex,
+      leverageMode: "isolated"
+    };
+  }
+  if (pair) {
+    const [pairBase, pairQuote] = pair.split("/");
+    return {
+      raw: trimmed,
+      kind: "spot",
+      normalized: pair,
+      routeTicker: pair.replace("/", "-"),
+      displaySymbol: pair.replace("/", "-"),
+      base: pairBase ?? null,
+      quote: pairQuote ?? null,
+      pair,
+      dex: null,
+      leverageMode: "cross"
+    };
+  }
+  if (!base) return null;
+  return {
+    raw: trimmed,
+    kind: "perp",
+    normalized: base,
+    routeTicker: base,
+    displaySymbol: `${base}-USDC`,
+    base,
+    quote: null,
+    pair: null,
+    dex: null,
+    leverageMode: "cross"
+  };
+}
+function normalizeSpotTokenName2(value) {
+  const raw = (value ?? "").trim();
+  if (!raw) return "";
+  if (raw.endsWith("0") && raw.length > 1) {
+    return raw.slice(0, -1);
+  }
+  return raw;
+}
+function canonicalizeHyperliquidTokenCase(value) {
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+  return trimmed === trimmed.toLowerCase() ? trimmed.toUpperCase() : trimmed;
+}
+function normalizeHyperliquidBaseSymbol(value) {
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const withoutDex = trimmed.includes(":") ? trimmed.split(":").slice(1).join(":") : trimmed;
+  const base = withoutDex.split("-")[0] ?? withoutDex;
+  const baseNoPair = base.split("/")[0] ?? base;
+  const normalized = canonicalizeHyperliquidTokenCase(baseNoPair);
+  if (!normalized || normalized === UNKNOWN_SYMBOL2) return null;
+  return normalized;
+}
+function normalizeHyperliquidMetaSymbol(symbol) {
+  const trimmed = symbol.trim();
+  const noDex = trimmed.includes(":") ? trimmed.split(":").slice(1).join(":") : trimmed;
+  const noPair = noDex.split("-")[0] ?? noDex;
+  return (noPair.split("/")[0] ?? noPair).trim();
+}
+function resolveHyperliquidPair(value) {
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const withoutDex = trimmed.includes(":") ? trimmed.split(":").slice(1).join(":") : trimmed;
+  if (withoutDex.includes("/")) {
+    const [base, ...rest] = withoutDex.split("/");
+    const quote = rest.join("/").trim();
+    if (!base || !quote) return null;
+    return `${canonicalizeHyperliquidTokenCase(base)}/${canonicalizeHyperliquidTokenCase(quote)}`;
+  }
+  if (withoutDex.includes("-")) {
+    const [base, ...rest] = withoutDex.split("-");
+    const quote = rest.join("-").trim();
+    if (!base || !quote) return null;
+    return `${canonicalizeHyperliquidTokenCase(base)}/${canonicalizeHyperliquidTokenCase(quote)}`;
+  }
+  return null;
+}
+function resolveHyperliquidLeverageMode(symbol) {
+  return symbol.includes(":") ? "isolated" : "cross";
+}
+function resolveHyperliquidProfileChain(environment) {
+  return environment === "testnet" ? "hyperliquid-testnet" : "hyperliquid";
+}
+function buildHyperliquidProfileAssets(params) {
+  const chain = resolveHyperliquidProfileChain(params.environment);
+  return params.assets.map((asset) => {
+    const symbols = asset.assetSymbols.map((symbol) => normalizeHyperliquidBaseSymbol(symbol)).filter((symbol) => Boolean(symbol));
+    if (symbols.length === 0) return null;
+    const explicitPair = typeof asset.pair === "string" ? resolveHyperliquidPair(asset.pair) : null;
+    const derivedPair = symbols.length === 1 ? resolveHyperliquidPair(asset.assetSymbols[0] ?? symbols[0]) : null;
+    const pair = explicitPair ?? derivedPair ?? void 0;
+    const leverage = typeof asset.leverage === "number" && Number.isFinite(asset.leverage) && asset.leverage > 0 ? asset.leverage : void 0;
+    const walletAddress = typeof asset.walletAddress === "string" && asset.walletAddress.trim().length > 0 ? asset.walletAddress.trim() : void 0;
+    return {
+      venue: "hyperliquid",
+      chain,
+      assetSymbols: symbols,
+      ...pair ? { pair } : {},
+      ...leverage ? { leverage } : {},
+      ...walletAddress ? { walletAddress } : {}
+    };
+  }).filter((asset) => asset !== null);
+}
+function parseSpotPairSymbol(symbol) {
+  const trimmed = symbol.trim();
+  if (!trimmed.includes("/")) return null;
+  const [rawBase, rawQuote] = trimmed.split("/");
+  const base = rawBase?.trim().toUpperCase() ?? "";
+  const quote = rawQuote?.trim().toUpperCase() ?? "";
+  if (!base || !quote) return null;
+  return { base, quote };
+}
+function isHyperliquidSpotSymbol(symbol) {
+  const trimmed = symbol.trim();
+  if (!trimmed) return false;
+  if (trimmed.startsWith("@") || trimmed.includes("/")) return true;
+  if (trimmed.includes(":")) return false;
+  return resolveHyperliquidPair(trimmed) !== null;
+}
+function resolveHyperliquidMarketDataCoin(value) {
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  if (trimmed.startsWith("@")) return trimmed;
+  const pair = resolveHyperliquidPair(trimmed);
+  if (pair && !extractHyperliquidDex(trimmed)) {
+    return pair;
+  }
+  return trimmed;
+}
+function supportsHyperliquidBuilderFee(params) {
+  if (!isHyperliquidSpotSymbol(params.symbol)) {
+    return true;
+  }
+  return params.side === "sell";
+}
+function resolveSpotMidCandidates(baseSymbol) {
+  const base = baseSymbol.trim().toUpperCase();
+  if (!base) return [];
+  const candidates = [base];
+  if (base.startsWith("U") && base.length > 1) {
+    candidates.push(base.slice(1));
+  }
+  return Array.from(new Set(candidates));
+}
+function resolveSpotTokenCandidates(value) {
+  const normalized = normalizeSpotTokenName2(value).toUpperCase();
+  if (!normalized) return [];
+  const candidates = [normalized];
+  if (normalized.startsWith("U") && normalized.length > 1) {
+    candidates.push(normalized.slice(1));
+  }
+  return Array.from(new Set(candidates));
+}
+function resolveHyperliquidOrderSymbol(value) {
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  if (trimmed.startsWith("@")) return trimmed;
+  if (trimmed.includes(":")) {
+    const [rawDex, ...restParts] = trimmed.split(":");
+    const dex = rawDex.trim().toLowerCase();
+    const rest = restParts.join(":");
+    const normalizedBase = normalizeHyperliquidBaseSymbol(rest);
+    if (!dex || !normalizedBase || normalizedBase === UNKNOWN_SYMBOL2) {
+      return null;
+    }
+    return `${dex}:${normalizedBase}`;
+  }
+  const pair = resolveHyperliquidPair(trimmed);
+  if (pair) return pair;
+  return normalizeHyperliquidBaseSymbol(trimmed);
+}
+function resolveHyperliquidSymbol(asset, override) {
+  const raw = override && override.trim().length > 0 ? override.trim() : asset.trim();
+  if (!raw) return raw;
+  if (raw.startsWith("@")) return raw;
+  if (raw.includes(":")) {
+    const [dexRaw, ...restParts] = raw.split(":");
+    const dex = dexRaw.trim().toLowerCase();
+    const rest = restParts.join(":");
+    const normalizedBase = normalizeHyperliquidBaseSymbol(rest) ?? canonicalizeHyperliquidTokenCase(rest);
+    if (!dex) return normalizedBase;
+    return `${dex}:${normalizedBase}`;
+  }
+  if (raw.includes("/")) {
+    return resolveHyperliquidPair(raw) ?? raw;
+  }
+  if (raw.includes("-")) {
+    return resolveHyperliquidPair(raw) ?? raw;
+  }
+  return normalizeHyperliquidBaseSymbol(raw) ?? canonicalizeHyperliquidTokenCase(raw);
+}
+function resolveHyperliquidPerpSymbol(asset) {
+  const raw = asset.trim();
+  if (!raw) return raw;
+  const dex = extractHyperliquidDex(raw);
+  const base = normalizeHyperliquidBaseSymbol(raw) ?? raw.toUpperCase();
+  return dex ? `${dex}:${base}` : base;
+}
+function resolveHyperliquidSpotSymbol(asset, defaultQuote = "USDC") {
+  const quote = defaultQuote.trim().toUpperCase() || "USDC";
+  const raw = asset.trim().toUpperCase();
+  if (!raw) {
+    return { symbol: raw, base: raw, quote };
+  }
+  const pair = resolveHyperliquidPair(raw);
+  if (pair) {
+    const [base2, pairQuote] = pair.split("/");
+    return {
+      symbol: pair,
+      base: base2?.trim() ?? raw,
+      quote: pairQuote?.trim() ?? quote
+    };
+  }
+  const base = normalizeHyperliquidBaseSymbol(raw) ?? raw;
+  return { symbol: `${base}/${quote}`, base, quote };
+}
+
 // src/adapters/hyperliquid/info.ts
+var HYPERLIQUID_HIP3_DEXES = [
+  "xyz",
+  "flx",
+  "vntl",
+  "hyna",
+  "km",
+  "cash"
+];
 async function postInfo(environment, payload) {
   const baseUrl = API_BASES[environment];
   const response = await fetch(`${baseUrl}/info`, {
@@ -697,6 +969,27 @@ async function postInfo(environment, payload) {
     );
   }
   return data;
+}
+function mergeHyperliquidOpenOrders(batches) {
+  const merged = /* @__PURE__ */ new Map();
+  for (const batch of batches) {
+    for (const order of batch) {
+      const oid = typeof order.oid === "number" || typeof order.oid === "string" ? String(order.oid) : "no-oid";
+      const cloid = typeof order.cloid === "string" && order.cloid.trim().length > 0 ? order.cloid : "no-cloid";
+      merged.set(`${oid}:${cloid}`, order);
+    }
+  }
+  return [...merged.values()];
+}
+function readNumber(value) {
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value : null;
+  }
+  if (typeof value === "string" && value.trim().length > 0) {
+    const parsed = Number.parseFloat(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
 }
 var HyperliquidInfoClient = class {
   constructor(environment = "mainnet") {
@@ -772,6 +1065,13 @@ var HyperliquidInfoClient = class {
       environment: this.environment
     });
   }
+  activeAsset(user, symbol) {
+    return fetchHyperliquidActiveAsset({
+      user,
+      symbol,
+      environment: this.environment
+    });
+  }
 };
 async function fetchHyperliquidMeta(environment = "mainnet") {
   return postInfo(environment, { type: "meta" });
@@ -793,13 +1093,18 @@ async function fetchHyperliquidSpotAssetCtxs(environment = "mainnet") {
 }
 async function fetchHyperliquidOpenOrders(params) {
   const env = params.environment ?? "mainnet";
-  return postInfo(env, { type: "openOrders", user: normalizeAddress(params.user) });
+  return postInfo(env, {
+    type: "openOrders",
+    user: normalizeAddress(params.user),
+    ...params.dex ? { dex: params.dex.trim().toLowerCase() } : {}
+  });
 }
 async function fetchHyperliquidFrontendOpenOrders(params) {
   const env = params.environment ?? "mainnet";
   return postInfo(env, {
     type: "frontendOpenOrders",
-    user: normalizeAddress(params.user)
+    user: normalizeAddress(params.user),
+    ...params.dex ? { dex: params.dex.trim().toLowerCase() } : {}
   });
 }
 async function fetchHyperliquidOrderStatus(params) {
@@ -814,7 +1119,8 @@ async function fetchHyperliquidHistoricalOrders(params) {
   const env = params.environment ?? "mainnet";
   return postInfo(env, {
     type: "historicalOrders",
-    user: normalizeAddress(params.user)
+    user: normalizeAddress(params.user),
+    ...params.dex ? { dex: params.dex.trim().toLowerCase() } : {}
   });
 }
 async function fetchHyperliquidUserFills(params) {
@@ -854,6 +1160,59 @@ async function fetchHyperliquidSpotClearinghouseState(params) {
     type: "spotClearinghouseState",
     user: normalizeAddress(params.user)
   });
+}
+function getKnownHyperliquidDexes(environment = "mainnet") {
+  return environment === "mainnet" ? [...HYPERLIQUID_HIP3_DEXES] : [];
+}
+async function fetchHyperliquidOpenOrdersAcrossDexes(params) {
+  const environment = params.environment ?? "mainnet";
+  const requests = [
+    ...params.includePrimary === false ? [] : [fetchHyperliquidOpenOrders({ environment, user: params.user })],
+    ...getKnownHyperliquidDexes(environment).filter((dex) => !(params.dexes && !params.dexes.includes(dex))).map(
+      (dex) => fetchHyperliquidOpenOrders({
+        environment,
+        user: params.user,
+        dex
+      })
+    )
+  ];
+  const batches = await Promise.all(requests);
+  return mergeHyperliquidOpenOrders(batches);
+}
+async function fetchHyperliquidFrontendOpenOrdersAcrossDexes(params) {
+  const environment = params.environment ?? "mainnet";
+  const requests = [
+    ...params.includePrimary === false ? [] : [fetchHyperliquidFrontendOpenOrders({ environment, user: params.user })],
+    ...getKnownHyperliquidDexes(environment).filter((dex) => !(params.dexes && !params.dexes.includes(dex))).map(
+      (dex) => fetchHyperliquidFrontendOpenOrders({
+        environment,
+        user: params.user,
+        dex
+      })
+    )
+  ];
+  const batches = await Promise.all(requests);
+  return mergeHyperliquidOpenOrders(batches);
+}
+async function fetchHyperliquidActiveAsset(params) {
+  const environment = params.environment ?? "mainnet";
+  const coin = resolveHyperliquidOrderSymbol(params.symbol);
+  if (!coin) {
+    throw new Error(`Unable to resolve Hyperliquid active asset symbol: ${params.symbol}`);
+  }
+  const raw = await postInfo(environment, {
+    type: "activeAssetData",
+    user: normalizeAddress(params.user),
+    coin
+  });
+  const record = raw && typeof raw === "object" && !Array.isArray(raw) ? raw : null;
+  const leverageRecord = record?.leverage && typeof record.leverage === "object" && !Array.isArray(record.leverage) ? record.leverage : null;
+  return {
+    coin,
+    leverage: leverageRecord && "value" in leverageRecord ? readNumber(leverageRecord.value) : readNumber(record?.leverage),
+    leverageType: leverageRecord && typeof leverageRecord.type === "string" ? leverageRecord.type : null,
+    raw
+  };
 }
 
 // src/adapters/hyperliquid/exchange.ts
@@ -1492,272 +1851,6 @@ async function postExchange(env, body) {
   }
   return json;
 }
-
-// src/adapters/hyperliquid/symbols.ts
-var UNKNOWN_SYMBOL2 = "UNKNOWN";
-function extractHyperliquidDex(symbol) {
-  const idx = symbol.indexOf(":");
-  if (idx <= 0) return null;
-  const dex = symbol.slice(0, idx).trim().toLowerCase();
-  return dex || null;
-}
-function parseHyperliquidSymbol(value) {
-  if (!value) return null;
-  const trimmed = value.trim();
-  if (!trimmed) return null;
-  if (trimmed.startsWith("@")) {
-    return {
-      raw: trimmed,
-      kind: "spotIndex",
-      normalized: trimmed,
-      routeTicker: trimmed,
-      displaySymbol: trimmed,
-      base: null,
-      quote: null,
-      pair: null,
-      dex: null,
-      leverageMode: "cross"
-    };
-  }
-  const dex = extractHyperliquidDex(trimmed);
-  const pair = resolveHyperliquidPair(trimmed);
-  const base = normalizeHyperliquidBaseSymbol(trimmed);
-  if (dex) {
-    if (!base) return null;
-    return {
-      raw: trimmed,
-      kind: "perp",
-      normalized: `${dex}:${base}`,
-      routeTicker: `${dex}:${base}`,
-      displaySymbol: `${dex.toUpperCase()}:${base}-USDC`,
-      base,
-      quote: null,
-      pair: null,
-      dex,
-      leverageMode: "isolated"
-    };
-  }
-  if (pair) {
-    const [pairBase, pairQuote] = pair.split("/");
-    return {
-      raw: trimmed,
-      kind: "spot",
-      normalized: pair,
-      routeTicker: pair.replace("/", "-"),
-      displaySymbol: pair.replace("/", "-"),
-      base: pairBase ?? null,
-      quote: pairQuote ?? null,
-      pair,
-      dex: null,
-      leverageMode: "cross"
-    };
-  }
-  if (!base) return null;
-  return {
-    raw: trimmed,
-    kind: "perp",
-    normalized: base,
-    routeTicker: base,
-    displaySymbol: `${base}-USDC`,
-    base,
-    quote: null,
-    pair: null,
-    dex: null,
-    leverageMode: "cross"
-  };
-}
-function normalizeSpotTokenName2(value) {
-  const raw = (value ?? "").trim();
-  if (!raw) return "";
-  if (raw.endsWith("0") && raw.length > 1) {
-    return raw.slice(0, -1);
-  }
-  return raw;
-}
-function canonicalizeHyperliquidTokenCase(value) {
-  const trimmed = value.trim();
-  if (!trimmed) return "";
-  return trimmed === trimmed.toLowerCase() ? trimmed.toUpperCase() : trimmed;
-}
-function normalizeHyperliquidBaseSymbol(value) {
-  if (!value) return null;
-  const trimmed = value.trim();
-  if (!trimmed) return null;
-  const withoutDex = trimmed.includes(":") ? trimmed.split(":").slice(1).join(":") : trimmed;
-  const base = withoutDex.split("-")[0] ?? withoutDex;
-  const baseNoPair = base.split("/")[0] ?? base;
-  const normalized = canonicalizeHyperliquidTokenCase(baseNoPair);
-  if (!normalized || normalized === UNKNOWN_SYMBOL2) return null;
-  return normalized;
-}
-function normalizeHyperliquidMetaSymbol(symbol) {
-  const trimmed = symbol.trim();
-  const noDex = trimmed.includes(":") ? trimmed.split(":").slice(1).join(":") : trimmed;
-  const noPair = noDex.split("-")[0] ?? noDex;
-  return (noPair.split("/")[0] ?? noPair).trim();
-}
-function resolveHyperliquidPair(value) {
-  if (!value) return null;
-  const trimmed = value.trim();
-  if (!trimmed) return null;
-  const withoutDex = trimmed.includes(":") ? trimmed.split(":").slice(1).join(":") : trimmed;
-  if (withoutDex.includes("/")) {
-    const [base, ...rest] = withoutDex.split("/");
-    const quote = rest.join("/").trim();
-    if (!base || !quote) return null;
-    return `${canonicalizeHyperliquidTokenCase(base)}/${canonicalizeHyperliquidTokenCase(quote)}`;
-  }
-  if (withoutDex.includes("-")) {
-    const [base, ...rest] = withoutDex.split("-");
-    const quote = rest.join("-").trim();
-    if (!base || !quote) return null;
-    return `${canonicalizeHyperliquidTokenCase(base)}/${canonicalizeHyperliquidTokenCase(quote)}`;
-  }
-  return null;
-}
-function resolveHyperliquidLeverageMode(symbol) {
-  return symbol.includes(":") ? "isolated" : "cross";
-}
-function resolveHyperliquidProfileChain(environment) {
-  return environment === "testnet" ? "hyperliquid-testnet" : "hyperliquid";
-}
-function buildHyperliquidProfileAssets(params) {
-  const chain = resolveHyperliquidProfileChain(params.environment);
-  return params.assets.map((asset) => {
-    const symbols = asset.assetSymbols.map((symbol) => normalizeHyperliquidBaseSymbol(symbol)).filter((symbol) => Boolean(symbol));
-    if (symbols.length === 0) return null;
-    const explicitPair = typeof asset.pair === "string" ? resolveHyperliquidPair(asset.pair) : null;
-    const derivedPair = symbols.length === 1 ? resolveHyperliquidPair(asset.assetSymbols[0] ?? symbols[0]) : null;
-    const pair = explicitPair ?? derivedPair ?? void 0;
-    const leverage = typeof asset.leverage === "number" && Number.isFinite(asset.leverage) && asset.leverage > 0 ? asset.leverage : void 0;
-    const walletAddress = typeof asset.walletAddress === "string" && asset.walletAddress.trim().length > 0 ? asset.walletAddress.trim() : void 0;
-    return {
-      venue: "hyperliquid",
-      chain,
-      assetSymbols: symbols,
-      ...pair ? { pair } : {},
-      ...leverage ? { leverage } : {},
-      ...walletAddress ? { walletAddress } : {}
-    };
-  }).filter((asset) => asset !== null);
-}
-function parseSpotPairSymbol(symbol) {
-  const trimmed = symbol.trim();
-  if (!trimmed.includes("/")) return null;
-  const [rawBase, rawQuote] = trimmed.split("/");
-  const base = rawBase?.trim().toUpperCase() ?? "";
-  const quote = rawQuote?.trim().toUpperCase() ?? "";
-  if (!base || !quote) return null;
-  return { base, quote };
-}
-function isHyperliquidSpotSymbol(symbol) {
-  const trimmed = symbol.trim();
-  if (!trimmed) return false;
-  if (trimmed.startsWith("@") || trimmed.includes("/")) return true;
-  if (trimmed.includes(":")) return false;
-  return resolveHyperliquidPair(trimmed) !== null;
-}
-function resolveHyperliquidMarketDataCoin(value) {
-  if (!value) return null;
-  const trimmed = value.trim();
-  if (!trimmed) return null;
-  if (trimmed.startsWith("@")) return trimmed;
-  const pair = resolveHyperliquidPair(trimmed);
-  if (pair && !extractHyperliquidDex(trimmed)) {
-    return pair;
-  }
-  return trimmed;
-}
-function supportsHyperliquidBuilderFee(params) {
-  if (!isHyperliquidSpotSymbol(params.symbol)) {
-    return true;
-  }
-  return params.side === "sell";
-}
-function resolveSpotMidCandidates(baseSymbol) {
-  const base = baseSymbol.trim().toUpperCase();
-  if (!base) return [];
-  const candidates = [base];
-  if (base.startsWith("U") && base.length > 1) {
-    candidates.push(base.slice(1));
-  }
-  return Array.from(new Set(candidates));
-}
-function resolveSpotTokenCandidates(value) {
-  const normalized = normalizeSpotTokenName2(value).toUpperCase();
-  if (!normalized) return [];
-  const candidates = [normalized];
-  if (normalized.startsWith("U") && normalized.length > 1) {
-    candidates.push(normalized.slice(1));
-  }
-  return Array.from(new Set(candidates));
-}
-function resolveHyperliquidOrderSymbol(value) {
-  if (!value) return null;
-  const trimmed = value.trim();
-  if (!trimmed) return null;
-  if (trimmed.startsWith("@")) return trimmed;
-  if (trimmed.includes(":")) {
-    const [rawDex, ...restParts] = trimmed.split(":");
-    const dex = rawDex.trim().toLowerCase();
-    const rest = restParts.join(":");
-    const normalizedBase = normalizeHyperliquidBaseSymbol(rest);
-    if (!dex || !normalizedBase || normalizedBase === UNKNOWN_SYMBOL2) {
-      return null;
-    }
-    return `${dex}:${normalizedBase}`;
-  }
-  const pair = resolveHyperliquidPair(trimmed);
-  if (pair) return pair;
-  return normalizeHyperliquidBaseSymbol(trimmed);
-}
-function resolveHyperliquidSymbol(asset, override) {
-  const raw = override && override.trim().length > 0 ? override.trim() : asset.trim();
-  if (!raw) return raw;
-  if (raw.startsWith("@")) return raw;
-  if (raw.includes(":")) {
-    const [dexRaw, ...restParts] = raw.split(":");
-    const dex = dexRaw.trim().toLowerCase();
-    const rest = restParts.join(":");
-    const normalizedBase = normalizeHyperliquidBaseSymbol(rest) ?? canonicalizeHyperliquidTokenCase(rest);
-    if (!dex) return normalizedBase;
-    return `${dex}:${normalizedBase}`;
-  }
-  if (raw.includes("/")) {
-    return resolveHyperliquidPair(raw) ?? raw;
-  }
-  if (raw.includes("-")) {
-    return resolveHyperliquidPair(raw) ?? raw;
-  }
-  return normalizeHyperliquidBaseSymbol(raw) ?? canonicalizeHyperliquidTokenCase(raw);
-}
-function resolveHyperliquidPerpSymbol(asset) {
-  const raw = asset.trim();
-  if (!raw) return raw;
-  const dex = extractHyperliquidDex(raw);
-  const base = normalizeHyperliquidBaseSymbol(raw) ?? raw.toUpperCase();
-  return dex ? `${dex}:${base}` : base;
-}
-function resolveHyperliquidSpotSymbol(asset, defaultQuote = "USDC") {
-  const quote = defaultQuote.trim().toUpperCase() || "USDC";
-  const raw = asset.trim().toUpperCase();
-  if (!raw) {
-    return { symbol: raw, base: raw, quote };
-  }
-  const pair = resolveHyperliquidPair(raw);
-  if (pair) {
-    const [base2, pairQuote] = pair.split("/");
-    return {
-      symbol: pair,
-      base: base2?.trim() ?? raw,
-      quote: pairQuote?.trim() ?? quote
-    };
-  }
-  const base = normalizeHyperliquidBaseSymbol(raw) ?? raw;
-  return { symbol: `${base}/${quote}`, base, quote };
-}
-
-// src/adapters/hyperliquid/actions.ts
 function resolveRequiredNonce(params) {
   if (typeof params.nonce === "number") {
     return params.nonce;
@@ -2908,6 +3001,6 @@ function estimateHyperliquidLiquidationPrice(params) {
   return liquidationPrice;
 }
 
-export { DEFAULT_HYPERLIQUID_MARKET_SLIPPAGE_BPS, DEFAULT_HYPERLIQUID_TPSL_MARKET_SLIPPAGE_BPS, HyperliquidApiError, HyperliquidBuilderApprovalError, HyperliquidExchangeClient, HyperliquidGuardError, HyperliquidInfoClient, HyperliquidTermsError, approveHyperliquidBuilderFee, batchModifyHyperliquidOrders, buildHyperliquidMarketIdentity, buildHyperliquidProfileAssets, cancelAllHyperliquidOrders, cancelHyperliquidOrders, cancelHyperliquidOrdersByCloid, cancelHyperliquidTwapOrder, computeHyperliquidMarketIocLimitPrice, createHyperliquidActionHash, createHyperliquidSubAccount, createMonotonicNonceFactory, depositToHyperliquidBridge, estimateHyperliquidLiquidationPrice, extractHyperliquidDex, fetchHyperliquidAssetCtxs, fetchHyperliquidClearinghouseState, fetchHyperliquidFrontendOpenOrders, fetchHyperliquidHistoricalOrders, fetchHyperliquidMeta, fetchHyperliquidMetaAndAssetCtxs, fetchHyperliquidOpenOrders, fetchHyperliquidOrderStatus, fetchHyperliquidPreTransferCheck, fetchHyperliquidResolvedMarketDescriptor, fetchHyperliquidSizeDecimals, fetchHyperliquidSpotAssetCtxs, fetchHyperliquidSpotClearinghouseState, fetchHyperliquidSpotMeta, fetchHyperliquidSpotMetaAndAssetCtxs, fetchHyperliquidTickSize, fetchHyperliquidUserFills, fetchHyperliquidUserFillsByTime, fetchHyperliquidUserRateLimit, formatHyperliquidMarketablePrice, formatHyperliquidPrice, formatHyperliquidSize, getHyperliquidMaxBuilderFee, isHyperliquidSpotSymbol, modifyHyperliquidOrder, normalizeHyperliquidBaseSymbol, normalizeHyperliquidMetaSymbol, normalizeSpotTokenName2 as normalizeSpotTokenName, parseHyperliquidSymbol, parseSpotPairSymbol, placeHyperliquidOrder, placeHyperliquidOrderWithTpSl, placeHyperliquidPositionTpSl, placeHyperliquidTwapOrder, reserveHyperliquidRequestWeight, resolveHyperliquidAbstractionFromMode, resolveHyperliquidLeverageMode, resolveHyperliquidMarketDataCoin, resolveHyperliquidOrderSymbol, resolveHyperliquidPair, resolveHyperliquidPerpSymbol, resolveHyperliquidProfileChain, resolveHyperliquidSpotSymbol, resolveHyperliquidSymbol, resolveSpotMidCandidates, resolveSpotTokenCandidates, scheduleHyperliquidCancel, sendHyperliquidSpot, setHyperliquidAccountAbstractionMode, setHyperliquidPortfolioMargin, supportsHyperliquidBuilderFee, transferHyperliquidSubAccount, updateHyperliquidIsolatedMargin, updateHyperliquidLeverage, withdrawFromHyperliquid };
+export { DEFAULT_HYPERLIQUID_MARKET_SLIPPAGE_BPS, DEFAULT_HYPERLIQUID_TPSL_MARKET_SLIPPAGE_BPS, HYPERLIQUID_HIP3_DEXES, HyperliquidApiError, HyperliquidBuilderApprovalError, HyperliquidExchangeClient, HyperliquidGuardError, HyperliquidInfoClient, HyperliquidTermsError, approveHyperliquidBuilderFee, batchModifyHyperliquidOrders, buildHyperliquidMarketIdentity, buildHyperliquidProfileAssets, cancelAllHyperliquidOrders, cancelHyperliquidOrders, cancelHyperliquidOrdersByCloid, cancelHyperliquidTwapOrder, computeHyperliquidMarketIocLimitPrice, createHyperliquidActionHash, createHyperliquidSubAccount, createMonotonicNonceFactory, depositToHyperliquidBridge, estimateHyperliquidLiquidationPrice, extractHyperliquidDex, fetchHyperliquidActiveAsset, fetchHyperliquidAssetCtxs, fetchHyperliquidClearinghouseState, fetchHyperliquidFrontendOpenOrders, fetchHyperliquidFrontendOpenOrdersAcrossDexes, fetchHyperliquidHistoricalOrders, fetchHyperliquidMeta, fetchHyperliquidMetaAndAssetCtxs, fetchHyperliquidOpenOrders, fetchHyperliquidOpenOrdersAcrossDexes, fetchHyperliquidOrderStatus, fetchHyperliquidPreTransferCheck, fetchHyperliquidResolvedMarketDescriptor, fetchHyperliquidSizeDecimals, fetchHyperliquidSpotAssetCtxs, fetchHyperliquidSpotClearinghouseState, fetchHyperliquidSpotMeta, fetchHyperliquidSpotMetaAndAssetCtxs, fetchHyperliquidTickSize, fetchHyperliquidUserFills, fetchHyperliquidUserFillsByTime, fetchHyperliquidUserRateLimit, formatHyperliquidMarketablePrice, formatHyperliquidPrice, formatHyperliquidSize, getHyperliquidMaxBuilderFee, getKnownHyperliquidDexes, isHyperliquidSpotSymbol, modifyHyperliquidOrder, normalizeHyperliquidBaseSymbol, normalizeHyperliquidMetaSymbol, normalizeSpotTokenName2 as normalizeSpotTokenName, parseHyperliquidSymbol, parseSpotPairSymbol, placeHyperliquidOrder, placeHyperliquidOrderWithTpSl, placeHyperliquidPositionTpSl, placeHyperliquidTwapOrder, reserveHyperliquidRequestWeight, resolveHyperliquidAbstractionFromMode, resolveHyperliquidLeverageMode, resolveHyperliquidMarketDataCoin, resolveHyperliquidOrderSymbol, resolveHyperliquidPair, resolveHyperliquidPerpSymbol, resolveHyperliquidProfileChain, resolveHyperliquidSpotSymbol, resolveHyperliquidSymbol, resolveSpotMidCandidates, resolveSpotTokenCandidates, scheduleHyperliquidCancel, sendHyperliquidSpot, setHyperliquidAccountAbstractionMode, setHyperliquidPortfolioMargin, supportsHyperliquidBuilderFee, transferHyperliquidSubAccount, updateHyperliquidIsolatedMargin, updateHyperliquidLeverage, withdrawFromHyperliquid };
 //# sourceMappingURL=browser.js.map
 //# sourceMappingURL=browser.js.map
