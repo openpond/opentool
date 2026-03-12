@@ -115,3 +115,18 @@ test("live hyperliquid spot universe resolves to metadata-backed order and marke
     );
   }
 });
+
+test("live HIP-3 descriptor resolves collateral-backed quote assets", async () => {
+  const descriptor = await fetchHyperliquidResolvedMarketDescriptor({
+    environment: "mainnet",
+    symbol: "hyna:BTC",
+  });
+
+  assert.equal(descriptor.kind, "perp");
+  assert.equal(descriptor.normalized, "hyna:BTC");
+  assert.equal(descriptor.orderSymbol, "hyna:BTC");
+  assert.equal(descriptor.marketDataCoin, "hyna:BTC");
+  assert.equal(descriptor.quote, "USDE");
+  assert.equal(descriptor.displaySymbol, "BTC-USDE");
+  assert.equal(descriptor.canonicalPair, "BTC/USDE");
+});

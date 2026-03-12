@@ -1,5 +1,6 @@
 import { API_BASES, type HyperliquidEnvironment } from "./base";
 import {
+  fetchHyperliquidDexMetaAndAssetCtxs,
   fetchHyperliquidMeta,
   fetchHyperliquidMetaAndAssetCtxs,
   fetchHyperliquidSpotMeta,
@@ -7,6 +8,8 @@ import {
 } from "./info";
 import type { HyperliquidTickSize } from "./order-utils";
 import {
+  buildHyperliquidMarketDescriptor,
+  type HyperliquidMarketDescriptor,
   isHyperliquidSpotSymbol,
   normalizeHyperliquidMetaSymbol,
   normalizeSpotTokenName,
@@ -91,22 +94,7 @@ export type HyperliquidSpotMarketInfo = {
   szDecimals: number;
 };
 
-export type HyperliquidResolvedMarketDescriptor = {
-  rawSymbol: string;
-  kind: "perp" | "spot" | "spotIndex";
-  routeTicker: string;
-  displaySymbol: string;
-  normalized: string;
-  orderSymbol: string;
-  marketDataCoin: string;
-  base: string | null;
-  quote: string | null;
-  pair: string | null;
-  dex: string | null;
-  leverageMode: "cross" | "isolated";
-  spotIndex: number | null;
-  assetId: number | null;
-};
+export type HyperliquidResolvedMarketDescriptor = HyperliquidMarketDescriptor;
 
 const META_CACHE_TTL_MS = 5 * 60 * 1000;
 const DEFAULT_OPENPOND_GATEWAY_URL = "https://gateway.openpond.dev";
@@ -654,45 +642,52 @@ export async function fetchHyperliquidResolvedMarketDescriptor(params: {
     if (!orderSymbol) {
       throw new Error(`Unable to resolve Hyperliquid spot order symbol: ${params.symbol}`);
     }
-    return {
-      rawSymbol: params.symbol,
-      kind: "spot",
-      routeTicker: `${spotInfo.base}-${spotInfo.quote}`,
+    const descriptor = buildHyperliquidMarketDescriptor({
+      symbol: params.symbol,
+      pair: spotInfo.symbol,
+      quote: spotInfo.quote,
       displaySymbol: `${spotInfo.base}-${spotInfo.quote}`,
-      normalized: spotInfo.symbol,
       orderSymbol,
       marketDataCoin: `@${spotInfo.marketIndex}`,
-      base: spotInfo.base,
-      quote: spotInfo.quote,
-      pair: spotInfo.symbol,
-      dex: null,
-      leverageMode: "cross",
       spotIndex: spotInfo.marketIndex,
       assetId: spotInfo.assetId,
-    };
+    });
+    if (!descriptor) {
+      throw new Error(`Unable to build Hyperliquid spot market descriptor: ${params.symbol}`);
+    }
+    return descriptor;
   }
 
-  const orderSymbol = resolveHyperliquidOrderSymbol(parsed.normalized);
-  if (!orderSymbol) {
-    throw new Error(`Unable to resolve Hyperliquid order symbol: ${params.symbol}`);
-  }
+  const quote =
+    parsed.dex
+      ? await (async () => {
+          const dex = parsed.dex;
+          if (!dex) return null;
+          const [dexMetaAndCtxs, spotMetaRaw] = await Promise.all([
+            fetchHyperliquidDexMetaAndAssetCtxs(params.environment, dex),
+            fetchHyperliquidSpotMeta(params.environment),
+          ]);
+          const metaHeader =
+            Array.isArray(dexMetaAndCtxs) && dexMetaAndCtxs.length > 0
+              ? (dexMetaAndCtxs[0] as { collateralToken?: unknown } | null)
+              : null;
+          const collateralToken =
+            typeof metaHeader?.collateralToken === "number" ? metaHeader.collateralToken : null;
+          if (collateralToken == null) return null;
+          const spotMeta = spotMetaRaw as SpotMetaResponse;
+          const token = (spotMeta.tokens ?? []).find((entry) => entry?.index === collateralToken) ?? null;
+          return normalizeSpotTokenName(token?.name).toUpperCase() || null;
+        })()
+      : "USDC";
 
-  return {
-    rawSymbol: params.symbol,
-    kind: parsed.kind,
-    routeTicker: parsed.routeTicker,
-    displaySymbol: parsed.displaySymbol,
-    normalized: parsed.normalized,
-    orderSymbol,
-    marketDataCoin: parsed.normalized,
-    base: parsed.base,
-    quote: parsed.quote,
-    pair: parsed.pair,
-    dex: parsed.dex,
-    leverageMode: parsed.leverageMode,
-    spotIndex: null,
-    assetId: null,
-  };
+  const descriptor = buildHyperliquidMarketDescriptor({
+    symbol: params.symbol,
+    ...(quote ? { quote } : {}),
+  });
+  if (!descriptor) {
+    throw new Error(`Unable to build Hyperliquid market descriptor: ${params.symbol}`);
+  }
+  return descriptor;
 }
 
 export async function fetchHyperliquidSizeDecimals(params: {
