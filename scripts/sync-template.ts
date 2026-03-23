@@ -8,7 +8,7 @@ type PackageJson = {
 };
 
 const ROOT = path.resolve(process.cwd());
-const TEMPLATE = path.join(ROOT, "templates", "base", "package.json");
+const TEMPLATES_DIR = path.join(ROOT, "templates");
 
 async function readJson(filePath: string): Promise<PackageJson> {
   const raw = await fs.readFile(filePath, "utf-8");
@@ -19,9 +19,16 @@ async function writeJson(filePath: string, data: PackageJson) {
   await fs.writeFile(filePath, `${JSON.stringify(data, null, 2)}\n`, "utf-8");
 }
 
-async function syncTemplate() {
+async function listTemplatePackagePaths() {
+  const entries = await fs.readdir(TEMPLATES_DIR, { withFileTypes: true });
+  return entries
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => path.join(TEMPLATES_DIR, entry.name, "package.json"));
+}
+
+async function syncTemplate(templatePath: string) {
   const rootPkg = await readJson(path.join(ROOT, "package.json"));
-  const templatePkg = await readJson(TEMPLATE);
+  const templatePkg = await readJson(templatePath);
 
   templatePkg.dependencies = {
     ...templatePkg.dependencies,
@@ -41,10 +48,15 @@ async function syncTemplate() {
     esbuild: rootPkg.dependencies?.esbuild || templatePkg.overrides?.esbuild,
   };
 
-  await writeJson(TEMPLATE, templatePkg);
+  await writeJson(templatePath, templatePkg);
 }
 
-syncTemplate().catch((error) => {
+async function syncTemplates() {
+  const templatePaths = await listTemplatePackagePaths();
+  await Promise.all(templatePaths.map((templatePath) => syncTemplate(templatePath)));
+}
+
+syncTemplates().catch((error) => {
   const message = error instanceof Error ? error.message : "sync failed";
   console.error(message);
   process.exit(1);

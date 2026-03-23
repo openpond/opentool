@@ -1,7 +1,7 @@
 {
-  "name": "opentool-project",
+  "name": "polymarket-simple-trade",
   "version": "1.0.0",
-  "description": "OpenTool project",
+  "description": "Minimal OpenTool starter for placing one Polymarket trade",
   "private": true,
   "type": "module",
   "scripts": {

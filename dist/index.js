@@ -6066,7 +6066,7 @@ async function buildSignedOrderPayload(args) {
 // src/adapters/polymarket/exchange.ts
 async function resolveAuthContext(args) {
   if (args.wallet) {
-    const credentials = args.credentials ?? await createPolymarketApiKey({
+    const credentials = args.credentials ?? await createOrDerivePolymarketApiKey({
       wallet: args.wallet,
       ...args.environment ? { environment: args.environment } : {}
     });
@@ -6103,27 +6103,9 @@ function resolvePath(url) {
   const parsed = new URL(url);
   return `${parsed.pathname}${parsed.search}`;
 }
-async function createPolymarketApiKey(args) {
-  const environment = args.environment ?? "mainnet";
-  const baseUrl = resolvePolymarketBaseUrl("clob", environment);
-  const url = `${baseUrl}/auth/api-key`;
-  const headers = await buildL1Headers({
-    wallet: args.wallet,
-    environment,
-    ...args.timestamp !== void 0 ? { timestamp: args.timestamp } : {},
-    ...args.nonce !== void 0 ? { nonce: args.nonce } : {},
-    ...args.message !== void 0 ? { message: args.message } : {}
-  });
-  const data = await requestJson2(url, {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      ...headers
-    },
-    body: JSON.stringify({})
-  });
+function normalizeApiKeyResponse(data) {
   if (!data?.apiKey || !data?.secret || !data?.passphrase) {
-    throw new PolymarketAuthError("Failed to create Polymarket API key.");
+    return null;
   }
   return {
     apiKey: data.apiKey,
@@ -6131,10 +6113,10 @@ async function createPolymarketApiKey(args) {
     passphrase: data.passphrase
   };
 }
-async function derivePolymarketApiKey(args) {
+async function requestPolymarketApiKey(args) {
   const environment = args.environment ?? "mainnet";
   const baseUrl = resolvePolymarketBaseUrl("clob", environment);
-  const url = `${baseUrl}/auth/derive-api-key`;
+  const url = args.mode === "create" ? `${baseUrl}/auth/api-key` : `${baseUrl}/auth/derive-api-key`;
   const headers = await buildL1Headers({
     wallet: args.wallet,
     environment,
@@ -6142,21 +6124,41 @@ async function derivePolymarketApiKey(args) {
     ...args.nonce !== void 0 ? { nonce: args.nonce } : {},
     ...args.message !== void 0 ? { message: args.message } : {}
   });
-  const data = await requestJson2(url, {
-    method: "GET",
+  return await requestJson2(url, {
+    method: args.mode === "create" ? "POST" : "GET",
     headers: {
       "content-type": "application/json",
       ...headers
-    }
+    },
+    ...args.mode === "create" ? { body: JSON.stringify({}) } : {}
   });
-  if (!data?.apiKey || !data?.secret || !data?.passphrase) {
+}
+async function createPolymarketApiKey(args) {
+  const normalized = normalizeApiKeyResponse(
+    await requestPolymarketApiKey({ ...args, mode: "create" })
+  );
+  if (!normalized) {
+    throw new PolymarketAuthError("Failed to create Polymarket API key.");
+  }
+  return normalized;
+}
+async function derivePolymarketApiKey(args) {
+  const normalized = normalizeApiKeyResponse(
+    await requestPolymarketApiKey({ ...args, mode: "derive" })
+  );
+  if (!normalized) {
     throw new PolymarketAuthError("Failed to derive Polymarket API key.");
   }
-  return {
-    apiKey: data.apiKey,
-    secret: data.secret,
-    passphrase: data.passphrase
-  };
+  return normalized;
+}
+async function createOrDerivePolymarketApiKey(args) {
+  const created = normalizeApiKeyResponse(
+    await requestPolymarketApiKey({ ...args, mode: "create" })
+  );
+  if (created) {
+    return created;
+  }
+  return derivePolymarketApiKey(args);
 }
 async function placePolymarketOrder(args) {
   const environment = args.environment ?? "mainnet";
@@ -6385,6 +6387,61 @@ function getString(value) {
   const str = String(value).trim();
   return str.length ? str : null;
 }
+function getNumber(value) {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : null;
+}
+function getInteger(value) {
+  const numeric = getNumber(value);
+  return numeric == null ? null : Math.trunc(numeric);
+}
+function getBoolean(value) {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    if (normalized === "true") return true;
+    if (normalized === "false") return false;
+  }
+  return null;
+}
+function normalizeCsvStringInput(value) {
+  if (Array.isArray(value)) {
+    return value.flatMap((entry) => String(entry).split(",")).map((entry) => entry.trim()).filter((entry) => entry.length > 0);
+  }
+  if (typeof value === "string") {
+    return value.split(",").map((entry) => entry.trim()).filter((entry) => entry.length > 0);
+  }
+  return [];
+}
+function normalizeCsvNumberInput(value) {
+  if (Array.isArray(value)) {
+    return value.filter((entry) => Number.isFinite(entry));
+  }
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return [value];
+  }
+  return [];
+}
+function appendCsvParam(url, key, values) {
+  if (values.length > 0) {
+    url.searchParams.set(key, values.join(","));
+  }
+}
+function appendNumberParam(url, key, value) {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    url.searchParams.set(key, String(value));
+  }
+}
+function appendBooleanParam(url, key, value) {
+  if (typeof value === "boolean") {
+    url.searchParams.set(key, value ? "true" : "false");
+  }
+}
+function assertMutuallyExclusiveMarketScope(market, eventIds) {
+  if (market.length > 0 && eventIds.length > 0) {
+    throw new Error("market and eventId are mutually exclusive.");
+  }
+}
 function normalizeOrderbookLevels(raw) {
   if (!Array.isArray(raw)) return [];
   return raw.map((entry) => {
@@ -6448,6 +6505,132 @@ function normalizeGammaMarket(market, event) {
   }
   return normalized;
 }
+function normalizeUserPosition(raw) {
+  const record = raw && typeof raw === "object" ? raw : {};
+  const normalized = {
+    proxyWallet: getString(record.proxyWallet),
+    asset: getString(record.asset),
+    conditionId: getString(record.conditionId),
+    size: getNumber(record.size),
+    avgPrice: getNumber(record.avgPrice),
+    initialValue: getNumber(record.initialValue),
+    currentValue: getNumber(record.currentValue),
+    cashPnl: getNumber(record.cashPnl),
+    percentPnl: getNumber(record.percentPnl),
+    totalBought: getNumber(record.totalBought),
+    realizedPnl: getNumber(record.realizedPnl),
+    percentRealizedPnl: getNumber(record.percentRealizedPnl),
+    curPrice: getNumber(record.curPrice),
+    title: getString(record.title),
+    slug: getString(record.slug),
+    icon: getString(record.icon),
+    eventSlug: getString(record.eventSlug),
+    outcome: getString(record.outcome),
+    outcomeIndex: getInteger(record.outcomeIndex),
+    oppositeOutcome: getString(record.oppositeOutcome),
+    oppositeAsset: getString(record.oppositeAsset),
+    endDate: parseOptionalDate(record.endDate)
+  };
+  const redeemable = getBoolean(record.redeemable);
+  if (redeemable != null) normalized.redeemable = redeemable;
+  const mergeable = getBoolean(record.mergeable);
+  if (mergeable != null) normalized.mergeable = mergeable;
+  const negativeRisk = getBoolean(record.negativeRisk);
+  if (negativeRisk != null) normalized.negativeRisk = negativeRisk;
+  return normalized;
+}
+function normalizeClosedPosition(raw) {
+  const record = raw && typeof raw === "object" ? raw : {};
+  return {
+    proxyWallet: getString(record.proxyWallet),
+    asset: getString(record.asset),
+    conditionId: getString(record.conditionId),
+    avgPrice: getNumber(record.avgPrice),
+    totalBought: getNumber(record.totalBought),
+    realizedPnl: getNumber(record.realizedPnl),
+    curPrice: getNumber(record.curPrice),
+    timestamp: getInteger(record.timestamp),
+    title: getString(record.title),
+    slug: getString(record.slug),
+    icon: getString(record.icon),
+    eventSlug: getString(record.eventSlug),
+    outcome: getString(record.outcome),
+    outcomeIndex: getInteger(record.outcomeIndex),
+    oppositeOutcome: getString(record.oppositeOutcome),
+    oppositeAsset: getString(record.oppositeAsset),
+    endDate: parseOptionalDate(record.endDate)
+  };
+}
+function normalizeUserActivity(raw) {
+  const record = raw && typeof raw === "object" ? raw : {};
+  return {
+    proxyWallet: getString(record.proxyWallet),
+    timestamp: getInteger(record.timestamp),
+    conditionId: getString(record.conditionId),
+    type: getString(record.type),
+    size: getNumber(record.size),
+    usdcSize: getNumber(record.usdcSize),
+    transactionHash: getString(record.transactionHash),
+    price: getNumber(record.price),
+    asset: getString(record.asset),
+    side: getString(record.side),
+    outcomeIndex: getInteger(record.outcomeIndex),
+    title: getString(record.title),
+    slug: getString(record.slug),
+    icon: getString(record.icon),
+    eventSlug: getString(record.eventSlug),
+    outcome: getString(record.outcome),
+    name: getString(record.name),
+    pseudonym: getString(record.pseudonym),
+    bio: getString(record.bio),
+    profileImage: getString(record.profileImage),
+    profileImageOptimized: getString(record.profileImageOptimized)
+  };
+}
+function normalizePositionValue(raw) {
+  const record = raw && typeof raw === "object" ? raw : {};
+  return {
+    user: getString(record.user),
+    value: getNumber(record.value)
+  };
+}
+function normalizeProfileUsers(raw) {
+  if (!Array.isArray(raw)) return null;
+  return raw.map((entry) => {
+    const record = entry && typeof entry === "object" ? entry : {};
+    const normalized = {
+      id: getString(record.id)
+    };
+    const creator = getBoolean(record.creator);
+    if (creator != null) normalized.creator = creator;
+    const mod = getBoolean(record.mod);
+    if (mod != null) normalized.mod = mod;
+    return normalized;
+  });
+}
+function normalizePublicProfile(raw) {
+  if (!raw || typeof raw !== "object") return null;
+  const record = raw;
+  const normalized = {
+    createdAt: parseOptionalDate(record.createdAt),
+    proxyWallet: getString(record.proxyWallet),
+    profileImage: getString(record.profileImage),
+    bio: getString(record.bio),
+    pseudonym: getString(record.pseudonym),
+    name: getString(record.name),
+    users: normalizeProfileUsers(record.users),
+    xUsername: getString(record.xUsername)
+  };
+  const displayUsernamePublic = getBoolean(record.displayUsernamePublic);
+  if (displayUsernamePublic != null) {
+    normalized.displayUsernamePublic = displayUsernamePublic;
+  }
+  const verifiedBadge = getBoolean(record.verifiedBadge);
+  if (verifiedBadge != null) {
+    normalized.verifiedBadge = verifiedBadge;
+  }
+  return normalized;
+}
 var PolymarketInfoClient = class {
   constructor(environment = "mainnet") {
     this.environment = environment;
@@ -6469,6 +6652,21 @@ var PolymarketInfoClient = class {
   }
   priceHistory(params) {
     return fetchPolymarketPriceHistory({ ...params, environment: this.environment });
+  }
+  positions(params) {
+    return fetchPolymarketPositions({ ...params, environment: this.environment });
+  }
+  closedPositions(params) {
+    return fetchPolymarketClosedPositions({ ...params, environment: this.environment });
+  }
+  activity(params) {
+    return fetchPolymarketActivity({ ...params, environment: this.environment });
+  }
+  positionValue(params) {
+    return fetchPolymarketPositionValue({ ...params, environment: this.environment });
+  }
+  publicProfile(address) {
+    return fetchPolymarketPublicProfile({ address, environment: this.environment });
   }
 };
 async function fetchPolymarketMarkets(params = {}) {
@@ -6575,6 +6773,96 @@ async function fetchPolymarketPriceHistory(params) {
     t: Number(point.t),
     p: Number(point.p)
   })).filter((point) => Number.isFinite(point.t) && Number.isFinite(point.p));
+}
+async function fetchPolymarketPositions(params) {
+  const environment = params.environment ?? "mainnet";
+  const market = normalizeCsvStringInput(params.market);
+  const eventIds = normalizeCsvNumberInput(params.eventId);
+  assertMutuallyExclusiveMarketScope(market, eventIds);
+  const baseUrl = resolvePolymarketBaseUrl("data", environment);
+  const url = new URL("/positions", baseUrl);
+  url.searchParams.set("user", params.user);
+  appendCsvParam(url, "market", market);
+  appendCsvParam(
+    url,
+    "eventId",
+    eventIds.map((entry) => String(entry))
+  );
+  appendNumberParam(url, "sizeThreshold", params.sizeThreshold);
+  appendBooleanParam(url, "redeemable", params.redeemable);
+  appendBooleanParam(url, "mergeable", params.mergeable);
+  appendNumberParam(url, "limit", params.limit);
+  appendNumberParam(url, "offset", params.offset);
+  if (params.sortBy) url.searchParams.set("sortBy", params.sortBy);
+  if (params.sortDirection) url.searchParams.set("sortDirection", params.sortDirection);
+  if (params.title) url.searchParams.set("title", params.title);
+  const data = await requestJson3(url.toString());
+  return Array.isArray(data) ? data.map((entry) => normalizeUserPosition(entry)) : [];
+}
+async function fetchPolymarketClosedPositions(params) {
+  const environment = params.environment ?? "mainnet";
+  const market = normalizeCsvStringInput(params.market);
+  const eventIds = normalizeCsvNumberInput(params.eventId);
+  assertMutuallyExclusiveMarketScope(market, eventIds);
+  const baseUrl = resolvePolymarketBaseUrl("data", environment);
+  const url = new URL("/closed-positions", baseUrl);
+  url.searchParams.set("user", params.user);
+  appendCsvParam(url, "market", market);
+  appendCsvParam(
+    url,
+    "eventId",
+    eventIds.map((entry) => String(entry))
+  );
+  appendNumberParam(url, "limit", params.limit);
+  appendNumberParam(url, "offset", params.offset);
+  if (params.sortBy) url.searchParams.set("sortBy", params.sortBy);
+  if (params.sortDirection) url.searchParams.set("sortDirection", params.sortDirection);
+  if (params.title) url.searchParams.set("title", params.title);
+  const data = await requestJson3(url.toString());
+  return Array.isArray(data) ? data.map((entry) => normalizeClosedPosition(entry)) : [];
+}
+async function fetchPolymarketActivity(params) {
+  const environment = params.environment ?? "mainnet";
+  const market = normalizeCsvStringInput(params.market);
+  const eventIds = normalizeCsvNumberInput(params.eventId);
+  assertMutuallyExclusiveMarketScope(market, eventIds);
+  const types = Array.isArray(params.type) ? params.type : params.type ? [params.type] : [];
+  const baseUrl = resolvePolymarketBaseUrl("data", environment);
+  const url = new URL("/activity", baseUrl);
+  url.searchParams.set("user", params.user);
+  appendCsvParam(url, "market", market);
+  appendCsvParam(
+    url,
+    "eventId",
+    eventIds.map((entry) => String(entry))
+  );
+  appendCsvParam(url, "type", types);
+  appendNumberParam(url, "start", params.start);
+  appendNumberParam(url, "end", params.end);
+  appendNumberParam(url, "limit", params.limit);
+  appendNumberParam(url, "offset", params.offset);
+  if (params.sortBy) url.searchParams.set("sortBy", params.sortBy);
+  if (params.sortDirection) url.searchParams.set("sortDirection", params.sortDirection);
+  if (params.side) url.searchParams.set("side", params.side);
+  const data = await requestJson3(url.toString());
+  return Array.isArray(data) ? data.map((entry) => normalizeUserActivity(entry)) : [];
+}
+async function fetchPolymarketPositionValue(params) {
+  const environment = params.environment ?? "mainnet";
+  const baseUrl = resolvePolymarketBaseUrl("data", environment);
+  const url = new URL("/value", baseUrl);
+  url.searchParams.set("user", params.user);
+  appendCsvParam(url, "market", normalizeCsvStringInput(params.market));
+  const data = await requestJson3(url.toString());
+  return Array.isArray(data) ? data.map((entry) => normalizePositionValue(entry)) : [];
+}
+async function fetchPolymarketPublicProfile(params) {
+  const environment = params.environment ?? "mainnet";
+  const baseUrl = resolvePolymarketBaseUrl("gamma", environment);
+  const url = new URL("/public-profile", baseUrl);
+  url.searchParams.set("address", params.address);
+  const data = await requestJson3(url.toString());
+  return normalizePublicProfile(data);
 }
 
 // src/adapters/news/signals.ts
@@ -7613,6 +7901,6 @@ function buildBacktestDecisionSeriesInput(request) {
   };
 }
 
-export { AIAbortError, AIError, AIFetchError, AIResponseError, BACKTEST_DECISION_MODE, DEFAULT_BASE_URL, DEFAULT_CHAIN, DEFAULT_FACILITATOR, DEFAULT_HYPERLIQUID_CADENCE_CRON, DEFAULT_HYPERLIQUID_MARKET_SLIPPAGE_BPS, DEFAULT_HYPERLIQUID_TPSL_MARKET_SLIPPAGE_BPS, DEFAULT_MODEL, DEFAULT_OPENPOND_GATEWAY_URL2 as DEFAULT_OPENPOND_GATEWAY_URL, DEFAULT_TIMEOUT_MS, DEFAULT_TOKENS, HTTP_METHODS2 as HTTP_METHODS, HYPERLIQUID_HIP3_DEXES, HyperliquidApiError, HyperliquidBuilderApprovalError, HyperliquidExchangeClient, HyperliquidGuardError, HyperliquidInfoClient, HyperliquidTermsError, NewsSignalClient, PAYMENT_HEADERS, POLYMARKET_CHAIN_ID, POLYMARKET_CLOB_AUTH_DOMAIN, POLYMARKET_CLOB_DOMAIN, POLYMARKET_ENDPOINTS, POLYMARKET_EXCHANGE_ADDRESSES, PolymarketApiError, PolymarketAuthError, PolymarketExchangeClient, PolymarketInfoClient, SUPPORTED_CURRENCIES, StoreError, WEBSEARCH_TOOL_DEFINITION, WEBSEARCH_TOOL_NAME, X402BrowserClient, X402Client, X402PaymentRequiredError, __hyperliquidInternals, __hyperliquidMarketDataInternals, approveHyperliquidBuilderFee, backtestDecisionRequestSchema, batchModifyHyperliquidOrders, buildBacktestDecisionSeriesInput, buildHmacSignature, buildHyperliquidMarketDescriptor, buildHyperliquidMarketIdentity, buildHyperliquidProfileAssets, buildHyperliquidSpotUsdPriceMap, buildL1Headers, buildL2Headers, buildPolymarketOrderAmounts, buildSignedOrderPayload, cancelAllHyperliquidOrders, cancelAllPolymarketOrders, cancelHyperliquidOrders, cancelHyperliquidOrdersByCloid, cancelHyperliquidTwapOrder, cancelMarketPolymarketOrders, cancelPolymarketOrder, cancelPolymarketOrders, chains, clampHyperliquidAbs, clampHyperliquidFloat, clampHyperliquidInt, computeHyperliquidMarketIocLimitPrice, createAIClient, createDevServer, createHyperliquidSubAccount, createMcpAdapter, createMonotonicNonceFactory, createPolymarketApiKey, createStdioServer, defineX402Payment, depositToHyperliquidBridge, derivePolymarketApiKey, ensureTextContent, estimateCountBack, estimateHyperliquidLiquidationPrice, evaluateNewsContinuationGate, executeTool, extractHyperliquidDex, extractHyperliquidOrderIds, fetchHyperliquidActiveAsset, fetchHyperliquidAllMids, fetchHyperliquidAssetCtxs, fetchHyperliquidBars, fetchHyperliquidClearinghouseState, fetchHyperliquidDexMeta, fetchHyperliquidDexMetaAndAssetCtxs, fetchHyperliquidFrontendOpenOrders, fetchHyperliquidFrontendOpenOrdersAcrossDexes, fetchHyperliquidHistoricalOrders, fetchHyperliquidMeta, fetchHyperliquidMetaAndAssetCtxs, fetchHyperliquidOpenOrders, fetchHyperliquidOpenOrdersAcrossDexes, fetchHyperliquidOrderStatus, fetchHyperliquidPerpMarketInfo, fetchHyperliquidPreTransferCheck, fetchHyperliquidResolvedMarketDescriptor, fetchHyperliquidSizeDecimals, fetchHyperliquidSpotAccountValue, fetchHyperliquidSpotAssetCtxs, fetchHyperliquidSpotClearinghouseState, fetchHyperliquidSpotMarketInfo, fetchHyperliquidSpotMeta, fetchHyperliquidSpotMetaAndAssetCtxs, fetchHyperliquidSpotTickSize, fetchHyperliquidSpotUsdPriceMap, fetchHyperliquidTickSize, fetchHyperliquidUserFills, fetchHyperliquidUserFillsByTime, fetchHyperliquidUserRateLimit, fetchNewsEventSignal, fetchNewsPropositionSignal, fetchPolymarketMarket, fetchPolymarketMarkets, fetchPolymarketMidpoint, fetchPolymarketOrderbook, fetchPolymarketPrice, fetchPolymarketPriceHistory, flattenMessageContent, formatHyperliquidMarketablePrice, formatHyperliquidOrderSize, formatHyperliquidPrice, formatHyperliquidSize, generateText, getHyperliquidMaxBuilderFee, getKnownHyperliquidDexes, getModelConfig, getMyPerformance, getMyTools, getRpcUrl, getX402PaymentContext, isHyperliquidSpotSymbol, isStreamingSupported, isToolCallingSupported, listModels, modifyHyperliquidOrder, normalizeHyperliquidBaseSymbol, normalizeHyperliquidDcaEntries, normalizeHyperliquidIndicatorBars, normalizeHyperliquidMetaSymbol, normalizeModelName, normalizeNumberArrayish, normalizeSpotTokenName2 as normalizeSpotTokenName, normalizeStringArrayish, parseHyperliquidJson, parseHyperliquidSymbol, parseSpotPairSymbol, parseTimeToSeconds, payX402, payX402WithWallet, placeHyperliquidOrder2 as placeHyperliquidOrder, placeHyperliquidOrderWithTpSl, placeHyperliquidPositionTpSl, placeHyperliquidTwapOrder, placePolymarketOrder, planHyperliquidTrade, postAgentDigest, readHyperliquidAccountValue, readHyperliquidNumber, readHyperliquidPerpPosition, readHyperliquidPerpPositionSize, readHyperliquidSpotAccountValue, readHyperliquidSpotBalance, readHyperliquidSpotBalanceSize, recordHyperliquidBuilderApproval, recordHyperliquidTermsAcceptance, registry, requireX402Payment, reserveHyperliquidRequestWeight, resolutionToSeconds, resolveBacktestAccountValueUsd, resolveBacktestMode, resolveBacktestWindow, resolveConfig2 as resolveConfig, resolveExchangeAddress, resolveHyperliquidAbstractionFromMode, resolveHyperliquidBudgetUsd, resolveHyperliquidCadenceCron, resolveHyperliquidCadenceFromResolution, resolveHyperliquidChain, resolveHyperliquidChainConfig, resolveHyperliquidDcaSymbolEntries, resolveHyperliquidErrorDetail, resolveHyperliquidHourlyInterval, resolveHyperliquidIntervalCron, resolveHyperliquidLeverageMode, resolveHyperliquidMarketDataCoin, resolveHyperliquidMaxPerRunUsd, resolveHyperliquidOrderRef, resolveHyperliquidOrderSymbol, resolveHyperliquidPair, resolveHyperliquidPerpSymbol, resolveHyperliquidProfileChain, resolveHyperliquidRpcEnvVar, resolveHyperliquidScheduleEvery, resolveHyperliquidScheduleUnit, resolveHyperliquidSpotSymbol, resolveHyperliquidStoreNetwork, resolveHyperliquidSymbol, resolveHyperliquidTargetSize, resolveNewsGatewayBase, resolvePolymarketBaseUrl, resolveRuntimePath, resolveSpotMidCandidates, resolveSpotTokenCandidates, resolveToolset, responseToToolResponse, retrieve, roundHyperliquidPriceToTick, scheduleHyperliquidCancel, sendHyperliquidSpot, setHyperliquidAccountAbstractionMode, setHyperliquidPortfolioMargin, store, streamText, supportsHyperliquidBuilderFee, tokens, transferHyperliquidSubAccount, updateHyperliquidIsolatedMargin, updateHyperliquidLeverage, wallet, walletToolkit, withX402Payment, withdrawFromHyperliquid };
+export { AIAbortError, AIError, AIFetchError, AIResponseError, BACKTEST_DECISION_MODE, DEFAULT_BASE_URL, DEFAULT_CHAIN, DEFAULT_FACILITATOR, DEFAULT_HYPERLIQUID_CADENCE_CRON, DEFAULT_HYPERLIQUID_MARKET_SLIPPAGE_BPS, DEFAULT_HYPERLIQUID_TPSL_MARKET_SLIPPAGE_BPS, DEFAULT_MODEL, DEFAULT_OPENPOND_GATEWAY_URL2 as DEFAULT_OPENPOND_GATEWAY_URL, DEFAULT_TIMEOUT_MS, DEFAULT_TOKENS, HTTP_METHODS2 as HTTP_METHODS, HYPERLIQUID_HIP3_DEXES, HyperliquidApiError, HyperliquidBuilderApprovalError, HyperliquidExchangeClient, HyperliquidGuardError, HyperliquidInfoClient, HyperliquidTermsError, NewsSignalClient, PAYMENT_HEADERS, POLYMARKET_CHAIN_ID, POLYMARKET_CLOB_AUTH_DOMAIN, POLYMARKET_CLOB_DOMAIN, POLYMARKET_ENDPOINTS, POLYMARKET_EXCHANGE_ADDRESSES, PolymarketApiError, PolymarketAuthError, PolymarketExchangeClient, PolymarketInfoClient, SUPPORTED_CURRENCIES, StoreError, WEBSEARCH_TOOL_DEFINITION, WEBSEARCH_TOOL_NAME, X402BrowserClient, X402Client, X402PaymentRequiredError, __hyperliquidInternals, __hyperliquidMarketDataInternals, approveHyperliquidBuilderFee, backtestDecisionRequestSchema, batchModifyHyperliquidOrders, buildBacktestDecisionSeriesInput, buildHmacSignature, buildHyperliquidMarketDescriptor, buildHyperliquidMarketIdentity, buildHyperliquidProfileAssets, buildHyperliquidSpotUsdPriceMap, buildL1Headers, buildL2Headers, buildPolymarketOrderAmounts, buildSignedOrderPayload, cancelAllHyperliquidOrders, cancelAllPolymarketOrders, cancelHyperliquidOrders, cancelHyperliquidOrdersByCloid, cancelHyperliquidTwapOrder, cancelMarketPolymarketOrders, cancelPolymarketOrder, cancelPolymarketOrders, chains, clampHyperliquidAbs, clampHyperliquidFloat, clampHyperliquidInt, computeHyperliquidMarketIocLimitPrice, createAIClient, createDevServer, createHyperliquidSubAccount, createMcpAdapter, createMonotonicNonceFactory, createOrDerivePolymarketApiKey, createPolymarketApiKey, createStdioServer, defineX402Payment, depositToHyperliquidBridge, derivePolymarketApiKey, ensureTextContent, estimateCountBack, estimateHyperliquidLiquidationPrice, evaluateNewsContinuationGate, executeTool, extractHyperliquidDex, extractHyperliquidOrderIds, fetchHyperliquidActiveAsset, fetchHyperliquidAllMids, fetchHyperliquidAssetCtxs, fetchHyperliquidBars, fetchHyperliquidClearinghouseState, fetchHyperliquidDexMeta, fetchHyperliquidDexMetaAndAssetCtxs, fetchHyperliquidFrontendOpenOrders, fetchHyperliquidFrontendOpenOrdersAcrossDexes, fetchHyperliquidHistoricalOrders, fetchHyperliquidMeta, fetchHyperliquidMetaAndAssetCtxs, fetchHyperliquidOpenOrders, fetchHyperliquidOpenOrdersAcrossDexes, fetchHyperliquidOrderStatus, fetchHyperliquidPerpMarketInfo, fetchHyperliquidPreTransferCheck, fetchHyperliquidResolvedMarketDescriptor, fetchHyperliquidSizeDecimals, fetchHyperliquidSpotAccountValue, fetchHyperliquidSpotAssetCtxs, fetchHyperliquidSpotClearinghouseState, fetchHyperliquidSpotMarketInfo, fetchHyperliquidSpotMeta, fetchHyperliquidSpotMetaAndAssetCtxs, fetchHyperliquidSpotTickSize, fetchHyperliquidSpotUsdPriceMap, fetchHyperliquidTickSize, fetchHyperliquidUserFills, fetchHyperliquidUserFillsByTime, fetchHyperliquidUserRateLimit, fetchNewsEventSignal, fetchNewsPropositionSignal, fetchPolymarketActivity, fetchPolymarketClosedPositions, fetchPolymarketMarket, fetchPolymarketMarkets, fetchPolymarketMidpoint, fetchPolymarketOrderbook, fetchPolymarketPositionValue, fetchPolymarketPositions, fetchPolymarketPrice, fetchPolymarketPriceHistory, fetchPolymarketPublicProfile, flattenMessageContent, formatHyperliquidMarketablePrice, formatHyperliquidOrderSize, formatHyperliquidPrice, formatHyperliquidSize, generateText, getHyperliquidMaxBuilderFee, getKnownHyperliquidDexes, getModelConfig, getMyPerformance, getMyTools, getRpcUrl, getX402PaymentContext, isHyperliquidSpotSymbol, isStreamingSupported, isToolCallingSupported, listModels, modifyHyperliquidOrder, normalizeHyperliquidBaseSymbol, normalizeHyperliquidDcaEntries, normalizeHyperliquidIndicatorBars, normalizeHyperliquidMetaSymbol, normalizeModelName, normalizeNumberArrayish, normalizeSpotTokenName2 as normalizeSpotTokenName, normalizeStringArrayish, parseHyperliquidJson, parseHyperliquidSymbol, parseSpotPairSymbol, parseTimeToSeconds, payX402, payX402WithWallet, placeHyperliquidOrder2 as placeHyperliquidOrder, placeHyperliquidOrderWithTpSl, placeHyperliquidPositionTpSl, placeHyperliquidTwapOrder, placePolymarketOrder, planHyperliquidTrade, postAgentDigest, readHyperliquidAccountValue, readHyperliquidNumber, readHyperliquidPerpPosition, readHyperliquidPerpPositionSize, readHyperliquidSpotAccountValue, readHyperliquidSpotBalance, readHyperliquidSpotBalanceSize, recordHyperliquidBuilderApproval, recordHyperliquidTermsAcceptance, registry, requireX402Payment, reserveHyperliquidRequestWeight, resolutionToSeconds, resolveBacktestAccountValueUsd, resolveBacktestMode, resolveBacktestWindow, resolveConfig2 as resolveConfig, resolveExchangeAddress, resolveHyperliquidAbstractionFromMode, resolveHyperliquidBudgetUsd, resolveHyperliquidCadenceCron, resolveHyperliquidCadenceFromResolution, resolveHyperliquidChain, resolveHyperliquidChainConfig, resolveHyperliquidDcaSymbolEntries, resolveHyperliquidErrorDetail, resolveHyperliquidHourlyInterval, resolveHyperliquidIntervalCron, resolveHyperliquidLeverageMode, resolveHyperliquidMarketDataCoin, resolveHyperliquidMaxPerRunUsd, resolveHyperliquidOrderRef, resolveHyperliquidOrderSymbol, resolveHyperliquidPair, resolveHyperliquidPerpSymbol, resolveHyperliquidProfileChain, resolveHyperliquidRpcEnvVar, resolveHyperliquidScheduleEvery, resolveHyperliquidScheduleUnit, resolveHyperliquidSpotSymbol, resolveHyperliquidStoreNetwork, resolveHyperliquidSymbol, resolveHyperliquidTargetSize, resolveNewsGatewayBase, resolvePolymarketBaseUrl, resolveRuntimePath, resolveSpotMidCandidates, resolveSpotTokenCandidates, resolveToolset, responseToToolResponse, retrieve, roundHyperliquidPriceToTick, scheduleHyperliquidCancel, sendHyperliquidSpot, setHyperliquidAccountAbstractionMode, setHyperliquidPortfolioMargin, store, streamText, supportsHyperliquidBuilderFee, tokens, transferHyperliquidSubAccount, updateHyperliquidIsolatedMargin, updateHyperliquidLeverage, wallet, walletToolkit, withX402Payment, withdrawFromHyperliquid };
 //# sourceMappingURL=index.js.map
 //# sourceMappingURL=index.js.map
