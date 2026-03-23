@@ -59,6 +59,22 @@ export {
   fetchPolymarketPublicProfile,
   PolymarketInfoClient,
 } from "./info";
+export type {
+  PolymarketBootstrapContracts,
+  PolymarketBootstrapTransaction,
+  PolymarketDepositAddressSet,
+  PolymarketDepositAddressesResponse,
+  PolymarketApprovalState,
+} from "./bootstrap";
+export {
+  resolvePolymarketBootstrapContracts,
+  buildPolymarketUsdcApprovalTransaction,
+  buildPolymarketOutcomeTokenApprovalTransactions,
+  buildPolymarketApprovalTransactions,
+  fetchPolymarketApprovalState,
+  fetchPolymarketDepositAddresses,
+  decodePolymarketBootstrapTransaction,
+} from "./bootstrap";
 
 export type {
   PolymarketUserPosition,

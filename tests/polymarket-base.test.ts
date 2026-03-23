@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { createHmac } from "node:crypto";
 import {
+  buildL1Headers,
   buildHmacSignature,
   buildPolymarketOrderAmounts,
   normalizeNumberArrayish,
@@ -54,4 +55,34 @@ test("buildPolymarketOrderAmounts calculates quote/size correctly", () => {
   });
   assert.equal(sell.makerAmount.toString(), "10000000");
   assert.equal(sell.takerAmount.toString(), "5000000");
+});
+
+test("buildL1Headers uses the official Polymarket attestation message by default", async () => {
+  let capturedMessage: unknown = null;
+
+  const headers = await buildL1Headers({
+    wallet: {
+      address: "0x0000000000000000000000000000000000000001",
+      account: {
+        address: "0x0000000000000000000000000000000000000001",
+        type: "json-rpc",
+      },
+      walletClient: {
+        signTypedData: async (params: { message: unknown }) => {
+          capturedMessage = params.message;
+          return "0xsignature";
+        },
+      },
+    } as never,
+    timestamp: 1700000000,
+    nonce: 42,
+  });
+
+  assert.equal(headers.POLY_SIGNATURE, "0xsignature");
+  assert.deepEqual(capturedMessage, {
+    address: "0x0000000000000000000000000000000000000001",
+    timestamp: "1700000000",
+    nonce: 42n,
+    message: "This message attests that I control the given wallet",
+  });
 });

@@ -167,13 +167,31 @@ export async function derivePolymarketApiKey(
 export async function createOrDerivePolymarketApiKey(
   args: PolymarketApiKeyRequestArgs,
 ): Promise<PolymarketApiKeyResponse> {
+  let deriveError: unknown;
+
+  try {
+    const derived = normalizeApiKeyResponse(
+      await requestPolymarketApiKey({ ...args, mode: "derive" }),
+    );
+    if (derived) {
+      return derived;
+    }
+  } catch (error) {
+    deriveError = error;
+  }
+
   const created = normalizeApiKeyResponse(
     await requestPolymarketApiKey({ ...args, mode: "create" }),
   );
   if (created) {
     return created;
   }
-  return derivePolymarketApiKey(args);
+
+  if (deriveError) {
+    throw deriveError;
+  }
+
+  throw new PolymarketAuthError("Failed to derive or create Polymarket API key.");
 }
 
 export async function placePolymarketOrder(args: {

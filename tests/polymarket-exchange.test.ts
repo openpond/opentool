@@ -78,7 +78,7 @@ test("placePolymarketOrder builds signed payload and L2 headers", async () => {
   }
 });
 
-test("createOrDerivePolymarketApiKey falls back to derive when create returns an empty payload", async () => {
+test("createOrDerivePolymarketApiKey falls back to create when derive returns an empty payload", async () => {
   const mockWallet = createMockWallet();
   let callCount = 0;
 
@@ -86,18 +86,18 @@ test("createOrDerivePolymarketApiKey falls back to derive when create returns an
     callCount += 1;
 
     if (callCount === 1) {
-      assert.ok(url.endsWith("/auth/api-key"));
-      assert.equal(init?.method, "POST");
+      assert.ok(url.endsWith("/auth/derive-api-key"));
+      assert.equal(init?.method, "GET");
       return new Response(JSON.stringify({}), { status: 200 });
     }
 
-    assert.ok(url.endsWith("/auth/derive-api-key"));
-    assert.equal(init?.method, "GET");
+    assert.ok(url.endsWith("/auth/api-key"));
+    assert.equal(init?.method, "POST");
     return new Response(
       JSON.stringify({
-        apiKey: "derived-key",
-        secret: Buffer.from("derived-secret").toString("base64"),
-        passphrase: "derived-passphrase",
+        apiKey: "created-key",
+        secret: Buffer.from("created-secret").toString("base64"),
+        passphrase: "created-passphrase",
       }),
       { status: 200 },
     );
@@ -106,9 +106,9 @@ test("createOrDerivePolymarketApiKey falls back to derive when create returns an
   try {
     const result = await createOrDerivePolymarketApiKey({ wallet: mockWallet });
     assert.deepEqual(result, {
-      apiKey: "derived-key",
-      secret: Buffer.from("derived-secret").toString("base64"),
-      passphrase: "derived-passphrase",
+      apiKey: "created-key",
+      secret: Buffer.from("created-secret").toString("base64"),
+      passphrase: "created-passphrase",
     });
   } finally {
     restore();
@@ -123,17 +123,17 @@ test("placePolymarketOrder bootstraps credentials with create-or-derive when non
     callCount += 1;
 
     if (callCount === 1) {
-      assert.ok(url.endsWith("/auth/api-key"));
+      assert.ok(url.endsWith("/auth/derive-api-key"));
       return new Response(JSON.stringify({}), { status: 200 });
     }
 
     if (callCount === 2) {
-      assert.ok(url.endsWith("/auth/derive-api-key"));
+      assert.ok(url.endsWith("/auth/api-key"));
       return new Response(
         JSON.stringify({
-          apiKey: "derived-key",
-          secret: Buffer.from("derived-secret").toString("base64"),
-          passphrase: "derived-passphrase",
+          apiKey: "created-key",
+          secret: Buffer.from("created-secret").toString("base64"),
+          passphrase: "created-passphrase",
         }),
         { status: 200 },
       );
@@ -141,7 +141,7 @@ test("placePolymarketOrder bootstraps credentials with create-or-derive when non
 
     const body = JSON.parse(init?.body as string);
     assert.ok(url.endsWith("/order"));
-    assert.equal(body.owner, "derived-key");
+    assert.equal(body.owner, "created-key");
 
     return new Response(JSON.stringify({ orderId: "2" }), { status: 200 });
   });
