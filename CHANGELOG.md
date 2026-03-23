@@ -1,5 +1,11 @@
 # opentool
 
+## 0.19.0
+
+### Minor Changes
+
+- bd8d549: added polymarket support
+
 ## 0.18.0
 
 ### Minor Changes
