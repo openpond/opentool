@@ -200,6 +200,7 @@ declare function createOrDerivePolymarketApiKey(args: PolymarketApiKeyRequestArg
 declare function placePolymarketOrder(args: {
     wallet: WalletFullContext;
     credentials?: PolymarketApiCredentials;
+    apiKeyNonce?: number;
     order: PolymarketOrderIntent;
     orderType?: PolymarketOrderType;
     environment?: PolymarketEnvironment;
@@ -209,6 +210,7 @@ declare function cancelPolymarketOrder(args: {
     wallet?: WalletFullContext;
     walletAddress?: `0x${string}`;
     credentials?: PolymarketApiCredentials;
+    apiKeyNonce?: number;
     environment?: PolymarketEnvironment;
 }): Promise<Record<string, unknown>>;
 declare function cancelPolymarketOrders(args: {
@@ -216,12 +218,14 @@ declare function cancelPolymarketOrders(args: {
     wallet?: WalletFullContext;
     walletAddress?: `0x${string}`;
     credentials?: PolymarketApiCredentials;
+    apiKeyNonce?: number;
     environment?: PolymarketEnvironment;
 }): Promise<Record<string, unknown>>;
 declare function cancelAllPolymarketOrders(args: {
     wallet?: WalletFullContext;
     walletAddress?: `0x${string}`;
     credentials?: PolymarketApiCredentials;
+    apiKeyNonce?: number;
     environment?: PolymarketEnvironment;
 }): Promise<Record<string, unknown>>;
 declare function cancelMarketPolymarketOrders(args: {
@@ -229,16 +233,19 @@ declare function cancelMarketPolymarketOrders(args: {
     wallet?: WalletFullContext;
     walletAddress?: `0x${string}`;
     credentials?: PolymarketApiCredentials;
+    apiKeyNonce?: number;
     environment?: PolymarketEnvironment;
 }): Promise<Record<string, unknown>>;
 declare class PolymarketExchangeClient {
     private readonly wallet;
     private readonly credentials;
+    private readonly apiKeyNonce;
     private readonly environment;
     private cachedCredentials;
     constructor(args: {
         wallet: WalletFullContext;
         credentials?: PolymarketApiCredentials;
+        apiKeyNonce?: number;
         environment?: PolymarketEnvironment;
     });
     private getCredentials;

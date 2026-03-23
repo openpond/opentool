@@ -51,21 +51,45 @@ interface PolymarketApiKeyRequestArgs {
   message?: string;
 }
 
+function requireApiKeyNonce(
+  nonce: number | undefined,
+  message = "Polymarket API key operations require an explicit nonce.",
+): number {
+  if (!Number.isSafeInteger(nonce) || nonce == null || nonce < 0) {
+    throw new PolymarketAuthError(message);
+  }
+  return nonce;
+}
+
 async function resolveAuthContext(args: {
   wallet?: WalletFullContext;
   walletAddress?: `0x${string}`;
   credentials?: PolymarketApiCredentials;
   environment?: PolymarketEnvironment;
+  apiKeyNonce?: number;
 }): Promise<{ credentials: PolymarketApiCredentials; address: `0x${string}` }> {
   if (args.wallet) {
-    const credentials =
-      args.credentials ??
-      (await createOrDerivePolymarketApiKey({
-        wallet: args.wallet,
-        ...(args.environment ? { environment: args.environment } : {}),
-      }));
+    const credentials = args.credentials;
+    if (credentials) {
+      return {
+        credentials,
+        address: args.wallet.address as `0x${string}`,
+      };
+    }
+
+    const apiKeyNonce = requireApiKeyNonce(
+      args.apiKeyNonce,
+      "Polymarket auto-auth requires apiKeyNonce when credentials are not provided.",
+    );
+
+    const derivedCredentials = await derivePolymarketApiKey({
+      wallet: args.wallet,
+      ...(args.environment ? { environment: args.environment } : {}),
+      nonce: apiKeyNonce,
+    });
+
     return {
-      credentials,
+      credentials: derivedCredentials,
       address: args.wallet.address as `0x${string}`,
     };
   }
@@ -121,12 +145,15 @@ async function requestPolymarketApiKey(
   const environment = args.environment ?? "mainnet";
   const baseUrl = resolvePolymarketBaseUrl("clob", environment);
   const url =
-    args.mode === "create" ? `${baseUrl}/auth/api-key` : `${baseUrl}/auth/derive-api-key`;
+    args.mode === "create"
+      ? `${baseUrl}/auth/api-key`
+      : `${baseUrl}/auth/derive-api-key`;
+  const nonce = requireApiKeyNonce(args.nonce);
   const headers = await buildL1Headers({
     wallet: args.wallet,
     environment,
     ...(args.timestamp !== undefined ? { timestamp: args.timestamp } : {}),
-    ...(args.nonce !== undefined ? { nonce: args.nonce } : {}),
+    nonce,
     ...(args.message !== undefined ? { message: args.message } : {}),
   });
 
@@ -191,12 +218,15 @@ export async function createOrDerivePolymarketApiKey(
     throw deriveError;
   }
 
-  throw new PolymarketAuthError("Failed to derive or create Polymarket API key.");
+  throw new PolymarketAuthError(
+    "Failed to derive or create Polymarket API key.",
+  );
 }
 
 export async function placePolymarketOrder(args: {
   wallet: WalletFullContext;
   credentials?: PolymarketApiCredentials;
+  apiKeyNonce?: number;
   order: PolymarketOrderIntent;
   orderType?: PolymarketOrderType;
   environment?: PolymarketEnvironment;
@@ -215,6 +245,9 @@ export async function placePolymarketOrder(args: {
     wallet: args.wallet,
     ...(args.credentials ? { credentials: args.credentials } : {}),
     environment,
+    ...(args.apiKeyNonce !== undefined
+      ? { apiKeyNonce: args.apiKeyNonce }
+      : {}),
   });
 
   const body = {
@@ -246,6 +279,7 @@ export async function cancelPolymarketOrder(args: {
   wallet?: WalletFullContext;
   walletAddress?: `0x${string}`;
   credentials?: PolymarketApiCredentials;
+  apiKeyNonce?: number;
   environment?: PolymarketEnvironment;
 }): Promise<Record<string, unknown>> {
   const environment = args.environment ?? "mainnet";
@@ -258,6 +292,9 @@ export async function cancelPolymarketOrder(args: {
     ...(args.walletAddress ? { walletAddress: args.walletAddress } : {}),
     ...(args.credentials ? { credentials: args.credentials } : {}),
     environment,
+    ...(args.apiKeyNonce !== undefined
+      ? { apiKeyNonce: args.apiKeyNonce }
+      : {}),
   });
 
   const headers = buildL2Headers({
@@ -283,6 +320,7 @@ export async function cancelPolymarketOrders(args: {
   wallet?: WalletFullContext;
   walletAddress?: `0x${string}`;
   credentials?: PolymarketApiCredentials;
+  apiKeyNonce?: number;
   environment?: PolymarketEnvironment;
 }): Promise<Record<string, unknown>> {
   const environment = args.environment ?? "mainnet";
@@ -295,6 +333,9 @@ export async function cancelPolymarketOrders(args: {
     ...(args.walletAddress ? { walletAddress: args.walletAddress } : {}),
     ...(args.credentials ? { credentials: args.credentials } : {}),
     environment,
+    ...(args.apiKeyNonce !== undefined
+      ? { apiKeyNonce: args.apiKeyNonce }
+      : {}),
   });
 
   const headers = buildL2Headers({
@@ -319,6 +360,7 @@ export async function cancelAllPolymarketOrders(args: {
   wallet?: WalletFullContext;
   walletAddress?: `0x${string}`;
   credentials?: PolymarketApiCredentials;
+  apiKeyNonce?: number;
   environment?: PolymarketEnvironment;
 }): Promise<Record<string, unknown>> {
   const environment = args.environment ?? "mainnet";
@@ -329,6 +371,9 @@ export async function cancelAllPolymarketOrders(args: {
     ...(args.walletAddress ? { walletAddress: args.walletAddress } : {}),
     ...(args.credentials ? { credentials: args.credentials } : {}),
     environment,
+    ...(args.apiKeyNonce !== undefined
+      ? { apiKeyNonce: args.apiKeyNonce }
+      : {}),
   });
   const headers = buildL2Headers({
     credentials: auth.credentials,
@@ -351,6 +396,7 @@ export async function cancelMarketPolymarketOrders(args: {
   wallet?: WalletFullContext;
   walletAddress?: `0x${string}`;
   credentials?: PolymarketApiCredentials;
+  apiKeyNonce?: number;
   environment?: PolymarketEnvironment;
 }): Promise<Record<string, unknown>> {
   const environment = args.environment ?? "mainnet";
@@ -362,6 +408,9 @@ export async function cancelMarketPolymarketOrders(args: {
     ...(args.walletAddress ? { walletAddress: args.walletAddress } : {}),
     ...(args.credentials ? { credentials: args.credentials } : {}),
     environment,
+    ...(args.apiKeyNonce !== undefined
+      ? { apiKeyNonce: args.apiKeyNonce }
+      : {}),
   });
   const headers = buildL2Headers({
     credentials: auth.credentials,
@@ -384,16 +433,19 @@ export async function cancelMarketPolymarketOrders(args: {
 export class PolymarketExchangeClient {
   private readonly wallet: WalletFullContext;
   private readonly credentials: PolymarketApiCredentials | undefined;
+  private readonly apiKeyNonce: number | undefined;
   private readonly environment: PolymarketEnvironment;
   private cachedCredentials: PolymarketApiCredentials | undefined;
 
   constructor(args: {
     wallet: WalletFullContext;
     credentials?: PolymarketApiCredentials;
+    apiKeyNonce?: number;
     environment?: PolymarketEnvironment;
   }) {
     this.wallet = args.wallet;
     this.credentials = args.credentials;
+    this.apiKeyNonce = args.apiKeyNonce;
     this.environment = args.environment ?? "mainnet";
   }
 
@@ -403,12 +455,18 @@ export class PolymarketExchangeClient {
       wallet: this.wallet,
       ...(this.credentials ? { credentials: this.credentials } : {}),
       environment: this.environment,
+      ...(this.apiKeyNonce !== undefined
+        ? { apiKeyNonce: this.apiKeyNonce }
+        : {}),
     });
     this.cachedCredentials = resolved.credentials;
     return resolved.credentials;
   }
 
-  async placeOrder(order: PolymarketOrderIntent, orderType?: PolymarketOrderType) {
+  async placeOrder(
+    order: PolymarketOrderIntent,
+    orderType?: PolymarketOrderType,
+  ) {
     const credentials = await this.getCredentials();
     return placePolymarketOrder({
       wallet: this.wallet,

@@ -4,7 +4,11 @@ import {
   type PolymarketApiCredentials,
 } from "opentool/adapters/polymarket";
 import { store } from "opentool/store";
-import { wallet, type WalletContext, type WalletFullContext } from "opentool/wallet";
+import {
+  wallet,
+  type WalletContext,
+  type WalletFullContext,
+} from "opentool/wallet";
 import { z } from "zod";
 
 const POLYMARKET_ENVIRONMENT = "mainnet" as const;
@@ -26,13 +30,23 @@ const tradeRequestSchema = z
   .strict();
 
 export const profile = {
-  description: "Place one Polymarket order with the operating wallet signer and canonical funder account",
+  description:
+    "Place one Polymarket order with the operating wallet signer and canonical funder account",
   category: "trade",
 };
 
-function assertSignerContext(ctx: WalletContext): asserts ctx is WalletFullContext {
-  if (!("walletClient" in ctx) || !ctx.walletClient || !("account" in ctx) || !ctx.account) {
-    throw new Error("Configure a signer (PRIVATE_KEY or Turnkey env vars) before trading.");
+function assertSignerContext(
+  ctx: WalletContext,
+): asserts ctx is WalletFullContext {
+  if (
+    !("walletClient" in ctx) ||
+    !ctx.walletClient ||
+    !("account" in ctx) ||
+    !ctx.account
+  ) {
+    throw new Error(
+      "Configure a signer (PRIVATE_KEY or Turnkey env vars) before trading.",
+    );
   }
 }
 
@@ -54,10 +68,25 @@ function readFunderAddress(): `0x${string}` {
   const funderAddress = process.env.POLYMARKET_FUNDER_ADDRESS?.trim();
   if (!funderAddress || !/^0x[a-fA-F0-9]{40}$/.test(funderAddress)) {
     throw new Error(
-      "POLYMARKET_FUNDER_ADDRESS must be set to the user's Polymarket funder wallet."
+      "POLYMARKET_FUNDER_ADDRESS must be set to the user's Polymarket funder wallet.",
     );
   }
   return funderAddress as `0x${string}`;
+}
+
+function readApiKeyNonce(): number {
+  const rawNonce = process.env.POLYMARKET_API_NONCE?.trim();
+  if (!rawNonce) {
+    throw new Error("POLYMARKET_API_NONCE must be set for Polymarket trading.");
+  }
+  if (!/^\d+$/.test(rawNonce)) {
+    throw new Error("POLYMARKET_API_NONCE must be a non-negative integer.");
+  }
+  const nonce = Number(rawNonce);
+  if (!Number.isSafeInteger(nonce) || nonce < 0) {
+    throw new Error("POLYMARKET_API_NONCE must be a non-negative integer.");
+  }
+  return nonce;
 }
 
 export async function POST(req: Request) {
@@ -70,12 +99,14 @@ export async function POST(req: Request) {
   });
   assertSignerContext(ctx);
   const funderAddress = readFunderAddress();
+  const apiKeyNonce = readApiKeyNonce();
 
   const credentials =
     readCredentialsFromEnv() ??
     (await createOrDerivePolymarketApiKey({
       wallet: ctx,
       environment,
+      nonce: apiKeyNonce,
     }));
 
   const result = await placePolymarketOrder({
@@ -91,14 +122,19 @@ export async function POST(req: Request) {
       maker: funderAddress,
       signer: ctx.address as `0x${string}`,
       signatureType: POLYMARKET_SIGNATURE_TYPE,
-      ...(payload.expiration !== undefined ? { expiration: payload.expiration } : {}),
+      ...(payload.expiration !== undefined
+        ? { expiration: payload.expiration }
+        : {}),
       ...(payload.nonce !== undefined ? { nonce: payload.nonce } : {}),
-      ...(payload.feeRateBps !== undefined ? { feeRateBps: payload.feeRateBps } : {}),
+      ...(payload.feeRateBps !== undefined
+        ? { feeRateBps: payload.feeRateBps }
+        : {}),
       ...(payload.tickSize ? { tickSize: payload.tickSize } : {}),
     },
   });
 
-  const ref = result.orderId ?? `${payload.conditionId}:${payload.tokenId}:${Date.now()}`;
+  const ref =
+    result.orderId ?? `${payload.conditionId}:${payload.tokenId}:${Date.now()}`;
   await store({
     source: "polymarket",
     ref,

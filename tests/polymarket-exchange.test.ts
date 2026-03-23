@@ -1,14 +1,13 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { WalletFullContext } from "../src/wallet/types";
+import { PolymarketAuthError } from "../src/adapters/polymarket/base";
 import {
   createOrDerivePolymarketApiKey,
   placePolymarketOrder,
 } from "../src/adapters/polymarket/exchange";
 
-function withMockFetch(
-  handler: (url: string, init?: RequestInit) => Promise<Response>
-) {
+function withMockFetch(handler: (url: string, init?: RequestInit) => Promise<Response>) {
   const original = globalThis.fetch;
   globalThis.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
     const url = typeof input === "string" ? input : input.toString();
@@ -45,12 +44,9 @@ test("placePolymarketOrder builds signed payload and L2 headers", async () => {
     assert.equal(body.order.side, 0);
     assert.equal(
       body.order.signature,
-      "0x1111111111111111111111111111111111111111111111111111111111111111"
+      "0x1111111111111111111111111111111111111111111111111111111111111111",
     );
-    assert.equal(
-      headers.get("POLY_ADDRESS"),
-      "0x0000000000000000000000000000000000000001"
-    );
+    assert.equal(headers.get("POLY_ADDRESS"), "0x0000000000000000000000000000000000000001");
     assert.ok(headers.get("POLY_SIGNATURE"));
 
     return new Response(JSON.stringify({ orderId: "1" }), { status: 200 });
@@ -104,7 +100,10 @@ test("createOrDerivePolymarketApiKey falls back to create when derive returns an
   });
 
   try {
-    const result = await createOrDerivePolymarketApiKey({ wallet: mockWallet });
+    const result = await createOrDerivePolymarketApiKey({
+      wallet: mockWallet,
+      nonce: 424242,
+    });
     assert.deepEqual(result, {
       apiKey: "created-key",
       secret: Buffer.from("created-secret").toString("base64"),
@@ -115,25 +114,34 @@ test("createOrDerivePolymarketApiKey falls back to create when derive returns an
   }
 });
 
-test("placePolymarketOrder bootstraps credentials with create-or-derive when none are supplied", async () => {
+test("createOrDerivePolymarketApiKey rejects missing nonce", async () => {
   const mockWallet = createMockWallet();
+
+  await assert.rejects(
+    () => createOrDerivePolymarketApiKey({ wallet: mockWallet }),
+    (error: unknown) =>
+      error instanceof PolymarketAuthError &&
+      error.message === "Polymarket API key operations require an explicit nonce.",
+  );
+});
+
+test("placePolymarketOrder derives credentials with a stable apiKeyNonce when none are supplied", async () => {
+  const mockWallet = createMockWallet();
+  const apiKeyNonce = 424242;
   let callCount = 0;
 
   const restore = withMockFetch(async (url, init) => {
     callCount += 1;
+    const headers = new Headers(init?.headers as HeadersInit);
 
     if (callCount === 1) {
       assert.ok(url.endsWith("/auth/derive-api-key"));
-      return new Response(JSON.stringify({}), { status: 200 });
-    }
-
-    if (callCount === 2) {
-      assert.ok(url.endsWith("/auth/api-key"));
+      assert.equal(headers.get("POLY_NONCE"), apiKeyNonce.toString());
       return new Response(
         JSON.stringify({
-          apiKey: "created-key",
-          secret: Buffer.from("created-secret").toString("base64"),
-          passphrase: "created-passphrase",
+          apiKey: "derived-key",
+          secret: Buffer.from("derived-secret").toString("base64"),
+          passphrase: "derived-passphrase",
         }),
         { status: 200 },
       );
@@ -141,7 +149,7 @@ test("placePolymarketOrder bootstraps credentials with create-or-derive when non
 
     const body = JSON.parse(init?.body as string);
     assert.ok(url.endsWith("/order"));
-    assert.equal(body.owner, "created-key");
+    assert.equal(body.owner, "derived-key");
 
     return new Response(JSON.stringify({ orderId: "2" }), { status: 200 });
   });
@@ -149,6 +157,7 @@ test("placePolymarketOrder bootstraps credentials with create-or-derive when non
   try {
     const result = await placePolymarketOrder({
       wallet: mockWallet,
+      apiKeyNonce,
       order: {
         tokenId: "123",
         side: "BUY",
@@ -158,7 +167,29 @@ test("placePolymarketOrder bootstraps credentials with create-or-derive when non
     });
 
     assert.equal(result.orderId, "2");
+    assert.equal(callCount, 2);
   } finally {
     restore();
   }
+});
+
+test("placePolymarketOrder rejects missing apiKeyNonce when credentials are not supplied", async () => {
+  const mockWallet = createMockWallet();
+
+  await assert.rejects(
+    () =>
+      placePolymarketOrder({
+        wallet: mockWallet,
+        order: {
+          tokenId: "123",
+          side: "BUY",
+          price: 0.4,
+          size: 5,
+        },
+      }),
+    (error: unknown) =>
+      error instanceof PolymarketAuthError &&
+      error.message ===
+        "Polymarket auto-auth requires apiKeyNonce when credentials are not provided.",
+  );
 });

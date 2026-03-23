@@ -313,14 +313,32 @@ async function buildSignedOrderPayload(args) {
 }
 
 // src/adapters/polymarket/exchange.ts
+function requireApiKeyNonce(nonce, message = "Polymarket API key operations require an explicit nonce.") {
+  if (!Number.isSafeInteger(nonce) || nonce == null || nonce < 0) {
+    throw new PolymarketAuthError(message);
+  }
+  return nonce;
+}
 async function resolveAuthContext(args) {
   if (args.wallet) {
-    const credentials = args.credentials ?? await createOrDerivePolymarketApiKey({
+    const credentials = args.credentials;
+    if (credentials) {
+      return {
+        credentials,
+        address: args.wallet.address
+      };
+    }
+    const apiKeyNonce = requireApiKeyNonce(
+      args.apiKeyNonce,
+      "Polymarket auto-auth requires apiKeyNonce when credentials are not provided."
+    );
+    const derivedCredentials = await derivePolymarketApiKey({
       wallet: args.wallet,
-      ...args.environment ? { environment: args.environment } : {}
+      ...args.environment ? { environment: args.environment } : {},
+      nonce: apiKeyNonce
     });
     return {
-      credentials,
+      credentials: derivedCredentials,
       address: args.wallet.address
     };
   }
@@ -366,11 +384,12 @@ async function requestPolymarketApiKey(args) {
   const environment = args.environment ?? "mainnet";
   const baseUrl = resolvePolymarketBaseUrl("clob", environment);
   const url = args.mode === "create" ? `${baseUrl}/auth/api-key` : `${baseUrl}/auth/derive-api-key`;
+  const nonce = requireApiKeyNonce(args.nonce);
   const headers = await buildL1Headers({
     wallet: args.wallet,
     environment,
     ...args.timestamp !== void 0 ? { timestamp: args.timestamp } : {},
-    ...args.nonce !== void 0 ? { nonce: args.nonce } : {},
+    nonce,
     ...args.message !== void 0 ? { message: args.message } : {}
   });
   return await requestJson(url, {
@@ -421,7 +440,9 @@ async function createOrDerivePolymarketApiKey(args) {
   if (deriveError) {
     throw deriveError;
   }
-  throw new PolymarketAuthError("Failed to derive or create Polymarket API key.");
+  throw new PolymarketAuthError(
+    "Failed to derive or create Polymarket API key."
+  );
 }
 async function placePolymarketOrder(args) {
   const environment = args.environment ?? "mainnet";
@@ -435,7 +456,8 @@ async function placePolymarketOrder(args) {
   const auth = await resolveAuthContext({
     wallet: args.wallet,
     ...args.credentials ? { credentials: args.credentials } : {},
-    environment
+    environment,
+    ...args.apiKeyNonce !== void 0 ? { apiKeyNonce: args.apiKeyNonce } : {}
   });
   const body = {
     order: signedOrder,
@@ -467,7 +489,8 @@ async function cancelPolymarketOrder(args) {
     ...args.wallet ? { wallet: args.wallet } : {},
     ...args.walletAddress ? { walletAddress: args.walletAddress } : {},
     ...args.credentials ? { credentials: args.credentials } : {},
-    environment
+    environment,
+    ...args.apiKeyNonce !== void 0 ? { apiKeyNonce: args.apiKeyNonce } : {}
   });
   const headers = buildL2Headers({
     credentials: auth.credentials,
@@ -494,7 +517,8 @@ async function cancelPolymarketOrders(args) {
     ...args.wallet ? { wallet: args.wallet } : {},
     ...args.walletAddress ? { walletAddress: args.walletAddress } : {},
     ...args.credentials ? { credentials: args.credentials } : {},
-    environment
+    environment,
+    ...args.apiKeyNonce !== void 0 ? { apiKeyNonce: args.apiKeyNonce } : {}
   });
   const headers = buildL2Headers({
     credentials: auth.credentials,
@@ -520,7 +544,8 @@ async function cancelAllPolymarketOrders(args) {
     ...args.wallet ? { wallet: args.wallet } : {},
     ...args.walletAddress ? { walletAddress: args.walletAddress } : {},
     ...args.credentials ? { credentials: args.credentials } : {},
-    environment
+    environment,
+    ...args.apiKeyNonce !== void 0 ? { apiKeyNonce: args.apiKeyNonce } : {}
   });
   const headers = buildL2Headers({
     credentials: auth.credentials,
@@ -545,7 +570,8 @@ async function cancelMarketPolymarketOrders(args) {
     ...args.wallet ? { wallet: args.wallet } : {},
     ...args.walletAddress ? { walletAddress: args.walletAddress } : {},
     ...args.credentials ? { credentials: args.credentials } : {},
-    environment
+    environment,
+    ...args.apiKeyNonce !== void 0 ? { apiKeyNonce: args.apiKeyNonce } : {}
   });
   const headers = buildL2Headers({
     credentials: auth.credentials,
@@ -567,6 +593,7 @@ var PolymarketExchangeClient = class {
   constructor(args) {
     this.wallet = args.wallet;
     this.credentials = args.credentials;
+    this.apiKeyNonce = args.apiKeyNonce;
     this.environment = args.environment ?? "mainnet";
   }
   async getCredentials() {
@@ -574,7 +601,8 @@ var PolymarketExchangeClient = class {
     const resolved = await resolveAuthContext({
       wallet: this.wallet,
       ...this.credentials ? { credentials: this.credentials } : {},
-      environment: this.environment
+      environment: this.environment,
+      ...this.apiKeyNonce !== void 0 ? { apiKeyNonce: this.apiKeyNonce } : {}
     });
     this.cachedCredentials = resolved.credentials;
     return resolved.credentials;
