@@ -1,5 +1,5 @@
 import { createHmac, randomBytes } from 'crypto';
-import { parseUnits } from 'viem';
+import { parseUnits, encodeFunctionData, maxUint256, erc20Abi, decodeFunctionData } from 'viem';
 
 // src/adapters/polymarket/base.ts
 var PolymarketApiError = class extends Error {
@@ -159,7 +159,7 @@ async function buildL1Headers(args) {
   const nonce = args.nonce ?? Date.now();
   const chainId = POLYMARKET_CHAIN_ID[args.environment ?? "mainnet"];
   const address = args.wallet.address;
-  const message = args.message ?? "Create or derive a Polymarket API key";
+  const message = args.message ?? "This message attests that I control the given wallet";
   const signature = await args.wallet.walletClient.signTypedData({
     account: args.wallet.account,
     domain: {
@@ -313,14 +313,32 @@ async function buildSignedOrderPayload(args) {
 }
 
 // src/adapters/polymarket/exchange.ts
+function requireApiKeyNonce(nonce, message = "Polymarket API key operations require an explicit nonce.") {
+  if (!Number.isSafeInteger(nonce) || nonce == null || nonce < 0) {
+    throw new PolymarketAuthError(message);
+  }
+  return nonce;
+}
 async function resolveAuthContext(args) {
   if (args.wallet) {
-    const credentials = args.credentials ?? await createOrDerivePolymarketApiKey({
+    const credentials = args.credentials;
+    if (credentials) {
+      return {
+        credentials,
+        address: args.wallet.address
+      };
+    }
+    const apiKeyNonce = requireApiKeyNonce(
+      args.apiKeyNonce,
+      "Polymarket auto-auth requires apiKeyNonce when credentials are not provided."
+    );
+    const derivedCredentials = await derivePolymarketApiKey({
       wallet: args.wallet,
-      ...args.environment ? { environment: args.environment } : {}
+      ...args.environment ? { environment: args.environment } : {},
+      nonce: apiKeyNonce
     });
     return {
-      credentials,
+      credentials: derivedCredentials,
       address: args.wallet.address
     };
   }
@@ -366,11 +384,12 @@ async function requestPolymarketApiKey(args) {
   const environment = args.environment ?? "mainnet";
   const baseUrl = resolvePolymarketBaseUrl("clob", environment);
   const url = args.mode === "create" ? `${baseUrl}/auth/api-key` : `${baseUrl}/auth/derive-api-key`;
+  const nonce = requireApiKeyNonce(args.nonce);
   const headers = await buildL1Headers({
     wallet: args.wallet,
     environment,
     ...args.timestamp !== void 0 ? { timestamp: args.timestamp } : {},
-    ...args.nonce !== void 0 ? { nonce: args.nonce } : {},
+    nonce,
     ...args.message !== void 0 ? { message: args.message } : {}
   });
   return await requestJson(url, {
@@ -401,13 +420,29 @@ async function derivePolymarketApiKey(args) {
   return normalized;
 }
 async function createOrDerivePolymarketApiKey(args) {
+  let deriveError;
+  try {
+    const derived = normalizeApiKeyResponse(
+      await requestPolymarketApiKey({ ...args, mode: "derive" })
+    );
+    if (derived) {
+      return derived;
+    }
+  } catch (error) {
+    deriveError = error;
+  }
   const created = normalizeApiKeyResponse(
     await requestPolymarketApiKey({ ...args, mode: "create" })
   );
   if (created) {
     return created;
   }
-  return derivePolymarketApiKey(args);
+  if (deriveError) {
+    throw deriveError;
+  }
+  throw new PolymarketAuthError(
+    "Failed to derive or create Polymarket API key."
+  );
 }
 async function placePolymarketOrder(args) {
   const environment = args.environment ?? "mainnet";
@@ -421,7 +456,8 @@ async function placePolymarketOrder(args) {
   const auth = await resolveAuthContext({
     wallet: args.wallet,
     ...args.credentials ? { credentials: args.credentials } : {},
-    environment
+    environment,
+    ...args.apiKeyNonce !== void 0 ? { apiKeyNonce: args.apiKeyNonce } : {}
   });
   const body = {
     order: signedOrder,
@@ -453,7 +489,8 @@ async function cancelPolymarketOrder(args) {
     ...args.wallet ? { wallet: args.wallet } : {},
     ...args.walletAddress ? { walletAddress: args.walletAddress } : {},
     ...args.credentials ? { credentials: args.credentials } : {},
-    environment
+    environment,
+    ...args.apiKeyNonce !== void 0 ? { apiKeyNonce: args.apiKeyNonce } : {}
   });
   const headers = buildL2Headers({
     credentials: auth.credentials,
@@ -480,7 +517,8 @@ async function cancelPolymarketOrders(args) {
     ...args.wallet ? { wallet: args.wallet } : {},
     ...args.walletAddress ? { walletAddress: args.walletAddress } : {},
     ...args.credentials ? { credentials: args.credentials } : {},
-    environment
+    environment,
+    ...args.apiKeyNonce !== void 0 ? { apiKeyNonce: args.apiKeyNonce } : {}
   });
   const headers = buildL2Headers({
     credentials: auth.credentials,
@@ -506,7 +544,8 @@ async function cancelAllPolymarketOrders(args) {
     ...args.wallet ? { wallet: args.wallet } : {},
     ...args.walletAddress ? { walletAddress: args.walletAddress } : {},
     ...args.credentials ? { credentials: args.credentials } : {},
-    environment
+    environment,
+    ...args.apiKeyNonce !== void 0 ? { apiKeyNonce: args.apiKeyNonce } : {}
   });
   const headers = buildL2Headers({
     credentials: auth.credentials,
@@ -531,7 +570,8 @@ async function cancelMarketPolymarketOrders(args) {
     ...args.wallet ? { wallet: args.wallet } : {},
     ...args.walletAddress ? { walletAddress: args.walletAddress } : {},
     ...args.credentials ? { credentials: args.credentials } : {},
-    environment
+    environment,
+    ...args.apiKeyNonce !== void 0 ? { apiKeyNonce: args.apiKeyNonce } : {}
   });
   const headers = buildL2Headers({
     credentials: auth.credentials,
@@ -553,6 +593,7 @@ var PolymarketExchangeClient = class {
   constructor(args) {
     this.wallet = args.wallet;
     this.credentials = args.credentials;
+    this.apiKeyNonce = args.apiKeyNonce;
     this.environment = args.environment ?? "mainnet";
   }
   async getCredentials() {
@@ -560,7 +601,8 @@ var PolymarketExchangeClient = class {
     const resolved = await resolveAuthContext({
       wallet: this.wallet,
       ...this.credentials ? { credentials: this.credentials } : {},
-      environment: this.environment
+      environment: this.environment,
+      ...this.apiKeyNonce !== void 0 ? { apiKeyNonce: this.apiKeyNonce } : {}
     });
     this.cachedCredentials = resolved.credentials;
     return resolved.credentials;
@@ -1113,7 +1155,176 @@ async function fetchPolymarketPublicProfile(params) {
   const data = await requestJson2(url.toString());
   return normalizePublicProfile(data);
 }
+var POLYMARKET_SET_APPROVAL_FOR_ALL_ABI = [
+  {
+    inputs: [
+      { name: "operator", type: "address" },
+      { name: "approved", type: "bool" }
+    ],
+    name: "setApprovalForAll",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function"
+  },
+  {
+    inputs: [
+      { name: "account", type: "address" },
+      { name: "operator", type: "address" }
+    ],
+    name: "isApprovedForAll",
+    outputs: [{ name: "", type: "bool" }],
+    stateMutability: "view",
+    type: "function"
+  }
+];
+var POLYMARKET_BOOTSTRAP_CONTRACTS_BY_ENV = {
+  mainnet: {
+    usdc: "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174",
+    ctf: "0x4D97DCd97eC945f40cF65F87097ACe5EA0476045",
+    negRiskAdapter: "0xd91E80cF2E7be2e162c6513ceD06f1dD0dA35296",
+    safeFactory: "0xaacFeEa03eb1561C4e67d661e40682Bd20E3541b",
+    safeMultisend: "0xA238CBeb142c10Ef7Ad8442C6D1f9E89e07e7761",
+    relayerUrl: "https://relayer-v2.polymarket.com",
+    bridgeUrl: "https://bridge.polymarket.com"
+  }
+};
+async function requestJson3(url, init) {
+  const response = await fetch(url, init);
+  const text = await response.text().catch(() => "");
+  let data = null;
+  try {
+    data = text ? JSON.parse(text) : null;
+  } catch {
+    data = text;
+  }
+  if (!response.ok) {
+    throw new PolymarketApiError(
+      `Polymarket request failed (${response.status}).`,
+      data ?? { status: response.status }
+    );
+  }
+  return data;
+}
+function resolvePolymarketBootstrapContracts(environment) {
+  const contracts = POLYMARKET_BOOTSTRAP_CONTRACTS_BY_ENV[environment];
+  if (!contracts) {
+    throw new Error(
+      `Polymarket bootstrap contracts are not configured for ${environment}.`
+    );
+  }
+  return contracts;
+}
+function buildPolymarketUsdcApprovalTransaction(args) {
+  const environment = args?.environment ?? "mainnet";
+  const contracts = resolvePolymarketBootstrapContracts(environment);
+  return {
+    to: contracts.usdc,
+    data: encodeFunctionData({
+      abi: erc20Abi,
+      functionName: "approve",
+      args: [contracts.ctf, args?.amount ?? maxUint256]
+    }),
+    value: "0",
+    description: "Approve USDC.e for CTF"
+  };
+}
+function buildPolymarketOutcomeTokenApprovalTransactions(args) {
+  const environment = args?.environment ?? "mainnet";
+  const includeNegRisk = args?.includeNegRisk ?? true;
+  const contracts = resolvePolymarketBootstrapContracts(environment);
+  const transactions = [
+    {
+      to: contracts.ctf,
+      data: encodeFunctionData({
+        abi: POLYMARKET_SET_APPROVAL_FOR_ALL_ABI,
+        functionName: "setApprovalForAll",
+        args: [POLYMARKET_EXCHANGE_ADDRESSES[environment].ctf, true]
+      }),
+      value: "0",
+      description: "Approve outcome tokens for CTF Exchange"
+    }
+  ];
+  if (includeNegRisk) {
+    transactions.push({
+      to: contracts.ctf,
+      data: encodeFunctionData({
+        abi: POLYMARKET_SET_APPROVAL_FOR_ALL_ABI,
+        functionName: "setApprovalForAll",
+        args: [POLYMARKET_EXCHANGE_ADDRESSES[environment].negRisk, true]
+      }),
+      value: "0",
+      description: "Approve outcome tokens for Neg Risk Exchange"
+    });
+  }
+  return transactions;
+}
+function buildPolymarketApprovalTransactions(args) {
+  return [
+    buildPolymarketUsdcApprovalTransaction(args),
+    ...buildPolymarketOutcomeTokenApprovalTransactions(args)
+  ];
+}
+async function fetchPolymarketApprovalState(args) {
+  const environment = args.environment ?? "mainnet";
+  const includeNegRisk = args.includeNegRisk ?? true;
+  const contracts = resolvePolymarketBootstrapContracts(environment);
+  const ctfExchange = POLYMARKET_EXCHANGE_ADDRESSES[environment].ctf;
+  const negRiskExchange = POLYMARKET_EXCHANGE_ADDRESSES[environment].negRisk;
+  const [allowance, ctfExchangeApproved, negRiskExchangeApproved] = await Promise.all([
+    args.publicClient.readContract({
+      address: contracts.usdc,
+      abi: erc20Abi,
+      functionName: "allowance",
+      args: [args.funder, contracts.ctf]
+    }),
+    args.publicClient.readContract({
+      address: contracts.ctf,
+      abi: POLYMARKET_SET_APPROVAL_FOR_ALL_ABI,
+      functionName: "isApprovedForAll",
+      args: [args.funder, ctfExchange]
+    }),
+    includeNegRisk ? args.publicClient.readContract({
+      address: contracts.ctf,
+      abi: POLYMARKET_SET_APPROVAL_FOR_ALL_ABI,
+      functionName: "isApprovedForAll",
+      args: [args.funder, negRiskExchange]
+    }) : Promise.resolve(true)
+  ]);
+  return {
+    funder: args.funder,
+    usdcAllowance: allowance,
+    usdcApproved: allowance > 0n,
+    ctfExchangeApproved,
+    negRiskExchangeApproved,
+    approvalsReady: allowance > 0n && ctfExchangeApproved && negRiskExchangeApproved
+  };
+}
+async function fetchPolymarketDepositAddresses(args) {
+  const environment = args.environment ?? "mainnet";
+  const contracts = resolvePolymarketBootstrapContracts(environment);
+  return await requestJson3(`${contracts.bridgeUrl}/deposit`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json"
+    },
+    body: JSON.stringify({
+      address: args.address
+    })
+  });
+}
+function decodePolymarketBootstrapTransaction(transaction) {
+  const abi = transaction.to.toLowerCase() === resolvePolymarketBootstrapContracts("mainnet").usdc.toLowerCase() ? erc20Abi : POLYMARKET_SET_APPROVAL_FOR_ALL_ABI;
+  const decoded = decodeFunctionData({
+    abi,
+    data: transaction.data
+  });
+  return {
+    to: transaction.to,
+    functionName: decoded.functionName,
+    args: decoded.args ?? []
+  };
+}
 
-export { POLYMARKET_CHAIN_ID, POLYMARKET_CLOB_AUTH_DOMAIN, POLYMARKET_CLOB_DOMAIN, POLYMARKET_ENDPOINTS, POLYMARKET_EXCHANGE_ADDRESSES, PolymarketApiError, PolymarketAuthError, PolymarketExchangeClient, PolymarketInfoClient, buildHmacSignature, buildL1Headers, buildL2Headers, buildPolymarketOrderAmounts, buildSignedOrderPayload, cancelAllPolymarketOrders, cancelMarketPolymarketOrders, cancelPolymarketOrder, cancelPolymarketOrders, createOrDerivePolymarketApiKey, createPolymarketApiKey, derivePolymarketApiKey, fetchPolymarketActivity, fetchPolymarketClosedPositions, fetchPolymarketMarket, fetchPolymarketMarkets, fetchPolymarketMidpoint, fetchPolymarketOrderbook, fetchPolymarketPositionValue, fetchPolymarketPositions, fetchPolymarketPrice, fetchPolymarketPriceHistory, fetchPolymarketPublicProfile, normalizeNumberArrayish, normalizeStringArrayish, placePolymarketOrder, resolveExchangeAddress, resolvePolymarketBaseUrl };
+export { POLYMARKET_CHAIN_ID, POLYMARKET_CLOB_AUTH_DOMAIN, POLYMARKET_CLOB_DOMAIN, POLYMARKET_ENDPOINTS, POLYMARKET_EXCHANGE_ADDRESSES, PolymarketApiError, PolymarketAuthError, PolymarketExchangeClient, PolymarketInfoClient, buildHmacSignature, buildL1Headers, buildL2Headers, buildPolymarketApprovalTransactions, buildPolymarketOrderAmounts, buildPolymarketOutcomeTokenApprovalTransactions, buildPolymarketUsdcApprovalTransaction, buildSignedOrderPayload, cancelAllPolymarketOrders, cancelMarketPolymarketOrders, cancelPolymarketOrder, cancelPolymarketOrders, createOrDerivePolymarketApiKey, createPolymarketApiKey, decodePolymarketBootstrapTransaction, derivePolymarketApiKey, fetchPolymarketActivity, fetchPolymarketApprovalState, fetchPolymarketClosedPositions, fetchPolymarketDepositAddresses, fetchPolymarketMarket, fetchPolymarketMarkets, fetchPolymarketMidpoint, fetchPolymarketOrderbook, fetchPolymarketPositionValue, fetchPolymarketPositions, fetchPolymarketPrice, fetchPolymarketPriceHistory, fetchPolymarketPublicProfile, normalizeNumberArrayish, normalizeStringArrayish, placePolymarketOrder, resolveExchangeAddress, resolvePolymarketBaseUrl, resolvePolymarketBootstrapContracts };
 //# sourceMappingURL=index.js.map
 //# sourceMappingURL=index.js.map

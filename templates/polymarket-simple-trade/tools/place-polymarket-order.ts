@@ -2,11 +2,17 @@ import {
   createOrDerivePolymarketApiKey,
   placePolymarketOrder,
   type PolymarketApiCredentials,
-  type PolymarketEnvironment,
 } from "opentool/adapters/polymarket";
 import { store } from "opentool/store";
-import { wallet, type WalletContext, type WalletFullContext } from "opentool/wallet";
+import {
+  wallet,
+  type WalletContext,
+  type WalletFullContext,
+} from "opentool/wallet";
 import { z } from "zod";
+
+const POLYMARKET_ENVIRONMENT = "mainnet" as const;
+const POLYMARKET_SIGNATURE_TYPE = 2 as const;
 
 const tradeRequestSchema = z
   .object({
@@ -16,7 +22,6 @@ const tradeRequestSchema = z
     price: z.coerce.string().min(1),
     size: z.coerce.string().min(1),
     orderType: z.enum(["GTC", "FOK", "FAK", "GTD"]).default("GTC"),
-    environment: z.enum(["mainnet", "testnet"]).optional(),
     expiration: z.coerce.number().int().nonnegative().optional(),
     nonce: z.coerce.number().int().nonnegative().optional(),
     feeRateBps: z.coerce.number().int().nonnegative().optional(),
@@ -25,13 +30,23 @@ const tradeRequestSchema = z
   .strict();
 
 export const profile = {
-  description: "Place one Polymarket order with the operating wallet signer",
+  description:
+    "Place one Polymarket order with the operating wallet signer and canonical funder account",
   category: "trade",
 };
 
-function assertSignerContext(ctx: WalletContext): asserts ctx is WalletFullContext {
-  if (!("walletClient" in ctx) || !ctx.walletClient || !("account" in ctx) || !ctx.account) {
-    throw new Error("Configure a signer (PRIVATE_KEY or Turnkey env vars) before trading.");
+function assertSignerContext(
+  ctx: WalletContext,
+): asserts ctx is WalletFullContext {
+  if (
+    !("walletClient" in ctx) ||
+    !ctx.walletClient ||
+    !("account" in ctx) ||
+    !ctx.account
+  ) {
+    throw new Error(
+      "Configure a signer (PRIVATE_KEY or Turnkey env vars) before trading.",
+    );
   }
 }
 
@@ -49,26 +64,49 @@ function readCredentialsFromEnv(): PolymarketApiCredentials | undefined {
   };
 }
 
-function resolveEnvironment(): PolymarketEnvironment {
-  return process.env.POLYMARKET_ENVIRONMENT === "testnet" ? "testnet" : "mainnet";
+function readFunderAddress(): `0x${string}` {
+  const funderAddress = process.env.POLYMARKET_FUNDER_ADDRESS?.trim();
+  if (!funderAddress || !/^0x[a-fA-F0-9]{40}$/.test(funderAddress)) {
+    throw new Error(
+      "POLYMARKET_FUNDER_ADDRESS must be set to the user's Polymarket funder wallet.",
+    );
+  }
+  return funderAddress as `0x${string}`;
+}
+
+function readApiKeyNonce(): number {
+  const rawNonce = process.env.POLYMARKET_API_NONCE?.trim();
+  if (!rawNonce) {
+    throw new Error("POLYMARKET_API_NONCE must be set for Polymarket trading.");
+  }
+  if (!/^\d+$/.test(rawNonce)) {
+    throw new Error("POLYMARKET_API_NONCE must be a non-negative integer.");
+  }
+  const nonce = Number(rawNonce);
+  if (!Number.isSafeInteger(nonce) || nonce < 0) {
+    throw new Error("POLYMARKET_API_NONCE must be a non-negative integer.");
+  }
+  return nonce;
 }
 
 export async function POST(req: Request) {
   const payload = tradeRequestSchema.parse(await req.json());
-  const environment: PolymarketEnvironment = payload.environment ?? resolveEnvironment();
+  const environment = POLYMARKET_ENVIRONMENT;
   const ctx = await wallet({
     chain: process.env.OPENTOOL_SIGNER_CHAIN ?? "base",
     apiKey: process.env.ALCHEMY_API_KEY,
     rpcUrl: process.env.RPC_URL,
   });
   assertSignerContext(ctx);
+  const funderAddress = readFunderAddress();
+  const apiKeyNonce = readApiKeyNonce();
 
-  // Polymarket only needs EIP-712 signing here, so the signer can come from the shared operating wallet.
   const credentials =
     readCredentialsFromEnv() ??
     (await createOrDerivePolymarketApiKey({
       wallet: ctx,
       environment,
+      nonce: apiKeyNonce,
     }));
 
   const result = await placePolymarketOrder({
@@ -81,19 +119,27 @@ export async function POST(req: Request) {
       side: payload.side,
       price: payload.price,
       size: payload.size,
-      ...(payload.expiration !== undefined ? { expiration: payload.expiration } : {}),
+      maker: funderAddress,
+      signer: ctx.address as `0x${string}`,
+      signatureType: POLYMARKET_SIGNATURE_TYPE,
+      ...(payload.expiration !== undefined
+        ? { expiration: payload.expiration }
+        : {}),
       ...(payload.nonce !== undefined ? { nonce: payload.nonce } : {}),
-      ...(payload.feeRateBps !== undefined ? { feeRateBps: payload.feeRateBps } : {}),
+      ...(payload.feeRateBps !== undefined
+        ? { feeRateBps: payload.feeRateBps }
+        : {}),
       ...(payload.tickSize ? { tickSize: payload.tickSize } : {}),
     },
   });
 
-  const ref = result.orderId ?? `${payload.conditionId}:${payload.tokenId}:${Date.now()}`;
+  const ref =
+    result.orderId ?? `${payload.conditionId}:${payload.tokenId}:${Date.now()}`;
   await store({
     source: "polymarket",
     ref,
     status: "submitted",
-    walletAddress: ctx.address,
+    walletAddress: funderAddress,
     action: "trade",
     notional: payload.size,
     market: {
@@ -111,12 +157,16 @@ export async function POST(req: Request) {
       price: payload.price,
       size: payload.size,
       orderType: payload.orderType,
+      signerAddress: ctx.address,
+      funderAddress,
+      signatureType: POLYMARKET_SIGNATURE_TYPE,
     },
   });
 
   return Response.json({
     ok: true,
     environment,
+    funderAddress,
     order: result,
   });
 }

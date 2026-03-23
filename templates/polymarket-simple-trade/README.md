@@ -1,6 +1,6 @@
 # Polymarket Simple Trade
 
-Minimal OpenTool starter for placing one Polymarket order with an operating wallet signer and recording the submission in store.
+Minimal OpenTool starter for placing one Polymarket mainnet order with an operating wallet signer, a canonical Polymarket funder address, and `signatureType = 2`.
 
 ## Quickstart
 
@@ -18,7 +18,11 @@ npx opentool dev
   "side": "BUY",
   "price": "0.52",
   "size": "10",
-  "orderType": "GTC",
-  "environment": "mainnet"
+  "orderType": "GTC"
 }
 ```
+
+## Required Runtime
+
+- `POLYMARKET_FUNDER_ADDRESS`: the user's Polymarket proxy/safe trading wallet
+- Turnkey signer envs injected by the platform runtime

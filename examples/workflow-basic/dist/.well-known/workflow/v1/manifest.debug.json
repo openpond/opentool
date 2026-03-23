@@ -1,0 +1,19 @@
+{
+  "steps": {
+    "examples/workflow-basic/workflows/sample.ts": {
+      "buildGreeting": {
+        "stepId": "step//examples/workflow-basic/workflows/sample.ts//buildGreeting"
+      },
+      "recordGreeting": {
+        "stepId": "step//examples/workflow-basic/workflows/sample.ts//recordGreeting"
+      }
+    }
+  },
+  "workflows": {
+    "examples/workflow-basic/workflows/sample.ts": {
+      "helloWorkflow": {
+        "workflowId": "workflow//examples/workflow-basic/workflows/sample.ts//helloWorkflow"
+      }
+    }
+  }
+}

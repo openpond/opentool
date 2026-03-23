@@ -1,5 +1,5 @@
 import { h as WalletFullContext } from '../../types-BaTmu0gS.js';
-import 'viem';
+import { PublicClient } from 'viem';
 import 'viem/accounts';
 
 type PolymarketEnvironment = "mainnet" | "testnet";
@@ -200,6 +200,7 @@ declare function createOrDerivePolymarketApiKey(args: PolymarketApiKeyRequestArg
 declare function placePolymarketOrder(args: {
     wallet: WalletFullContext;
     credentials?: PolymarketApiCredentials;
+    apiKeyNonce?: number;
     order: PolymarketOrderIntent;
     orderType?: PolymarketOrderType;
     environment?: PolymarketEnvironment;
@@ -209,6 +210,7 @@ declare function cancelPolymarketOrder(args: {
     wallet?: WalletFullContext;
     walletAddress?: `0x${string}`;
     credentials?: PolymarketApiCredentials;
+    apiKeyNonce?: number;
     environment?: PolymarketEnvironment;
 }): Promise<Record<string, unknown>>;
 declare function cancelPolymarketOrders(args: {
@@ -216,12 +218,14 @@ declare function cancelPolymarketOrders(args: {
     wallet?: WalletFullContext;
     walletAddress?: `0x${string}`;
     credentials?: PolymarketApiCredentials;
+    apiKeyNonce?: number;
     environment?: PolymarketEnvironment;
 }): Promise<Record<string, unknown>>;
 declare function cancelAllPolymarketOrders(args: {
     wallet?: WalletFullContext;
     walletAddress?: `0x${string}`;
     credentials?: PolymarketApiCredentials;
+    apiKeyNonce?: number;
     environment?: PolymarketEnvironment;
 }): Promise<Record<string, unknown>>;
 declare function cancelMarketPolymarketOrders(args: {
@@ -229,16 +233,19 @@ declare function cancelMarketPolymarketOrders(args: {
     wallet?: WalletFullContext;
     walletAddress?: `0x${string}`;
     credentials?: PolymarketApiCredentials;
+    apiKeyNonce?: number;
     environment?: PolymarketEnvironment;
 }): Promise<Record<string, unknown>>;
 declare class PolymarketExchangeClient {
     private readonly wallet;
     private readonly credentials;
+    private readonly apiKeyNonce;
     private readonly environment;
     private cachedCredentials;
     constructor(args: {
         wallet: WalletFullContext;
         credentials?: PolymarketApiCredentials;
+        apiKeyNonce?: number;
         environment?: PolymarketEnvironment;
     });
     private getCredentials;
@@ -456,4 +463,69 @@ declare function fetchPolymarketPublicProfile(params: {
     environment?: PolymarketEnvironment;
 }): Promise<PolymarketPublicProfile | null>;
 
-export { POLYMARKET_CHAIN_ID, POLYMARKET_CLOB_AUTH_DOMAIN, POLYMARKET_CLOB_DOMAIN, POLYMARKET_ENDPOINTS, POLYMARKET_EXCHANGE_ADDRESSES, type PolymarketActivityType, type PolymarketApiCredentials, PolymarketApiError, type PolymarketApiKeyResponse, PolymarketAuthError, type PolymarketClosedPosition, type PolymarketClosedPositionParams, type PolymarketEnvironment, PolymarketExchangeClient, PolymarketInfoClient, type PolymarketMarket, type PolymarketOrderIntent, type PolymarketOrderType, type PolymarketOrderbook, type PolymarketPlaceOrderResponse, type PolymarketPositionValue, type PolymarketPositionValueParams, type PolymarketPriceHistoryPoint, type PolymarketPublicProfile, type PolymarketPublicProfileUser, type PolymarketSide, type PolymarketSignatureType, type PolymarketSignedOrderPayload, type PolymarketUserActivity, type PolymarketUserActivityParams, type PolymarketUserPosition, type PolymarketUserPositionParams, buildHmacSignature, buildL1Headers, buildL2Headers, buildPolymarketOrderAmounts, buildSignedOrderPayload, cancelAllPolymarketOrders, cancelMarketPolymarketOrders, cancelPolymarketOrder, cancelPolymarketOrders, createOrDerivePolymarketApiKey, createPolymarketApiKey, derivePolymarketApiKey, fetchPolymarketActivity, fetchPolymarketClosedPositions, fetchPolymarketMarket, fetchPolymarketMarkets, fetchPolymarketMidpoint, fetchPolymarketOrderbook, fetchPolymarketPositionValue, fetchPolymarketPositions, fetchPolymarketPrice, fetchPolymarketPriceHistory, fetchPolymarketPublicProfile, normalizeNumberArrayish, normalizeStringArrayish, placePolymarketOrder, resolveExchangeAddress, resolvePolymarketBaseUrl };
+interface PolymarketBootstrapContracts {
+    usdc: `0x${string}`;
+    ctf: `0x${string}`;
+    negRiskAdapter: `0x${string}`;
+    safeFactory: `0x${string}`;
+    safeMultisend: `0x${string}`;
+    relayerUrl: string;
+    bridgeUrl: string;
+}
+interface PolymarketBootstrapTransaction {
+    to: `0x${string}`;
+    data: `0x${string}`;
+    value: string;
+    description: string;
+}
+interface PolymarketDepositAddressSet {
+    evm?: string | null;
+    svm?: string | null;
+    btc?: string | null;
+    sol?: string | null;
+    [key: string]: unknown;
+}
+interface PolymarketDepositAddressesResponse {
+    address?: PolymarketDepositAddressSet | null;
+    note?: string | null;
+    [key: string]: unknown;
+}
+interface PolymarketApprovalState {
+    funder: `0x${string}`;
+    usdcAllowance: bigint;
+    usdcApproved: boolean;
+    ctfExchangeApproved: boolean;
+    negRiskExchangeApproved: boolean;
+    approvalsReady: boolean;
+}
+declare function resolvePolymarketBootstrapContracts(environment: PolymarketEnvironment): PolymarketBootstrapContracts;
+declare function buildPolymarketUsdcApprovalTransaction(args?: {
+    environment?: PolymarketEnvironment;
+    amount?: bigint;
+}): PolymarketBootstrapTransaction;
+declare function buildPolymarketOutcomeTokenApprovalTransactions(args?: {
+    environment?: PolymarketEnvironment;
+    includeNegRisk?: boolean;
+}): PolymarketBootstrapTransaction[];
+declare function buildPolymarketApprovalTransactions(args?: {
+    environment?: PolymarketEnvironment;
+    amount?: bigint;
+    includeNegRisk?: boolean;
+}): PolymarketBootstrapTransaction[];
+declare function fetchPolymarketApprovalState(args: {
+    publicClient: Pick<PublicClient, "readContract">;
+    funder: `0x${string}`;
+    environment?: PolymarketEnvironment;
+    includeNegRisk?: boolean;
+}): Promise<PolymarketApprovalState>;
+declare function fetchPolymarketDepositAddresses(args: {
+    address: string;
+    environment?: PolymarketEnvironment;
+}): Promise<PolymarketDepositAddressesResponse>;
+declare function decodePolymarketBootstrapTransaction(transaction: PolymarketBootstrapTransaction): {
+    to: `0x${string}`;
+    functionName: string;
+    args: readonly unknown[];
+};
+
+export { POLYMARKET_CHAIN_ID, POLYMARKET_CLOB_AUTH_DOMAIN, POLYMARKET_CLOB_DOMAIN, POLYMARKET_ENDPOINTS, POLYMARKET_EXCHANGE_ADDRESSES, type PolymarketActivityType, type PolymarketApiCredentials, PolymarketApiError, type PolymarketApiKeyResponse, type PolymarketApprovalState, PolymarketAuthError, type PolymarketBootstrapContracts, type PolymarketBootstrapTransaction, type PolymarketClosedPosition, type PolymarketClosedPositionParams, type PolymarketDepositAddressSet, type PolymarketDepositAddressesResponse, type PolymarketEnvironment, PolymarketExchangeClient, PolymarketInfoClient, type PolymarketMarket, type PolymarketOrderIntent, type PolymarketOrderType, type PolymarketOrderbook, type PolymarketPlaceOrderResponse, type PolymarketPositionValue, type PolymarketPositionValueParams, type PolymarketPriceHistoryPoint, type PolymarketPublicProfile, type PolymarketPublicProfileUser, type PolymarketSide, type PolymarketSignatureType, type PolymarketSignedOrderPayload, type PolymarketUserActivity, type PolymarketUserActivityParams, type PolymarketUserPosition, type PolymarketUserPositionParams, buildHmacSignature, buildL1Headers, buildL2Headers, buildPolymarketApprovalTransactions, buildPolymarketOrderAmounts, buildPolymarketOutcomeTokenApprovalTransactions, buildPolymarketUsdcApprovalTransaction, buildSignedOrderPayload, cancelAllPolymarketOrders, cancelMarketPolymarketOrders, cancelPolymarketOrder, cancelPolymarketOrders, createOrDerivePolymarketApiKey, createPolymarketApiKey, decodePolymarketBootstrapTransaction, derivePolymarketApiKey, fetchPolymarketActivity, fetchPolymarketApprovalState, fetchPolymarketClosedPositions, fetchPolymarketDepositAddresses, fetchPolymarketMarket, fetchPolymarketMarkets, fetchPolymarketMidpoint, fetchPolymarketOrderbook, fetchPolymarketPositionValue, fetchPolymarketPositions, fetchPolymarketPrice, fetchPolymarketPriceHistory, fetchPolymarketPublicProfile, normalizeNumberArrayish, normalizeStringArrayish, placePolymarketOrder, resolveExchangeAddress, resolvePolymarketBaseUrl, resolvePolymarketBootstrapContracts };
