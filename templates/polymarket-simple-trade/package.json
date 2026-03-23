@@ -10,7 +10,7 @@
     "validate": "opentool validate"
   },
   "dependencies": {
-    "opentool": "^0.18.0",
+    "opentool": "^0.19.0",
     "zod": "^4.3.6"
   },
   "devDependencies": {

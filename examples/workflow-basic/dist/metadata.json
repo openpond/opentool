@@ -1,0 +1,14 @@
+{
+  "metadataSpecVersion": "1.1.0",
+  "name": "workflow-basic",
+  "displayName": "Workflow Basic Example",
+  "version": "0.1.0",
+  "description": "Example project combining classic tools and Workflow DevKit directives.",
+  "category": "utility",
+  "tools": [
+    {
+      "name": "echo",
+      "description": "Echo back the request body"
+    }
+  ]
+}

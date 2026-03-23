@@ -1,0 +1,7 @@
+{
+  "examples/workflow-basic/workflows/sample.ts": {
+    "helloWorkflow": {
+      "workflowId": "workflow//examples/workflow-basic/workflows/sample.ts//helloWorkflow"
+    }
+  }
+}
