@@ -1,5 +1,12 @@
 # opentool
 
+## 0.19.1
+
+### Patch Changes
+
+- eca6226: cleaned up polymarket
+- eca6226: polymarket additions
+
 ## 0.19.0
 
 ### Minor Changes
