@@ -36,6 +36,7 @@ export type {
 export {
   createPolymarketApiKey,
   derivePolymarketApiKey,
+  createOrDerivePolymarketApiKey,
   placePolymarketOrder,
   cancelPolymarketOrder,
   cancelPolymarketOrders,
@@ -51,5 +52,24 @@ export {
   fetchPolymarketPrice,
   fetchPolymarketMidpoint,
   fetchPolymarketPriceHistory,
+  fetchPolymarketPositions,
+  fetchPolymarketClosedPositions,
+  fetchPolymarketActivity,
+  fetchPolymarketPositionValue,
+  fetchPolymarketPublicProfile,
   PolymarketInfoClient,
+} from "./info";
+
+export type {
+  PolymarketUserPosition,
+  PolymarketClosedPosition,
+  PolymarketActivityType,
+  PolymarketUserActivity,
+  PolymarketPositionValue,
+  PolymarketPublicProfileUser,
+  PolymarketPublicProfile,
+  PolymarketUserPositionParams,
+  PolymarketClosedPositionParams,
+  PolymarketUserActivityParams,
+  PolymarketPositionValueParams,
 } from "./info";

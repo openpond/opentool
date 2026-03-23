@@ -43,6 +43,14 @@ export interface PolymarketPlaceOrderResponse {
   [key: string]: unknown;
 }
 
+interface PolymarketApiKeyRequestArgs {
+  wallet: WalletFullContext;
+  environment?: PolymarketEnvironment;
+  timestamp?: number;
+  nonce?: number;
+  message?: string;
+}
+
 async function resolveAuthContext(args: {
   wallet?: WalletFullContext;
   walletAddress?: `0x${string}`;
@@ -52,7 +60,7 @@ async function resolveAuthContext(args: {
   if (args.wallet) {
     const credentials =
       args.credentials ??
-      (await createPolymarketApiKey({
+      (await createOrDerivePolymarketApiKey({
         wallet: args.wallet,
         ...(args.environment ? { environment: args.environment } : {}),
       }));
@@ -94,36 +102,12 @@ function resolvePath(url: string): string {
   return `${parsed.pathname}${parsed.search}`;
 }
 
-export async function createPolymarketApiKey(args: {
-  wallet: WalletFullContext;
-  environment?: PolymarketEnvironment;
-  timestamp?: number;
-  nonce?: number;
-  message?: string;
-}): Promise<PolymarketApiKeyResponse> {
-  const environment = args.environment ?? "mainnet";
-  const baseUrl = resolvePolymarketBaseUrl("clob", environment);
-  const url = `${baseUrl}/auth/api-key`;
-  const headers = await buildL1Headers({
-    wallet: args.wallet,
-    environment,
-    ...(args.timestamp !== undefined ? { timestamp: args.timestamp } : {}),
-    ...(args.nonce !== undefined ? { nonce: args.nonce } : {}),
-    ...(args.message !== undefined ? { message: args.message } : {}),
-  });
-  const data = (await requestJson(url, {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      ...headers,
-    },
-    body: JSON.stringify({}),
-  })) as Partial<PolymarketApiKeyResponse>;
-
+function normalizeApiKeyResponse(
+  data: Partial<PolymarketApiKeyResponse> | null | undefined,
+): PolymarketApiKeyResponse | null {
   if (!data?.apiKey || !data?.secret || !data?.passphrase) {
-    throw new PolymarketAuthError("Failed to create Polymarket API key.");
+    return null;
   }
-
   return {
     apiKey: data.apiKey,
     secret: data.secret,
@@ -131,16 +115,13 @@ export async function createPolymarketApiKey(args: {
   };
 }
 
-export async function derivePolymarketApiKey(args: {
-  wallet: WalletFullContext;
-  environment?: PolymarketEnvironment;
-  timestamp?: number;
-  nonce?: number;
-  message?: string;
-}): Promise<PolymarketApiKeyResponse> {
+async function requestPolymarketApiKey(
+  args: PolymarketApiKeyRequestArgs & { mode: "create" | "derive" },
+): Promise<Partial<PolymarketApiKeyResponse> | null> {
   const environment = args.environment ?? "mainnet";
   const baseUrl = resolvePolymarketBaseUrl("clob", environment);
-  const url = `${baseUrl}/auth/derive-api-key`;
+  const url =
+    args.mode === "create" ? `${baseUrl}/auth/api-key` : `${baseUrl}/auth/derive-api-key`;
   const headers = await buildL1Headers({
     wallet: args.wallet,
     environment,
@@ -148,23 +129,51 @@ export async function derivePolymarketApiKey(args: {
     ...(args.nonce !== undefined ? { nonce: args.nonce } : {}),
     ...(args.message !== undefined ? { message: args.message } : {}),
   });
-  const data = (await requestJson(url, {
-    method: "GET",
+
+  return (await requestJson(url, {
+    method: args.mode === "create" ? "POST" : "GET",
     headers: {
       "content-type": "application/json",
       ...headers,
     },
-  })) as Partial<PolymarketApiKeyResponse>;
+    ...(args.mode === "create" ? { body: JSON.stringify({}) } : {}),
+  })) as Partial<PolymarketApiKeyResponse> | null;
+}
 
-  if (!data?.apiKey || !data?.secret || !data?.passphrase) {
+export async function createPolymarketApiKey(
+  args: PolymarketApiKeyRequestArgs,
+): Promise<PolymarketApiKeyResponse> {
+  const normalized = normalizeApiKeyResponse(
+    await requestPolymarketApiKey({ ...args, mode: "create" }),
+  );
+  if (!normalized) {
+    throw new PolymarketAuthError("Failed to create Polymarket API key.");
+  }
+  return normalized;
+}
+
+export async function derivePolymarketApiKey(
+  args: PolymarketApiKeyRequestArgs,
+): Promise<PolymarketApiKeyResponse> {
+  const normalized = normalizeApiKeyResponse(
+    await requestPolymarketApiKey({ ...args, mode: "derive" }),
+  );
+  if (!normalized) {
     throw new PolymarketAuthError("Failed to derive Polymarket API key.");
   }
+  return normalized;
+}
 
-  return {
-    apiKey: data.apiKey,
-    secret: data.secret,
-    passphrase: data.passphrase,
-  };
+export async function createOrDerivePolymarketApiKey(
+  args: PolymarketApiKeyRequestArgs,
+): Promise<PolymarketApiKeyResponse> {
+  const created = normalizeApiKeyResponse(
+    await requestPolymarketApiKey({ ...args, mode: "create" }),
+  );
+  if (created) {
+    return created;
+  }
+  return derivePolymarketApiKey(args);
 }
 
 export async function placePolymarketOrder(args: {

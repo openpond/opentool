@@ -187,20 +187,16 @@ interface PolymarketPlaceOrderResponse {
     message?: string;
     [key: string]: unknown;
 }
-declare function createPolymarketApiKey(args: {
+interface PolymarketApiKeyRequestArgs {
     wallet: WalletFullContext;
     environment?: PolymarketEnvironment;
     timestamp?: number;
     nonce?: number;
     message?: string;
-}): Promise<PolymarketApiKeyResponse>;
-declare function derivePolymarketApiKey(args: {
-    wallet: WalletFullContext;
-    environment?: PolymarketEnvironment;
-    timestamp?: number;
-    nonce?: number;
-    message?: string;
-}): Promise<PolymarketApiKeyResponse>;
+}
+declare function createPolymarketApiKey(args: PolymarketApiKeyRequestArgs): Promise<PolymarketApiKeyResponse>;
+declare function derivePolymarketApiKey(args: PolymarketApiKeyRequestArgs): Promise<PolymarketApiKeyResponse>;
+declare function createOrDerivePolymarketApiKey(args: PolymarketApiKeyRequestArgs): Promise<PolymarketApiKeyResponse>;
 declare function placePolymarketOrder(args: {
     wallet: WalletFullContext;
     credentials?: PolymarketApiCredentials;
@@ -253,6 +249,8 @@ declare class PolymarketExchangeClient {
     cancelMarket(tokenId: string): Promise<Record<string, unknown>>;
 }
 
+type CsvStringInput = string | string[];
+type CsvNumberInput = number | number[];
 type FetchParams = {
     environment?: PolymarketEnvironment;
     limit?: number;
@@ -267,6 +265,135 @@ type FetchParams = {
     active?: boolean;
     closed?: boolean;
 };
+interface PolymarketUserPosition {
+    proxyWallet?: string | null;
+    asset?: string | null;
+    conditionId?: string | null;
+    size?: number | null;
+    avgPrice?: number | null;
+    initialValue?: number | null;
+    currentValue?: number | null;
+    cashPnl?: number | null;
+    percentPnl?: number | null;
+    totalBought?: number | null;
+    realizedPnl?: number | null;
+    percentRealizedPnl?: number | null;
+    curPrice?: number | null;
+    redeemable?: boolean;
+    mergeable?: boolean;
+    title?: string | null;
+    slug?: string | null;
+    icon?: string | null;
+    eventSlug?: string | null;
+    outcome?: string | null;
+    outcomeIndex?: number | null;
+    oppositeOutcome?: string | null;
+    oppositeAsset?: string | null;
+    endDate?: string | null;
+    negativeRisk?: boolean;
+}
+interface PolymarketClosedPosition {
+    proxyWallet?: string | null;
+    asset?: string | null;
+    conditionId?: string | null;
+    avgPrice?: number | null;
+    totalBought?: number | null;
+    realizedPnl?: number | null;
+    curPrice?: number | null;
+    timestamp?: number | null;
+    title?: string | null;
+    slug?: string | null;
+    icon?: string | null;
+    eventSlug?: string | null;
+    outcome?: string | null;
+    outcomeIndex?: number | null;
+    oppositeOutcome?: string | null;
+    oppositeAsset?: string | null;
+    endDate?: string | null;
+}
+type PolymarketActivityType = "TRADE" | "SPLIT" | "MERGE" | "REDEEM" | "REWARD" | "CONVERSION" | "MAKER_REBATE";
+interface PolymarketUserActivity {
+    proxyWallet?: string | null;
+    timestamp?: number | null;
+    conditionId?: string | null;
+    type?: PolymarketActivityType | null;
+    size?: number | null;
+    usdcSize?: number | null;
+    transactionHash?: string | null;
+    price?: number | null;
+    asset?: string | null;
+    side?: "BUY" | "SELL" | null;
+    outcomeIndex?: number | null;
+    title?: string | null;
+    slug?: string | null;
+    icon?: string | null;
+    eventSlug?: string | null;
+    outcome?: string | null;
+    name?: string | null;
+    pseudonym?: string | null;
+    bio?: string | null;
+    profileImage?: string | null;
+    profileImageOptimized?: string | null;
+}
+interface PolymarketPositionValue {
+    user?: string | null;
+    value?: number | null;
+}
+interface PolymarketPublicProfileUser {
+    id?: string | null;
+    creator?: boolean;
+    mod?: boolean;
+}
+interface PolymarketPublicProfile {
+    createdAt?: string | null;
+    proxyWallet?: string | null;
+    profileImage?: string | null;
+    displayUsernamePublic?: boolean | null;
+    bio?: string | null;
+    pseudonym?: string | null;
+    name?: string | null;
+    users?: PolymarketPublicProfileUser[] | null;
+    xUsername?: string | null;
+    verifiedBadge?: boolean | null;
+}
+interface PolymarketUserQueryBase {
+    user: string;
+    environment?: PolymarketEnvironment;
+    market?: CsvStringInput;
+    eventId?: CsvNumberInput;
+}
+interface PolymarketUserPositionParams extends PolymarketUserQueryBase {
+    sizeThreshold?: number;
+    redeemable?: boolean;
+    mergeable?: boolean;
+    limit?: number;
+    offset?: number;
+    sortBy?: "CURRENT" | "INITIAL" | "TOKENS" | "CASHPNL" | "PERCENTPNL" | "TITLE" | "RESOLVING" | "PRICE" | "AVGPRICE";
+    sortDirection?: "ASC" | "DESC";
+    title?: string;
+}
+interface PolymarketClosedPositionParams extends PolymarketUserQueryBase {
+    limit?: number;
+    offset?: number;
+    sortBy?: "REALIZEDPNL" | "TITLE" | "PRICE" | "AVGPRICE" | "TIMESTAMP";
+    sortDirection?: "ASC" | "DESC";
+    title?: string;
+}
+interface PolymarketUserActivityParams extends PolymarketUserQueryBase {
+    limit?: number;
+    offset?: number;
+    type?: PolymarketActivityType | PolymarketActivityType[];
+    start?: number;
+    end?: number;
+    sortBy?: "TIMESTAMP" | "TOKENS" | "CASH";
+    sortDirection?: "ASC" | "DESC";
+    side?: "BUY" | "SELL";
+}
+interface PolymarketPositionValueParams {
+    user: string;
+    environment?: PolymarketEnvironment;
+    market?: CsvStringInput;
+}
 declare class PolymarketInfoClient {
     private readonly environment;
     constructor(environment?: PolymarketEnvironment);
@@ -286,6 +413,11 @@ declare class PolymarketInfoClient {
         interval?: string;
         fidelity?: number;
     }): Promise<PolymarketPriceHistoryPoint[]>;
+    positions(params: Omit<PolymarketUserPositionParams, "environment">): Promise<PolymarketUserPosition[]>;
+    closedPositions(params: Omit<PolymarketClosedPositionParams, "environment">): Promise<PolymarketClosedPosition[]>;
+    activity(params: Omit<PolymarketUserActivityParams, "environment">): Promise<PolymarketUserActivity[]>;
+    positionValue(params: Omit<PolymarketPositionValueParams, "environment">): Promise<PolymarketPositionValue[]>;
+    publicProfile(address: string): Promise<PolymarketPublicProfile | null>;
 }
 declare function fetchPolymarketMarkets(params?: FetchParams): Promise<PolymarketMarket[]>;
 declare function fetchPolymarketMarket(params: {
@@ -315,5 +447,13 @@ declare function fetchPolymarketPriceHistory(params: {
     fidelity?: number;
     environment?: PolymarketEnvironment;
 }): Promise<PolymarketPriceHistoryPoint[]>;
+declare function fetchPolymarketPositions(params: PolymarketUserPositionParams): Promise<PolymarketUserPosition[]>;
+declare function fetchPolymarketClosedPositions(params: PolymarketClosedPositionParams): Promise<PolymarketClosedPosition[]>;
+declare function fetchPolymarketActivity(params: PolymarketUserActivityParams): Promise<PolymarketUserActivity[]>;
+declare function fetchPolymarketPositionValue(params: PolymarketPositionValueParams): Promise<PolymarketPositionValue[]>;
+declare function fetchPolymarketPublicProfile(params: {
+    address: string;
+    environment?: PolymarketEnvironment;
+}): Promise<PolymarketPublicProfile | null>;
 
-export { POLYMARKET_CHAIN_ID, POLYMARKET_CLOB_AUTH_DOMAIN, POLYMARKET_CLOB_DOMAIN, POLYMARKET_ENDPOINTS, POLYMARKET_EXCHANGE_ADDRESSES, type PolymarketApiCredentials, PolymarketApiError, type PolymarketApiKeyResponse, PolymarketAuthError, type PolymarketEnvironment, PolymarketExchangeClient, PolymarketInfoClient, type PolymarketMarket, type PolymarketOrderIntent, type PolymarketOrderType, type PolymarketOrderbook, type PolymarketPlaceOrderResponse, type PolymarketPriceHistoryPoint, type PolymarketSide, type PolymarketSignatureType, type PolymarketSignedOrderPayload, buildHmacSignature, buildL1Headers, buildL2Headers, buildPolymarketOrderAmounts, buildSignedOrderPayload, cancelAllPolymarketOrders, cancelMarketPolymarketOrders, cancelPolymarketOrder, cancelPolymarketOrders, createPolymarketApiKey, derivePolymarketApiKey, fetchPolymarketMarket, fetchPolymarketMarkets, fetchPolymarketMidpoint, fetchPolymarketOrderbook, fetchPolymarketPrice, fetchPolymarketPriceHistory, normalizeNumberArrayish, normalizeStringArrayish, placePolymarketOrder, resolveExchangeAddress, resolvePolymarketBaseUrl };
+export { POLYMARKET_CHAIN_ID, POLYMARKET_CLOB_AUTH_DOMAIN, POLYMARKET_CLOB_DOMAIN, POLYMARKET_ENDPOINTS, POLYMARKET_EXCHANGE_ADDRESSES, type PolymarketActivityType, type PolymarketApiCredentials, PolymarketApiError, type PolymarketApiKeyResponse, PolymarketAuthError, type PolymarketClosedPosition, type PolymarketClosedPositionParams, type PolymarketEnvironment, PolymarketExchangeClient, PolymarketInfoClient, type PolymarketMarket, type PolymarketOrderIntent, type PolymarketOrderType, type PolymarketOrderbook, type PolymarketPlaceOrderResponse, type PolymarketPositionValue, type PolymarketPositionValueParams, type PolymarketPriceHistoryPoint, type PolymarketPublicProfile, type PolymarketPublicProfileUser, type PolymarketSide, type PolymarketSignatureType, type PolymarketSignedOrderPayload, type PolymarketUserActivity, type PolymarketUserActivityParams, type PolymarketUserPosition, type PolymarketUserPositionParams, buildHmacSignature, buildL1Headers, buildL2Headers, buildPolymarketOrderAmounts, buildSignedOrderPayload, cancelAllPolymarketOrders, cancelMarketPolymarketOrders, cancelPolymarketOrder, cancelPolymarketOrders, createOrDerivePolymarketApiKey, createPolymarketApiKey, derivePolymarketApiKey, fetchPolymarketActivity, fetchPolymarketClosedPositions, fetchPolymarketMarket, fetchPolymarketMarkets, fetchPolymarketMidpoint, fetchPolymarketOrderbook, fetchPolymarketPositionValue, fetchPolymarketPositions, fetchPolymarketPrice, fetchPolymarketPriceHistory, fetchPolymarketPublicProfile, normalizeNumberArrayish, normalizeStringArrayish, placePolymarketOrder, resolveExchangeAddress, resolvePolymarketBaseUrl };

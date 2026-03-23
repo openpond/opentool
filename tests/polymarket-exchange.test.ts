@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { WalletFullContext } from "../src/wallet/types";
-import { placePolymarketOrder } from "../src/adapters/polymarket/exchange";
+import {
+  createOrDerivePolymarketApiKey,
+  placePolymarketOrder,
+} from "../src/adapters/polymarket/exchange";
 
 function withMockFetch(
   handler: (url: string, init?: RequestInit) => Promise<Response>
@@ -16,8 +19,8 @@ function withMockFetch(
   };
 }
 
-test("placePolymarketOrder builds signed payload and L2 headers", async () => {
-  const mockWallet = {
+function createMockWallet() {
+  return {
     address: "0x0000000000000000000000000000000000000001",
     account: {
       address: "0x0000000000000000000000000000000000000001",
@@ -28,6 +31,10 @@ test("placePolymarketOrder builds signed payload and L2 headers", async () => {
         "0x1111111111111111111111111111111111111111111111111111111111111111",
     },
   } as unknown as WalletFullContext;
+}
+
+test("placePolymarketOrder builds signed payload and L2 headers", async () => {
+  const mockWallet = createMockWallet();
 
   const restore = withMockFetch(async (_url, init) => {
     const body = JSON.parse(init?.body as string);
@@ -66,6 +73,91 @@ test("placePolymarketOrder builds signed payload and L2 headers", async () => {
     });
 
     assert.equal(result.orderId, "1");
+  } finally {
+    restore();
+  }
+});
+
+test("createOrDerivePolymarketApiKey falls back to derive when create returns an empty payload", async () => {
+  const mockWallet = createMockWallet();
+  let callCount = 0;
+
+  const restore = withMockFetch(async (url, init) => {
+    callCount += 1;
+
+    if (callCount === 1) {
+      assert.ok(url.endsWith("/auth/api-key"));
+      assert.equal(init?.method, "POST");
+      return new Response(JSON.stringify({}), { status: 200 });
+    }
+
+    assert.ok(url.endsWith("/auth/derive-api-key"));
+    assert.equal(init?.method, "GET");
+    return new Response(
+      JSON.stringify({
+        apiKey: "derived-key",
+        secret: Buffer.from("derived-secret").toString("base64"),
+        passphrase: "derived-passphrase",
+      }),
+      { status: 200 },
+    );
+  });
+
+  try {
+    const result = await createOrDerivePolymarketApiKey({ wallet: mockWallet });
+    assert.deepEqual(result, {
+      apiKey: "derived-key",
+      secret: Buffer.from("derived-secret").toString("base64"),
+      passphrase: "derived-passphrase",
+    });
+  } finally {
+    restore();
+  }
+});
+
+test("placePolymarketOrder bootstraps credentials with create-or-derive when none are supplied", async () => {
+  const mockWallet = createMockWallet();
+  let callCount = 0;
+
+  const restore = withMockFetch(async (url, init) => {
+    callCount += 1;
+
+    if (callCount === 1) {
+      assert.ok(url.endsWith("/auth/api-key"));
+      return new Response(JSON.stringify({}), { status: 200 });
+    }
+
+    if (callCount === 2) {
+      assert.ok(url.endsWith("/auth/derive-api-key"));
+      return new Response(
+        JSON.stringify({
+          apiKey: "derived-key",
+          secret: Buffer.from("derived-secret").toString("base64"),
+          passphrase: "derived-passphrase",
+        }),
+        { status: 200 },
+      );
+    }
+
+    const body = JSON.parse(init?.body as string);
+    assert.ok(url.endsWith("/order"));
+    assert.equal(body.owner, "derived-key");
+
+    return new Response(JSON.stringify({ orderId: "2" }), { status: 200 });
+  });
+
+  try {
+    const result = await placePolymarketOrder({
+      wallet: mockWallet,
+      order: {
+        tokenId: "123",
+        side: "BUY",
+        price: 0.4,
+        size: 5,
+      },
+    });
+
+    assert.equal(result.orderId, "2");
   } finally {
     restore();
   }
