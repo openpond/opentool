@@ -3,6 +3,7 @@ import { defineConfig } from "tsup";
 export default defineConfig({
   entry: [
     "src/index.ts",
+    "src/runtime/index.ts",
     "src/backtest/index.ts",
     "src/validation/index.ts",
     "src/cli/index.ts",

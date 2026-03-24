@@ -210,6 +210,12 @@ export const mcp = {
 
 Tools without this export stay HTTP-only, which is useful when you want selective access. Mix and match as needed.
 
+If you need the programmatic MCP runtime helpers, import them from `opentool/runtime` instead of the root package:
+
+```typescript
+import { createDevServer, createStdioServer } from "opentool/runtime";
+```
+
 ### Testing with MCP Inspector
 
 You can run MCP Inspector against your local tool set:
