@@ -1,10 +1,3 @@
-import { Server } from '@modelcontextprotocol/sdk/server/index.js';
-import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import { ListToolsRequestSchema, CallToolRequestSchema } from '@modelcontextprotocol/sdk/types.js';
-import * as fs from 'fs';
-import * as path from 'path';
-import { fileURLToPath } from 'url';
-import { zodToJsonSchema } from '@alcyone-labs/zod-to-json-schema';
 import { z } from 'zod';
 import { zeroAddress, createWalletClient, http, createPublicClient, parseUnits, encodeFunctionData, erc20Abi, maxUint256, decodeFunctionData } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
@@ -16,12 +9,8 @@ import { keccak_256 } from '@noble/hashes/sha3';
 import { hexToBytes, concatBytes, bytesToHex } from '@noble/hashes/utils';
 import { createHmac, randomBytes } from 'crypto';
 
-var __require = /* @__PURE__ */ ((x) => typeof require !== "undefined" ? require : typeof Proxy !== "undefined" ? new Proxy(x, {
-  get: (a, b) => (typeof require !== "undefined" ? require : a)[b]
-}) : x)(function(x) {
-  if (typeof require !== "undefined") return require.apply(this, arguments);
-  throw Error('Dynamic require of "' + x + '" is not supported');
-});
+// src/types/index.ts
+var HTTP_METHODS = ["GET", "HEAD", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"];
 var X402_VERSION = 1;
 var HEADER_X402 = "X-PAYMENT";
 var HEADER_PAYMENT_RESPONSE = "X-PAYMENT-RESPONSE";
@@ -483,419 +472,6 @@ function normalizeCurrency(currency) {
 function toDecimalString(value) {
   return typeof value === "number" ? value.toString() : value;
 }
-
-// src/adapters/mcp.ts
-var HTTP_METHODS = ["GET", "HEAD", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"];
-function createMcpAdapter(options) {
-  const normalizedSchema = ensureSchema(options.schema);
-  const defaultMethod = resolveDefaultMethod(options);
-  const httpHandler = options.httpHandlers[defaultMethod];
-  if (!httpHandler) {
-    throw new Error(`Tool "${options.name}" does not export an HTTP handler for ${defaultMethod}`);
-  }
-  return async function invoke(rawArguments) {
-    const validated = normalizedSchema ? normalizedSchema.parse(rawArguments ?? {}) : rawArguments;
-    const request = buildRequest(options.name, defaultMethod, validated);
-    try {
-      const response = await Promise.resolve(httpHandler(request));
-      return await responseToToolResponse(response);
-    } catch (error) {
-      if (error instanceof X402PaymentRequiredError) {
-        return await responseToToolResponse(error.response);
-      }
-      throw error;
-    }
-  };
-}
-function resolveDefaultMethod(options) {
-  const explicit = options.defaultMethod?.toUpperCase();
-  if (explicit && typeof options.httpHandlers[explicit] === "function") {
-    return explicit;
-  }
-  const preferredOrder = ["POST", "PUT", "PATCH", "GET", "DELETE", "OPTIONS", "HEAD"];
-  for (const method of preferredOrder) {
-    if (typeof options.httpHandlers[method] === "function") {
-      return method;
-    }
-  }
-  const available = Object.keys(options.httpHandlers).filter(
-    (method) => typeof options.httpHandlers[method] === "function"
-  );
-  if (available.length > 0) {
-    return available[0];
-  }
-  throw new Error(`No HTTP handlers available for tool "${options.name}"`);
-}
-function ensureSchema(schema) {
-  if (!schema) {
-    return void 0;
-  }
-  if (schema instanceof z.ZodType) {
-    return schema;
-  }
-  if (typeof schema?.parse === "function") {
-    return schema;
-  }
-  throw new Error("MCP adapter requires a valid Zod schema to validate arguments");
-}
-function buildRequest(name, method, params) {
-  const url = new URL(`https://opentool.local/${encodeURIComponent(name)}`);
-  const headers = new Headers({
-    "x-opentool-invocation": "mcp",
-    "x-opentool-tool": name
-  });
-  if (method === "GET" || method === "HEAD") {
-    if (params && typeof params === "object") {
-      Object.entries(params).forEach(([key, value]) => {
-        if (value == null) {
-          return;
-        }
-        url.searchParams.set(key, String(value));
-      });
-    }
-    return new Request(url, { method, headers });
-  }
-  headers.set("Content-Type", "application/json");
-  const init = { method, headers };
-  if (params != null) {
-    init.body = JSON.stringify(params);
-  }
-  return new Request(url, init);
-}
-async function responseToToolResponse(response) {
-  const statusIsError = response.status >= 400;
-  const contentType = response.headers.get("content-type") ?? "";
-  const text = await response.text();
-  if (contentType.includes("application/json")) {
-    try {
-      const payload = text ? JSON.parse(text) : {};
-      if (payload && typeof payload === "object" && Array.isArray(payload.content)) {
-        return {
-          content: payload.content,
-          isError: payload.isError ?? statusIsError
-        };
-      }
-      return {
-        content: [{ type: "text", text: JSON.stringify(payload, null, 2) }],
-        isError: statusIsError
-      };
-    } catch {
-      return {
-        content: [{ type: "text", text }],
-        isError: statusIsError
-      };
-    }
-  }
-  if (!text) {
-    return {
-      content: [],
-      isError: statusIsError
-    };
-  }
-  return {
-    content: [{ type: "text", text }],
-    isError: statusIsError
-  };
-}
-
-// src/runtime/index.ts
-function createDevServer(tools) {
-  const metadata = loadMetadata();
-  const metadataMap = buildMetadataMap(metadata);
-  const adapters = buildAdapters(tools);
-  const server = new Server(
-    {
-      name: "opentool-dev",
-      version: "1.0.0"
-    },
-    {
-      capabilities: {
-        tools: {}
-      }
-    }
-  );
-  server.setRequestHandler(ListToolsRequestSchema, async () => ({
-    tools: adapters.map(({ tool }) => serializeTool(tool, metadataMap))
-  }));
-  server.setRequestHandler(CallToolRequestSchema, async (request) => {
-    const entry = adapters.find(({ tool }) => {
-      const toolName = tool.metadata?.name || tool.filename;
-      return toolName === request.params.name;
-    });
-    if (!entry) {
-      throw new Error(`Tool ${request.params.name} not found or not MCP-enabled`);
-    }
-    try {
-      return await entry.invoke(request.params.arguments);
-    } catch (error) {
-      const message = error && error.message || String(error);
-      return {
-        content: [{ type: "text", text: `Error: ${message}` }],
-        isError: true
-      };
-    }
-  });
-  return server;
-}
-async function createStdioServer(tools) {
-  const metadata = loadMetadata();
-  const metadataMap = buildMetadataMap(metadata);
-  const toolDefinitions = tools || await loadToolsFromDirectory(metadataMap);
-  const adapters = buildAdapters(toolDefinitions);
-  const server = new Server(
-    {
-      name: "opentool-runtime",
-      version: "1.0.0"
-    },
-    {
-      capabilities: {
-        tools: {}
-      }
-    }
-  );
-  server.setRequestHandler(ListToolsRequestSchema, async () => ({
-    tools: adapters.map(({ tool }) => serializeTool(tool, metadataMap))
-  }));
-  server.setRequestHandler(CallToolRequestSchema, async (request) => {
-    const entry = adapters.find(({ tool }) => {
-      const toolName = tool.metadata?.name || tool.filename;
-      return toolName === request.params.name;
-    });
-    if (!entry) {
-      throw new Error(`Tool ${request.params.name} not found or not MCP-enabled`);
-    }
-    try {
-      return await entry.invoke(request.params.arguments);
-    } catch (error) {
-      const message = error && error.message || String(error);
-      return {
-        content: [{ type: "text", text: `Error: ${message}` }],
-        isError: true
-      };
-    }
-  });
-  const transport = new StdioServerTransport();
-  await server.connect(transport);
-  console.error("MCP stdio server started");
-}
-function buildAdapters(tools) {
-  return tools.filter((tool) => isMcpEnabled(tool)).map((tool) => {
-    const httpHandlers = toHttpHandlerMap(tool.httpHandlers);
-    const adapterOptions = {
-      name: tool.metadata?.name || tool.filename,
-      httpHandlers,
-      ...tool.schema ? { schema: tool.schema } : {},
-      ...tool.mcpConfig?.defaultMethod ? { defaultMethod: tool.mcpConfig.defaultMethod } : {}
-    };
-    const adapter = createMcpAdapter(adapterOptions);
-    return {
-      tool,
-      invoke: adapter
-    };
-  });
-}
-async function loadToolsFromDirectory(metadataMap) {
-  const tools = [];
-  const toolsDir = path.join(process.cwd(), "tools");
-  if (!fs.existsSync(toolsDir)) {
-    return tools;
-  }
-  const files = fs.readdirSync(toolsDir);
-  for (const file of files) {
-    if (!isSupportedToolFile(file)) {
-      continue;
-    }
-    const toolPath = path.join(toolsDir, file);
-    try {
-      const exportsObject = __require(toolPath);
-      const candidate = resolveModuleCandidate(exportsObject);
-      if (!candidate?.schema) {
-        continue;
-      }
-      const baseName = file.replace(/\.[^.]+$/, "");
-      const name = candidate.metadata?.name || baseName;
-      const meta = metadataMap.get(name);
-      let inputSchema = meta?.inputSchema;
-      if (!inputSchema) {
-        try {
-          inputSchema = zodToJsonSchema(candidate.schema, {
-            name: `${name}Schema`,
-            target: "jsonSchema7",
-            $refStrategy: "none"
-          });
-        } catch {
-          inputSchema = { type: "object" };
-        }
-      }
-      inputSchema = normalizeInputSchema(inputSchema);
-      const payment = candidate.payment ?? null;
-      const httpHandlersRaw = collectHttpHandlers(candidate);
-      const httpHandlers = [...httpHandlersRaw];
-      if (httpHandlers.length === 0) {
-        continue;
-      }
-      if (payment) {
-        for (let index = 0; index < httpHandlers.length; index += 1) {
-          const entry = httpHandlers[index];
-          httpHandlers[index] = {
-            ...entry,
-            handler: withX402Payment(entry.handler, payment)
-          };
-        }
-      }
-      const mcpConfig = normalizeRuntimeMcpConfig(candidate.mcp);
-      const adapterOptions = {
-        name,
-        httpHandlers: toHttpHandlerMap(httpHandlers),
-        ...candidate.schema ? { schema: candidate.schema } : {},
-        ...typeof candidate.mcp?.defaultMethod === "string" ? { defaultMethod: candidate.mcp.defaultMethod } : {}
-      };
-      const adapter = createMcpAdapter(adapterOptions);
-      const tool = {
-        ...candidate.schema ? { schema: candidate.schema } : {},
-        inputSchema,
-        metadata: candidate.metadata || meta || null,
-        filename: baseName,
-        httpHandlers,
-        mcpConfig,
-        handler: async (params) => adapter(params),
-        payment
-      };
-      tools.push(tool);
-    } catch (error) {
-      console.warn(`Failed to load tool from ${file}: ${error}`);
-    }
-  }
-  return tools;
-}
-function loadMetadata() {
-  const metadataPath = path.join(process.cwd(), "metadata.json");
-  if (!fs.existsSync(metadataPath)) {
-    return null;
-  }
-  try {
-    const contents = fs.readFileSync(metadataPath, "utf8");
-    return JSON.parse(contents);
-  } catch (error) {
-    console.warn(`Failed to parse metadata.json: ${error}`);
-    return null;
-  }
-}
-function buildMetadataMap(metadata) {
-  const map = /* @__PURE__ */ new Map();
-  if (!metadata?.tools) {
-    return map;
-  }
-  metadata.tools.forEach((tool) => {
-    map.set(tool.name, tool);
-  });
-  return map;
-}
-function serializeTool(tool, metadataMap) {
-  const name = tool.metadata?.name || tool.filename;
-  const meta = metadataMap.get(name);
-  return {
-    name,
-    description: meta?.description || tool.metadata?.description || `${tool.filename} tool`,
-    inputSchema: meta?.inputSchema || tool.inputSchema,
-    annotations: meta?.annotations || tool.metadata?.annotations,
-    payment: meta?.payment || tool.metadata?.payment,
-    discovery: meta?.discovery || tool.metadata?.discovery
-  };
-}
-function isSupportedToolFile(file) {
-  return /\.(cjs|mjs|js|ts)$/i.test(file);
-}
-function resolveModuleCandidate(exportsObject) {
-  if (!exportsObject) {
-    return null;
-  }
-  if (exportsObject.schema) {
-    return exportsObject;
-  }
-  if (exportsObject.default && exportsObject.default.schema) {
-    return exportsObject.default;
-  }
-  return exportsObject;
-}
-function collectHttpHandlers(module) {
-  const handlers = [];
-  HTTP_METHODS.forEach((method) => {
-    const handler = module?.[method];
-    if (typeof handler === "function") {
-      handlers.push({
-        method,
-        handler: async (request) => handler.call(module, request)
-      });
-    }
-  });
-  return handlers;
-}
-function toHttpHandlerMap(handlers) {
-  return handlers.reduce((acc, handler) => {
-    acc[handler.method.toUpperCase()] = handler.handler;
-    return acc;
-  }, {});
-}
-function normalizeInputSchema(schema) {
-  if (!schema || typeof schema !== "object") {
-    return schema;
-  }
-  const clone = JSON.parse(JSON.stringify(schema));
-  if (typeof clone.$ref === "string" && clone.$ref.startsWith("#/definitions/")) {
-    const refKey = clone.$ref.replace("#/definitions/", "");
-    if (clone.definitions && typeof clone.definitions[refKey] === "object") {
-      return normalizeInputSchema(clone.definitions[refKey]);
-    }
-  }
-  delete clone.$ref;
-  delete clone.definitions;
-  if (!clone.type) {
-    clone.type = "object";
-  }
-  return clone;
-}
-function normalizeRuntimeMcpConfig(rawConfig) {
-  if (isPlainObject(rawConfig) && rawConfig.enabled === true) {
-    let normalizedMode;
-    if (typeof rawConfig.mode === "string") {
-      const candidate = rawConfig.mode.toLowerCase();
-      if (candidate === "stdio" || candidate === "lambda" || candidate === "dual") {
-        normalizedMode = candidate;
-      } else {
-        throw new Error('mcp.mode must be one of "stdio", "lambda", or "dual"');
-      }
-    }
-    const metadataOverrides = isPlainObject(rawConfig.metadataOverrides) ? rawConfig.metadataOverrides : void 0;
-    const config = { enabled: true };
-    if (normalizedMode) {
-      config.mode = normalizedMode;
-    }
-    if (typeof rawConfig.defaultMethod === "string") {
-      config.defaultMethod = rawConfig.defaultMethod.toUpperCase();
-    }
-    if (metadataOverrides) {
-      config.metadataOverrides = metadataOverrides;
-    }
-    return config;
-  }
-  return null;
-}
-function isPlainObject(value) {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-function isMcpEnabled(tool) {
-  return Boolean(tool.mcpConfig?.enabled);
-}
-function resolveRuntimePath(value) {
-  if (value.startsWith("file://")) {
-    return fileURLToPath(value);
-  }
-  return path.resolve(value);
-}
-
-// src/types/index.ts
-var HTTP_METHODS2 = ["GET", "HEAD", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"];
 var X402Client = class {
   constructor(config) {
     this.account = privateKeyToAccount(config.privateKey);
@@ -1721,8 +1297,8 @@ async function store(input, options) {
     );
   }
   const { baseUrl, apiKey, fetchFn } = resolveConfig(options);
-  const path2 = mode === "backtest" ? "/apps/backtests/tx" : "/apps/positions/tx";
-  const url = `${baseUrl}${path2}`;
+  const path = mode === "backtest" ? "/apps/backtests/tx" : "/apps/positions/tx";
+  const url = `${baseUrl}${path}`;
   let response;
   try {
     response = await fetchFn(url, {
@@ -1762,8 +1338,8 @@ async function store(input, options) {
 async function retrieve(params, options) {
   const { baseUrl, apiKey, fetchFn } = resolveConfig(options);
   const mode = params?.mode ?? "live";
-  const path2 = mode === "backtest" ? "/apps/backtests/tx" : "/apps/positions/tx";
-  const url = new URL(`${baseUrl}${path2}`);
+  const path = mode === "backtest" ? "/apps/backtests/tx" : "/apps/positions/tx";
+  const url = new URL(`${baseUrl}${path}`);
   if (params?.source) url.searchParams.set("source", params.source);
   if (params?.walletAddress) url.searchParams.set("walletAddress", params.walletAddress);
   if (params?.symbol) url.searchParams.set("symbol", params.symbol);
@@ -5881,9 +5457,9 @@ function parseOptionalDate(value) {
 function buildHmacSignature(args) {
   const timestamp = args.timestamp.toString();
   const method = args.method.toUpperCase();
-  const path2 = args.path;
+  const path = args.path;
   const body = args.body == null ? "" : typeof args.body === "string" ? args.body : JSON.stringify(args.body);
-  const payload = `${timestamp}${method}${path2}${body}`;
+  const payload = `${timestamp}${method}${path}${body}`;
   const key = Buffer.from(args.secret, "base64");
   return createHmac("sha256", key).update(payload).digest("hex");
 }
@@ -7675,8 +7251,8 @@ async function streamText(options, clientConfig = {}) {
   const handlers = options.handlers ?? {};
   let finishedResolve;
   let finishedReject;
-  const finished = new Promise((resolve2, reject) => {
-    finishedResolve = resolve2;
+  const finished = new Promise((resolve, reject) => {
+    finishedResolve = resolve;
     finishedReject = reject;
   });
   let settled = false;
@@ -7905,9 +7481,9 @@ function assignIfDefined(target, key, value) {
     target[key] = value;
   }
 }
-function buildUrl(baseUrl, path2) {
+function buildUrl(baseUrl, path) {
   const sanitizedBase = baseUrl.endsWith("/") ? baseUrl.slice(0, -1) : baseUrl;
-  return `${sanitizedBase}${path2}`;
+  return `${sanitizedBase}${path}`;
 }
 function createAbortBundle(upstreamSignal, timeoutMs) {
   const controller = new AbortController();
@@ -8111,7 +7687,118 @@ function buildBacktestDecisionSeriesInput(request) {
     ...accountValueUsd != null ? { accountValueUsd } : {}
   };
 }
+function createMcpAdapter(options) {
+  const normalizedSchema = ensureSchema(options.schema);
+  const defaultMethod = resolveDefaultMethod(options);
+  const httpHandler = options.httpHandlers[defaultMethod];
+  if (!httpHandler) {
+    throw new Error(`Tool "${options.name}" does not export an HTTP handler for ${defaultMethod}`);
+  }
+  return async function invoke(rawArguments) {
+    const validated = normalizedSchema ? normalizedSchema.parse(rawArguments ?? {}) : rawArguments;
+    const request = buildRequest(options.name, defaultMethod, validated);
+    try {
+      const response = await Promise.resolve(httpHandler(request));
+      return await responseToToolResponse(response);
+    } catch (error) {
+      if (error instanceof X402PaymentRequiredError) {
+        return await responseToToolResponse(error.response);
+      }
+      throw error;
+    }
+  };
+}
+function resolveDefaultMethod(options) {
+  const explicit = options.defaultMethod?.toUpperCase();
+  if (explicit && typeof options.httpHandlers[explicit] === "function") {
+    return explicit;
+  }
+  const preferredOrder = ["POST", "PUT", "PATCH", "GET", "DELETE", "OPTIONS", "HEAD"];
+  for (const method of preferredOrder) {
+    if (typeof options.httpHandlers[method] === "function") {
+      return method;
+    }
+  }
+  const available = Object.keys(options.httpHandlers).filter(
+    (method) => typeof options.httpHandlers[method] === "function"
+  );
+  if (available.length > 0) {
+    return available[0];
+  }
+  throw new Error(`No HTTP handlers available for tool "${options.name}"`);
+}
+function ensureSchema(schema) {
+  if (!schema) {
+    return void 0;
+  }
+  if (schema instanceof z.ZodType) {
+    return schema;
+  }
+  if (typeof schema?.parse === "function") {
+    return schema;
+  }
+  throw new Error("MCP adapter requires a valid Zod schema to validate arguments");
+}
+function buildRequest(name, method, params) {
+  const url = new URL(`https://opentool.local/${encodeURIComponent(name)}`);
+  const headers = new Headers({
+    "x-opentool-invocation": "mcp",
+    "x-opentool-tool": name
+  });
+  if (method === "GET" || method === "HEAD") {
+    if (params && typeof params === "object") {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value == null) {
+          return;
+        }
+        url.searchParams.set(key, String(value));
+      });
+    }
+    return new Request(url, { method, headers });
+  }
+  headers.set("Content-Type", "application/json");
+  const init = { method, headers };
+  if (params != null) {
+    init.body = JSON.stringify(params);
+  }
+  return new Request(url, init);
+}
+async function responseToToolResponse(response) {
+  const statusIsError = response.status >= 400;
+  const contentType = response.headers.get("content-type") ?? "";
+  const text = await response.text();
+  if (contentType.includes("application/json")) {
+    try {
+      const payload = text ? JSON.parse(text) : {};
+      if (payload && typeof payload === "object" && Array.isArray(payload.content)) {
+        return {
+          content: payload.content,
+          isError: payload.isError ?? statusIsError
+        };
+      }
+      return {
+        content: [{ type: "text", text: JSON.stringify(payload, null, 2) }],
+        isError: statusIsError
+      };
+    } catch {
+      return {
+        content: [{ type: "text", text }],
+        isError: statusIsError
+      };
+    }
+  }
+  if (!text) {
+    return {
+      content: [],
+      isError: statusIsError
+    };
+  }
+  return {
+    content: [{ type: "text", text }],
+    isError: statusIsError
+  };
+}
 
-export { AIAbortError, AIError, AIFetchError, AIResponseError, BACKTEST_DECISION_MODE, DEFAULT_BASE_URL, DEFAULT_CHAIN, DEFAULT_FACILITATOR, DEFAULT_HYPERLIQUID_CADENCE_CRON, DEFAULT_HYPERLIQUID_MARKET_SLIPPAGE_BPS, DEFAULT_HYPERLIQUID_TPSL_MARKET_SLIPPAGE_BPS, DEFAULT_MODEL, DEFAULT_OPENPOND_GATEWAY_URL2 as DEFAULT_OPENPOND_GATEWAY_URL, DEFAULT_TIMEOUT_MS, DEFAULT_TOKENS, HTTP_METHODS2 as HTTP_METHODS, HYPERLIQUID_HIP3_DEXES, HyperliquidApiError, HyperliquidBuilderApprovalError, HyperliquidExchangeClient, HyperliquidGuardError, HyperliquidInfoClient, HyperliquidTermsError, NewsSignalClient, PAYMENT_HEADERS, POLYMARKET_CHAIN_ID, POLYMARKET_CLOB_AUTH_DOMAIN, POLYMARKET_CLOB_DOMAIN, POLYMARKET_ENDPOINTS, POLYMARKET_EXCHANGE_ADDRESSES, PolymarketApiError, PolymarketAuthError, PolymarketExchangeClient, PolymarketInfoClient, SUPPORTED_CURRENCIES, StoreError, WEBSEARCH_TOOL_DEFINITION, WEBSEARCH_TOOL_NAME, X402BrowserClient, X402Client, X402PaymentRequiredError, __hyperliquidInternals, __hyperliquidMarketDataInternals, approveHyperliquidBuilderFee, backtestDecisionRequestSchema, batchModifyHyperliquidOrders, buildBacktestDecisionSeriesInput, buildHmacSignature, buildHyperliquidMarketDescriptor, buildHyperliquidMarketIdentity, buildHyperliquidProfileAssets, buildHyperliquidSpotUsdPriceMap, buildL1Headers, buildL2Headers, buildPolymarketApprovalTransactions, buildPolymarketOrderAmounts, buildPolymarketOutcomeTokenApprovalTransactions, buildPolymarketUsdcApprovalTransaction, buildSignedOrderPayload, cancelAllHyperliquidOrders, cancelAllPolymarketOrders, cancelHyperliquidOrders, cancelHyperliquidOrdersByCloid, cancelHyperliquidTwapOrder, cancelMarketPolymarketOrders, cancelPolymarketOrder, cancelPolymarketOrders, chains, clampHyperliquidAbs, clampHyperliquidFloat, clampHyperliquidInt, computeHyperliquidMarketIocLimitPrice, createAIClient, createDevServer, createHyperliquidSubAccount, createMcpAdapter, createMonotonicNonceFactory, createOrDerivePolymarketApiKey, createPolymarketApiKey, createStdioServer, decodePolymarketBootstrapTransaction, defineX402Payment, depositToHyperliquidBridge, derivePolymarketApiKey, ensureTextContent, estimateCountBack, estimateHyperliquidLiquidationPrice, evaluateNewsContinuationGate, executeTool, extractHyperliquidDex, extractHyperliquidOrderIds, fetchHyperliquidActiveAsset, fetchHyperliquidAllMids, fetchHyperliquidAssetCtxs, fetchHyperliquidBars, fetchHyperliquidClearinghouseState, fetchHyperliquidDexMeta, fetchHyperliquidDexMetaAndAssetCtxs, fetchHyperliquidFrontendOpenOrders, fetchHyperliquidFrontendOpenOrdersAcrossDexes, fetchHyperliquidHistoricalOrders, fetchHyperliquidMeta, fetchHyperliquidMetaAndAssetCtxs, fetchHyperliquidOpenOrders, fetchHyperliquidOpenOrdersAcrossDexes, fetchHyperliquidOrderStatus, fetchHyperliquidPerpMarketInfo, fetchHyperliquidPreTransferCheck, fetchHyperliquidResolvedMarketDescriptor, fetchHyperliquidSizeDecimals, fetchHyperliquidSpotAccountValue, fetchHyperliquidSpotAssetCtxs, fetchHyperliquidSpotClearinghouseState, fetchHyperliquidSpotMarketInfo, fetchHyperliquidSpotMeta, fetchHyperliquidSpotMetaAndAssetCtxs, fetchHyperliquidSpotTickSize, fetchHyperliquidSpotUsdPriceMap, fetchHyperliquidTickSize, fetchHyperliquidUserFills, fetchHyperliquidUserFillsByTime, fetchHyperliquidUserRateLimit, fetchNewsEventSignal, fetchNewsPropositionSignal, fetchPolymarketActivity, fetchPolymarketApprovalState, fetchPolymarketClosedPositions, fetchPolymarketDepositAddresses, fetchPolymarketMarket, fetchPolymarketMarkets, fetchPolymarketMidpoint, fetchPolymarketOrderbook, fetchPolymarketPositionValue, fetchPolymarketPositions, fetchPolymarketPrice, fetchPolymarketPriceHistory, fetchPolymarketPublicProfile, flattenMessageContent, formatHyperliquidMarketablePrice, formatHyperliquidOrderSize, formatHyperliquidPrice, formatHyperliquidSize, generateText, getHyperliquidMaxBuilderFee, getKnownHyperliquidDexes, getModelConfig, getMyPerformance, getMyTools, getRpcUrl, getX402PaymentContext, isHyperliquidSpotSymbol, isStreamingSupported, isToolCallingSupported, listModels, modifyHyperliquidOrder, normalizeHyperliquidBaseSymbol, normalizeHyperliquidDcaEntries, normalizeHyperliquidIndicatorBars, normalizeHyperliquidMetaSymbol, normalizeModelName, normalizeNumberArrayish, normalizeSpotTokenName2 as normalizeSpotTokenName, normalizeStringArrayish, parseHyperliquidJson, parseHyperliquidSymbol, parseSpotPairSymbol, parseTimeToSeconds, payX402, payX402WithWallet, placeHyperliquidOrder2 as placeHyperliquidOrder, placeHyperliquidOrderWithTpSl, placeHyperliquidPositionTpSl, placeHyperliquidTwapOrder, placePolymarketOrder, planHyperliquidTrade, postAgentDigest, readHyperliquidAccountValue, readHyperliquidNumber, readHyperliquidPerpPosition, readHyperliquidPerpPositionSize, readHyperliquidSpotAccountValue, readHyperliquidSpotBalance, readHyperliquidSpotBalanceSize, recordHyperliquidBuilderApproval, recordHyperliquidTermsAcceptance, registry, requireX402Payment, reserveHyperliquidRequestWeight, resolutionToSeconds, resolveBacktestAccountValueUsd, resolveBacktestMode, resolveBacktestWindow, resolveConfig2 as resolveConfig, resolveExchangeAddress, resolveHyperliquidAbstractionFromMode, resolveHyperliquidBudgetUsd, resolveHyperliquidCadenceCron, resolveHyperliquidCadenceFromResolution, resolveHyperliquidChain, resolveHyperliquidChainConfig, resolveHyperliquidDcaSymbolEntries, resolveHyperliquidErrorDetail, resolveHyperliquidHourlyInterval, resolveHyperliquidIntervalCron, resolveHyperliquidLeverageMode, resolveHyperliquidMarketDataCoin, resolveHyperliquidMaxPerRunUsd, resolveHyperliquidOrderRef, resolveHyperliquidOrderSymbol, resolveHyperliquidPair, resolveHyperliquidPerpSymbol, resolveHyperliquidProfileChain, resolveHyperliquidRpcEnvVar, resolveHyperliquidScheduleEvery, resolveHyperliquidScheduleUnit, resolveHyperliquidSpotSymbol, resolveHyperliquidStoreNetwork, resolveHyperliquidSymbol, resolveHyperliquidTargetSize, resolveNewsGatewayBase, resolvePolymarketBaseUrl, resolvePolymarketBootstrapContracts, resolveRuntimePath, resolveSpotMidCandidates, resolveSpotTokenCandidates, resolveToolset, responseToToolResponse, retrieve, roundHyperliquidPriceToTick, scheduleHyperliquidCancel, sendHyperliquidSpot, setHyperliquidAccountAbstractionMode, setHyperliquidPortfolioMargin, store, streamText, supportsHyperliquidBuilderFee, tokens, transferHyperliquidSubAccount, updateHyperliquidIsolatedMargin, updateHyperliquidLeverage, wallet, walletToolkit, withX402Payment, withdrawFromHyperliquid };
+export { AIAbortError, AIError, AIFetchError, AIResponseError, BACKTEST_DECISION_MODE, DEFAULT_BASE_URL, DEFAULT_CHAIN, DEFAULT_FACILITATOR, DEFAULT_HYPERLIQUID_CADENCE_CRON, DEFAULT_HYPERLIQUID_MARKET_SLIPPAGE_BPS, DEFAULT_HYPERLIQUID_TPSL_MARKET_SLIPPAGE_BPS, DEFAULT_MODEL, DEFAULT_OPENPOND_GATEWAY_URL2 as DEFAULT_OPENPOND_GATEWAY_URL, DEFAULT_TIMEOUT_MS, DEFAULT_TOKENS, HTTP_METHODS, HYPERLIQUID_HIP3_DEXES, HyperliquidApiError, HyperliquidBuilderApprovalError, HyperliquidExchangeClient, HyperliquidGuardError, HyperliquidInfoClient, HyperliquidTermsError, NewsSignalClient, PAYMENT_HEADERS, POLYMARKET_CHAIN_ID, POLYMARKET_CLOB_AUTH_DOMAIN, POLYMARKET_CLOB_DOMAIN, POLYMARKET_ENDPOINTS, POLYMARKET_EXCHANGE_ADDRESSES, PolymarketApiError, PolymarketAuthError, PolymarketExchangeClient, PolymarketInfoClient, SUPPORTED_CURRENCIES, StoreError, WEBSEARCH_TOOL_DEFINITION, WEBSEARCH_TOOL_NAME, X402BrowserClient, X402Client, X402PaymentRequiredError, __hyperliquidInternals, __hyperliquidMarketDataInternals, approveHyperliquidBuilderFee, backtestDecisionRequestSchema, batchModifyHyperliquidOrders, buildBacktestDecisionSeriesInput, buildHmacSignature, buildHyperliquidMarketDescriptor, buildHyperliquidMarketIdentity, buildHyperliquidProfileAssets, buildHyperliquidSpotUsdPriceMap, buildL1Headers, buildL2Headers, buildPolymarketApprovalTransactions, buildPolymarketOrderAmounts, buildPolymarketOutcomeTokenApprovalTransactions, buildPolymarketUsdcApprovalTransaction, buildSignedOrderPayload, cancelAllHyperliquidOrders, cancelAllPolymarketOrders, cancelHyperliquidOrders, cancelHyperliquidOrdersByCloid, cancelHyperliquidTwapOrder, cancelMarketPolymarketOrders, cancelPolymarketOrder, cancelPolymarketOrders, chains, clampHyperliquidAbs, clampHyperliquidFloat, clampHyperliquidInt, computeHyperliquidMarketIocLimitPrice, createAIClient, createHyperliquidSubAccount, createMcpAdapter, createMonotonicNonceFactory, createOrDerivePolymarketApiKey, createPolymarketApiKey, decodePolymarketBootstrapTransaction, defineX402Payment, depositToHyperliquidBridge, derivePolymarketApiKey, ensureTextContent, estimateCountBack, estimateHyperliquidLiquidationPrice, evaluateNewsContinuationGate, executeTool, extractHyperliquidDex, extractHyperliquidOrderIds, fetchHyperliquidActiveAsset, fetchHyperliquidAllMids, fetchHyperliquidAssetCtxs, fetchHyperliquidBars, fetchHyperliquidClearinghouseState, fetchHyperliquidDexMeta, fetchHyperliquidDexMetaAndAssetCtxs, fetchHyperliquidFrontendOpenOrders, fetchHyperliquidFrontendOpenOrdersAcrossDexes, fetchHyperliquidHistoricalOrders, fetchHyperliquidMeta, fetchHyperliquidMetaAndAssetCtxs, fetchHyperliquidOpenOrders, fetchHyperliquidOpenOrdersAcrossDexes, fetchHyperliquidOrderStatus, fetchHyperliquidPerpMarketInfo, fetchHyperliquidPreTransferCheck, fetchHyperliquidResolvedMarketDescriptor, fetchHyperliquidSizeDecimals, fetchHyperliquidSpotAccountValue, fetchHyperliquidSpotAssetCtxs, fetchHyperliquidSpotClearinghouseState, fetchHyperliquidSpotMarketInfo, fetchHyperliquidSpotMeta, fetchHyperliquidSpotMetaAndAssetCtxs, fetchHyperliquidSpotTickSize, fetchHyperliquidSpotUsdPriceMap, fetchHyperliquidTickSize, fetchHyperliquidUserFills, fetchHyperliquidUserFillsByTime, fetchHyperliquidUserRateLimit, fetchNewsEventSignal, fetchNewsPropositionSignal, fetchPolymarketActivity, fetchPolymarketApprovalState, fetchPolymarketClosedPositions, fetchPolymarketDepositAddresses, fetchPolymarketMarket, fetchPolymarketMarkets, fetchPolymarketMidpoint, fetchPolymarketOrderbook, fetchPolymarketPositionValue, fetchPolymarketPositions, fetchPolymarketPrice, fetchPolymarketPriceHistory, fetchPolymarketPublicProfile, flattenMessageContent, formatHyperliquidMarketablePrice, formatHyperliquidOrderSize, formatHyperliquidPrice, formatHyperliquidSize, generateText, getHyperliquidMaxBuilderFee, getKnownHyperliquidDexes, getModelConfig, getMyPerformance, getMyTools, getRpcUrl, getX402PaymentContext, isHyperliquidSpotSymbol, isStreamingSupported, isToolCallingSupported, listModels, modifyHyperliquidOrder, normalizeHyperliquidBaseSymbol, normalizeHyperliquidDcaEntries, normalizeHyperliquidIndicatorBars, normalizeHyperliquidMetaSymbol, normalizeModelName, normalizeNumberArrayish, normalizeSpotTokenName2 as normalizeSpotTokenName, normalizeStringArrayish, parseHyperliquidJson, parseHyperliquidSymbol, parseSpotPairSymbol, parseTimeToSeconds, payX402, payX402WithWallet, placeHyperliquidOrder2 as placeHyperliquidOrder, placeHyperliquidOrderWithTpSl, placeHyperliquidPositionTpSl, placeHyperliquidTwapOrder, placePolymarketOrder, planHyperliquidTrade, postAgentDigest, readHyperliquidAccountValue, readHyperliquidNumber, readHyperliquidPerpPosition, readHyperliquidPerpPositionSize, readHyperliquidSpotAccountValue, readHyperliquidSpotBalance, readHyperliquidSpotBalanceSize, recordHyperliquidBuilderApproval, recordHyperliquidTermsAcceptance, registry, requireX402Payment, reserveHyperliquidRequestWeight, resolutionToSeconds, resolveBacktestAccountValueUsd, resolveBacktestMode, resolveBacktestWindow, resolveConfig2 as resolveConfig, resolveExchangeAddress, resolveHyperliquidAbstractionFromMode, resolveHyperliquidBudgetUsd, resolveHyperliquidCadenceCron, resolveHyperliquidCadenceFromResolution, resolveHyperliquidChain, resolveHyperliquidChainConfig, resolveHyperliquidDcaSymbolEntries, resolveHyperliquidErrorDetail, resolveHyperliquidHourlyInterval, resolveHyperliquidIntervalCron, resolveHyperliquidLeverageMode, resolveHyperliquidMarketDataCoin, resolveHyperliquidMaxPerRunUsd, resolveHyperliquidOrderRef, resolveHyperliquidOrderSymbol, resolveHyperliquidPair, resolveHyperliquidPerpSymbol, resolveHyperliquidProfileChain, resolveHyperliquidRpcEnvVar, resolveHyperliquidScheduleEvery, resolveHyperliquidScheduleUnit, resolveHyperliquidSpotSymbol, resolveHyperliquidStoreNetwork, resolveHyperliquidSymbol, resolveHyperliquidTargetSize, resolveNewsGatewayBase, resolvePolymarketBaseUrl, resolvePolymarketBootstrapContracts, resolveSpotMidCandidates, resolveSpotTokenCandidates, resolveToolset, responseToToolResponse, retrieve, roundHyperliquidPriceToTick, scheduleHyperliquidCancel, sendHyperliquidSpot, setHyperliquidAccountAbstractionMode, setHyperliquidPortfolioMargin, store, streamText, supportsHyperliquidBuilderFee, tokens, transferHyperliquidSubAccount, updateHyperliquidIsolatedMargin, updateHyperliquidLeverage, wallet, walletToolkit, withX402Payment, withdrawFromHyperliquid };
 //# sourceMappingURL=index.js.map
 //# sourceMappingURL=index.js.map
