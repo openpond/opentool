@@ -20,6 +20,9 @@ export type NewsContinuationAction = "continue" | "skip" | "pause";
 
 export type NewsPredictionMarketMatchedMarket = {
   marketId: string;
+  eventId?: string | null;
+  eventSlug?: string | null;
+  eventTitle?: string | null;
   conditionId?: string | null;
   title: string;
   slug?: string | null;
@@ -179,9 +182,7 @@ export type NewsPropositionContinuationGate = {
   onBlocked?: Exclude<NewsContinuationAction, "continue">;
 };
 
-export type NewsContinuationGate =
-  | NewsEventContinuationGate
-  | NewsPropositionContinuationGate;
+export type NewsContinuationGate = NewsEventContinuationGate | NewsPropositionContinuationGate;
 
 export type NewsContinuationGateResult = {
   allowed: boolean;
@@ -305,9 +306,7 @@ export async function fetchNewsPropositionSignal(
       question,
       ...(params.query?.trim() ? { query: params.query.trim() } : {}),
       ...(params.eventKey?.trim() ? { eventKey: params.eventKey.trim() } : {}),
-      ...(params.propositionType?.trim()
-        ? { propositionType: params.propositionType.trim() }
-        : {}),
+      ...(params.propositionType?.trim() ? { propositionType: params.propositionType.trim() } : {}),
       ...(normalizeAsOf(params.asOf) ? { asOf: normalizeAsOf(params.asOf) } : {}),
       ...(typeof params.includePredictionMarkets === "boolean"
         ? { includePredictionMarkets: params.includePredictionMarkets }
@@ -368,10 +367,7 @@ export function evaluateNewsContinuationGate(
     ) {
       blockingFactors.push("no_matching_event");
     }
-    if (
-      gate.expectedAnswer &&
-      propositionSignal.answer !== gate.expectedAnswer
-    ) {
+    if (gate.expectedAnswer && propositionSignal.answer !== gate.expectedAnswer) {
       blockingFactors.push("unexpected_answer");
     }
     if (
@@ -417,9 +413,7 @@ export class NewsSignalClient {
     this.fetchImplementation = resolveFetchImplementation(config.fetchImplementation);
   }
 
-  eventSignal(
-    params: Omit<NewsEventSignalRequest, "gatewayBase" | "fetchImplementation">,
-  ) {
+  eventSignal(params: Omit<NewsEventSignalRequest, "gatewayBase" | "fetchImplementation">) {
     return fetchNewsEventSignal({
       ...params,
       gatewayBase: this.gatewayBase,

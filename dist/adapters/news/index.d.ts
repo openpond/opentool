@@ -6,6 +6,9 @@ type NewsPropositionStatus = NewsPropositionAnswer | "no_matching_event";
 type NewsContinuationAction = "continue" | "skip" | "pause";
 type NewsPredictionMarketMatchedMarket = {
     marketId: string;
+    eventId?: string | null;
+    eventSlug?: string | null;
+    eventTitle?: string | null;
     conditionId?: string | null;
     title: string;
     slug?: string | null;

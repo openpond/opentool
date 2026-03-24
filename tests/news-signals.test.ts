@@ -67,7 +67,36 @@ test("fetchNewsEventSignal posts policy thresholds to gateway", async () => {
         rebuttingSourceSummary: [],
         evidence: [],
         dataAgeMs: 120000,
-        predictionMarketContext: null,
+        predictionMarketContext: {
+          matchedMarkets: [
+            {
+              marketId: "pm_1",
+              eventId: "30829",
+              eventSlug: "democratic-presidential-nominee-2028",
+              eventTitle: "Democratic Presidential Nominee 2028",
+              conditionId: "0xabc",
+              title: "Will Oprah Winfrey win the 2028 Democratic presidential nomination?",
+              slug: "will-oprah-winfrey-win-the-2028-democratic-presidential-nomination",
+              category: "Politics",
+              yesProbability: 0.02,
+              noProbability: 0.98,
+              leadingOutcome: "No",
+              leadingProbability: 0.98,
+              volume: 1000,
+              liquidity: 5000,
+              openInterest: 2500,
+              probabilityDelta1h: 0,
+              probabilityDelta24h: -0.01,
+              fetchedAt: "2026-03-24T14:00:00.000Z",
+            },
+          ],
+          consensusProbability: 0.98,
+          probabilityDelta1h: 0,
+          probabilityDelta24h: -0.01,
+          liquidityWeightedScore: 0.98,
+          predictionDisagreementScore: 0,
+          dataAgeMs: 120000,
+        },
       }),
       { status: 200 },
     );
@@ -85,6 +114,10 @@ test("fetchNewsEventSignal posts policy thresholds to gateway", async () => {
 
     assert.equal(signal.eventKey, "geopolitics:us-iran-conflict");
     assert.equal(signal.triggerPassed, true);
+    assert.equal(
+      signal.predictionMarketContext?.matchedMarkets[0]?.eventSlug,
+      "democratic-presidential-nominee-2028",
+    );
   } finally {
     restore();
   }
@@ -177,7 +210,9 @@ test("NewsSignalClient reuses configured gateway base and fetch implementation",
   });
 
   try {
-    const client = new NewsSignalClient({ gatewayBase: "https://gateway.example" });
+    const client = new NewsSignalClient({
+      gatewayBase: "https://gateway.example",
+    });
     const signal = await client.propositionSignal({
       question: "Is the US still at war with Iran?",
     });
@@ -276,8 +311,5 @@ test("evaluateNewsContinuationGate blocks failing proposition signals", () => {
 
   assert.equal(result.allowed, false);
   assert.equal(result.action, "pause");
-  assert.deepEqual(result.blockingFactors, [
-    "unexpected_answer",
-    "confidence_below_threshold",
-  ]);
+  assert.deepEqual(result.blockingFactors, ["unexpected_answer", "confidence_below_threshold"]);
 });
