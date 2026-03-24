@@ -1,5 +1,12 @@
 # opentool
 
+## 0.19.2
+
+### Patch Changes
+
+- 8e8ad69: updated news
+- 8e8ad69: updated news to incorpoarete market
+
 ## 0.19.1
 
 ### Patch Changes
