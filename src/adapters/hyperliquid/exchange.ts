@@ -27,6 +27,10 @@ import {
   signSpotSend,
   toApiDecimal,
 } from "./base";
+import { fetchHyperliquidActiveAsset } from "./info";
+
+const DEFAULT_HYPERLIQUID_LEVERAGE_VERIFY_ATTEMPTS = 4;
+const DEFAULT_HYPERLIQUID_LEVERAGE_VERIFY_DELAY_MS = 250;
 
 type CommonActionOptions = {
   environment?: HyperliquidEnvironment;
@@ -66,6 +70,10 @@ type UpdateLeverageInput = {
   symbol: string;
   leverageMode: "cross" | "isolated";
   leverage: number;
+  verifyApplied?: boolean;
+  verifyAttempts?: number;
+  verifyDelayMs?: number;
+  verifyUser?: `0x${string}`;
 };
 
 type UpdateIsolatedMarginInput = {
@@ -95,6 +103,84 @@ function resolveRequiredExchangeNonce(options: {
   }
 
   return resolved;
+}
+
+function sleep(ms: number) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
+function normalizeReportedLeverageMode(value: string | null | undefined): "cross" | "isolated" | null {
+  if (!value) return null;
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "cross" || normalized === "isolated") {
+    return normalized;
+  }
+  return null;
+}
+
+function resolveLeverageVerificationUser(options: {
+  wallet: WalletFullContext;
+  vaultAddress?: `0x${string}` | undefined;
+  input: UpdateLeverageInput;
+}): `0x${string}` {
+  return normalizeAddress(
+    options.input.verifyUser ??
+      options.vaultAddress ??
+      (options.wallet.address as `0x${string}`),
+  );
+}
+
+async function verifyAppliedHyperliquidLeverage(params: {
+  environment: HyperliquidEnvironment;
+  user: `0x${string}`;
+  symbol: string;
+  leverage: number;
+  leverageMode: "cross" | "isolated";
+  attempts?: number;
+  delayMs?: number;
+}) {
+  const attempts =
+    typeof params.attempts === "number" &&
+    Number.isFinite(params.attempts) &&
+    params.attempts > 0
+      ? Math.max(1, Math.floor(params.attempts))
+      : DEFAULT_HYPERLIQUID_LEVERAGE_VERIFY_ATTEMPTS;
+  const delayMs =
+    typeof params.delayMs === "number" &&
+    Number.isFinite(params.delayMs) &&
+    params.delayMs >= 0
+      ? Math.max(0, Math.floor(params.delayMs))
+      : DEFAULT_HYPERLIQUID_LEVERAGE_VERIFY_DELAY_MS;
+  let lastReportedLeverage: number | null = null;
+  let lastReportedMode: "cross" | "isolated" | null = null;
+
+  for (let index = 0; index < attempts; index += 1) {
+    const asset = await fetchHyperliquidActiveAsset({
+      environment: params.environment,
+      user: params.user,
+      symbol: params.symbol,
+    });
+    lastReportedLeverage = asset.leverage;
+    lastReportedMode = normalizeReportedLeverageMode(asset.leverageType);
+    const leverageMatches = asset.leverage === params.leverage;
+    const modeMatches = lastReportedMode == null || lastReportedMode === params.leverageMode;
+    if (leverageMatches && modeMatches) {
+      return asset;
+    }
+    if (index < attempts - 1 && delayMs > 0) {
+      await sleep(delayMs);
+    }
+  }
+
+  const reportedLabel =
+    lastReportedLeverage != null
+      ? `${lastReportedLeverage}x${lastReportedMode ? ` ${lastReportedMode}` : ""}`
+      : "unknown leverage";
+  throw new Error(
+    `Hyperliquid still reports ${reportedLabel} for ${params.symbol} after requesting ${params.leverage}x ${params.leverageMode}.`,
+  );
 }
 
 export class HyperliquidExchangeClient {
@@ -578,7 +664,24 @@ export async function updateHyperliquidLeverage(
     isCross: options.input.leverageMode === "cross",
     leverage: options.input.leverage,
   };
-  return submitExchangeAction(options, action);
+  const response = await submitExchangeAction(options, action);
+  if (options.input.verifyApplied === false) {
+    return response;
+  }
+  await verifyAppliedHyperliquidLeverage({
+    environment: env,
+    user: resolveLeverageVerificationUser(options),
+    symbol: options.input.symbol,
+    leverage: options.input.leverage,
+    leverageMode: options.input.leverageMode,
+    ...(typeof options.input.verifyAttempts === "number"
+      ? { attempts: options.input.verifyAttempts }
+      : {}),
+    ...(typeof options.input.verifyDelayMs === "number"
+      ? { delayMs: options.input.verifyDelayMs }
+      : {}),
+  });
+  return response;
 }
 
 export async function updateHyperliquidIsolatedMargin(

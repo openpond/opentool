@@ -1050,6 +1050,16 @@ function mergeHyperliquidOpenOrders(batches) {
   }
   return [...merged.values()];
 }
+function applyHyperliquidOpenOrderDexContext(orders, dex) {
+  const resolvedDex = typeof dex === "string" && dex.trim().length > 0 ? dex.trim().toLowerCase() : null;
+  return orders.map((order) => {
+    const existingDex = typeof order.dex === "string" && order.dex.trim().length > 0 ? order.dex.trim().toLowerCase() : null;
+    return {
+      ...order,
+      dex: existingDex ?? resolvedDex
+    };
+  });
+}
 function readNumber(value) {
   if (typeof value === "number") {
     return Number.isFinite(value) ? value : null;
@@ -1165,19 +1175,21 @@ async function fetchHyperliquidSpotAssetCtxs(environment = "mainnet") {
 }
 async function fetchHyperliquidOpenOrders(params) {
   const env = params.environment ?? "mainnet";
-  return postInfo(env, {
+  const orders = await postInfo(env, {
     type: "openOrders",
     user: normalizeAddress(params.user),
     ...params.dex ? { dex: params.dex.trim().toLowerCase() } : {}
   });
+  return applyHyperliquidOpenOrderDexContext(orders, params.dex);
 }
 async function fetchHyperliquidFrontendOpenOrders(params) {
   const env = params.environment ?? "mainnet";
-  return postInfo(env, {
+  const orders = await postInfo(env, {
     type: "frontendOpenOrders",
     user: normalizeAddress(params.user),
     ...params.dex ? { dex: params.dex.trim().toLowerCase() } : {}
   });
+  return applyHyperliquidOpenOrderDexContext(orders, params.dex);
 }
 async function fetchHyperliquidOrderStatus(params) {
   const env = params.environment ?? "mainnet";
@@ -1288,6 +1300,8 @@ async function fetchHyperliquidActiveAsset(params) {
 }
 
 // src/adapters/hyperliquid/exchange.ts
+var DEFAULT_HYPERLIQUID_LEVERAGE_VERIFY_ATTEMPTS = 4;
+var DEFAULT_HYPERLIQUID_LEVERAGE_VERIFY_DELAY_MS = 250;
 function resolveRequiredExchangeNonce(options) {
   if (typeof options.nonce === "number") {
     return options.nonce;
@@ -1297,6 +1311,51 @@ function resolveRequiredExchangeNonce(options) {
     throw new Error(`${options.action} requires an explicit nonce or wallet nonce source.`);
   }
   return resolved;
+}
+function sleep(ms) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+function normalizeReportedLeverageMode(value) {
+  if (!value) return null;
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "cross" || normalized === "isolated") {
+    return normalized;
+  }
+  return null;
+}
+function resolveLeverageVerificationUser(options) {
+  return normalizeAddress(
+    options.input.verifyUser ?? options.vaultAddress ?? options.wallet.address
+  );
+}
+async function verifyAppliedHyperliquidLeverage(params) {
+  const attempts = typeof params.attempts === "number" && Number.isFinite(params.attempts) && params.attempts > 0 ? Math.max(1, Math.floor(params.attempts)) : DEFAULT_HYPERLIQUID_LEVERAGE_VERIFY_ATTEMPTS;
+  const delayMs = typeof params.delayMs === "number" && Number.isFinite(params.delayMs) && params.delayMs >= 0 ? Math.max(0, Math.floor(params.delayMs)) : DEFAULT_HYPERLIQUID_LEVERAGE_VERIFY_DELAY_MS;
+  let lastReportedLeverage = null;
+  let lastReportedMode = null;
+  for (let index = 0; index < attempts; index += 1) {
+    const asset = await fetchHyperliquidActiveAsset({
+      environment: params.environment,
+      user: params.user,
+      symbol: params.symbol
+    });
+    lastReportedLeverage = asset.leverage;
+    lastReportedMode = normalizeReportedLeverageMode(asset.leverageType);
+    const leverageMatches = asset.leverage === params.leverage;
+    const modeMatches = lastReportedMode == null || lastReportedMode === params.leverageMode;
+    if (leverageMatches && modeMatches) {
+      return asset;
+    }
+    if (index < attempts - 1 && delayMs > 0) {
+      await sleep(delayMs);
+    }
+  }
+  const reportedLabel = lastReportedLeverage != null ? `${lastReportedLeverage}x${lastReportedMode ? ` ${lastReportedMode}` : ""}` : "unknown leverage";
+  throw new Error(
+    `Hyperliquid still reports ${reportedLabel} for ${params.symbol} after requesting ${params.leverage}x ${params.leverageMode}.`
+  );
 }
 var HyperliquidExchangeClient = class {
   constructor(args) {
@@ -1647,7 +1706,20 @@ async function updateHyperliquidLeverage(options) {
     isCross: options.input.leverageMode === "cross",
     leverage: options.input.leverage
   };
-  return submitExchangeAction(options, action);
+  const response = await submitExchangeAction(options, action);
+  if (options.input.verifyApplied === false) {
+    return response;
+  }
+  await verifyAppliedHyperliquidLeverage({
+    environment: env,
+    user: resolveLeverageVerificationUser(options),
+    symbol: options.input.symbol,
+    leverage: options.input.leverage,
+    leverageMode: options.input.leverageMode,
+    ...typeof options.input.verifyAttempts === "number" ? { attempts: options.input.verifyAttempts } : {},
+    ...typeof options.input.verifyDelayMs === "number" ? { delayMs: options.input.verifyDelayMs } : {}
+  });
+  return response;
 }
 async function updateHyperliquidIsolatedMargin(options) {
   assertSymbol(options.input.symbol);
@@ -2877,6 +2949,13 @@ function toPositiveNumber(value, label) {
 function normalizeExecutionType(value) {
   return value ?? "market";
 }
+function assertSupportedParentOrder(parent) {
+  if (parent.reduceOnly) {
+    throw new Error(
+      "Reduce-only parent orders are not supported with attached TP/SL. Use placeHyperliquidPositionTpSl for existing positions."
+    );
+  }
+}
 function resolveTriggerDirection(params) {
   const isLong = params.parentSide === "buy";
   if (params.leg === "tp") {
@@ -2984,6 +3063,7 @@ async function buildAttachedTpSlOrders(params) {
   return legs.filter((entry) => Boolean(entry));
 }
 async function placeHyperliquidOrderWithTpSl(options) {
+  assertSupportedParentOrder(options.parent);
   const env = options.environment ?? "mainnet";
   const childOrders = await buildAttachedTpSlOrders({
     symbol: options.parent.symbol,
