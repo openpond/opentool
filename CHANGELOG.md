@@ -1,5 +1,11 @@
 # opentool
 
+## 0.19.4
+
+### Patch Changes
+
+- 0098ab0: cleaned up tp and sl
+
 ## 0.19.3
 
 ### Patch Changes
