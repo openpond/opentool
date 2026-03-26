@@ -1,5 +1,11 @@
 # opentool
 
+## 0.19.5
+
+### Patch Changes
+
+- 58b8e63: hardened spot resolution
+
 ## 0.19.4
 
 ### Patch Changes
