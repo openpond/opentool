@@ -46,6 +46,7 @@ export type HyperliquidHip3Dex = (typeof HYPERLIQUID_HIP3_DEXES)[number];
 export type HyperliquidOpenOrderLike = {
   oid?: number;
   cloid?: string | null;
+  dex?: string | null;
   [key: string]: unknown;
 };
 
@@ -89,6 +90,23 @@ function mergeHyperliquidOpenOrders<T extends HyperliquidOpenOrderLike>(batches:
     }
   }
   return [...merged.values()];
+}
+
+function applyHyperliquidOpenOrderDexContext<T extends HyperliquidOpenOrderLike>(
+  orders: T[],
+  dex?: string | null,
+): T[] {
+  const resolvedDex = typeof dex === "string" && dex.trim().length > 0 ? dex.trim().toLowerCase() : null;
+  return orders.map((order) => {
+    const existingDex =
+      typeof order.dex === "string" && order.dex.trim().length > 0
+        ? order.dex.trim().toLowerCase()
+        : null;
+    return {
+      ...order,
+      dex: existingDex ?? resolvedDex,
+    };
+  });
 }
 
 function readNumber(value: unknown): number | null {
@@ -247,30 +265,34 @@ export async function fetchHyperliquidSpotAssetCtxs(
   return postInfo(environment, { type: "spotAssetCtxs" });
 }
 
-export async function fetchHyperliquidOpenOrders(params: {
+export async function fetchHyperliquidOpenOrders<T extends HyperliquidOpenOrderLike = HyperliquidOpenOrderLike>(params: {
   environment?: HyperliquidEnvironment;
   user: `0x${string}`;
   dex?: string | null;
-}) {
+}): Promise<T[]> {
   const env = params.environment ?? "mainnet";
-  return postInfo(env, {
+  const orders = await postInfo(env, {
     type: "openOrders",
     user: normalizeAddress(params.user),
     ...(params.dex ? { dex: params.dex.trim().toLowerCase() } : {}),
   });
+  return applyHyperliquidOpenOrderDexContext(orders as T[], params.dex);
 }
 
-export async function fetchHyperliquidFrontendOpenOrders(params: {
+export async function fetchHyperliquidFrontendOpenOrders<
+  T extends HyperliquidOpenOrderLike = HyperliquidOpenOrderLike,
+>(params: {
   environment?: HyperliquidEnvironment;
   user: `0x${string}`;
   dex?: string | null;
-}) {
+}): Promise<T[]> {
   const env = params.environment ?? "mainnet";
-  return postInfo(env, {
+  const orders = await postInfo(env, {
     type: "frontendOpenOrders",
     user: normalizeAddress(params.user),
     ...(params.dex ? { dex: params.dex.trim().toLowerCase() } : {}),
   });
+  return applyHyperliquidOpenOrderDexContext(orders as T[], params.dex);
 }
 
 export async function fetchHyperliquidOrderStatus(params: {
@@ -376,15 +398,15 @@ export async function fetchHyperliquidOpenOrdersAcrossDexes<T extends Hyperliqui
   const requests = [
     ...(params.includePrimary === false
       ? []
-      : [fetchHyperliquidOpenOrders({ environment, user: params.user }) as Promise<T[]>]),
+      : [fetchHyperliquidOpenOrders<T>({ environment, user: params.user })]),
     ...getKnownHyperliquidDexes(environment)
       .filter((dex) => !(params.dexes && !params.dexes.includes(dex)))
       .map((dex) =>
-        fetchHyperliquidOpenOrders({
+        fetchHyperliquidOpenOrders<T>({
           environment,
           user: params.user,
           dex,
-        }) as Promise<T[]>,
+        }),
       ),
   ];
   const batches = await Promise.all(requests);
@@ -403,15 +425,15 @@ export async function fetchHyperliquidFrontendOpenOrdersAcrossDexes<
   const requests = [
     ...(params.includePrimary === false
       ? []
-      : [fetchHyperliquidFrontendOpenOrders({ environment, user: params.user }) as Promise<T[]>]),
+      : [fetchHyperliquidFrontendOpenOrders<T>({ environment, user: params.user })]),
     ...getKnownHyperliquidDexes(environment)
       .filter((dex) => !(params.dexes && !params.dexes.includes(dex)))
       .map((dex) =>
-        fetchHyperliquidFrontendOpenOrders({
+        fetchHyperliquidFrontendOpenOrders<T>({
           environment,
           user: params.user,
           dex,
-        }) as Promise<T[]>,
+        }),
       ),
   ];
   const batches = await Promise.all(requests);

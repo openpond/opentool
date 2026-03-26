@@ -228,3 +228,28 @@ test("placeHyperliquidOrderWithTpSl rejects invalid long stop loss trigger direc
     /Stop loss trigger must be below the current price for long positions/i,
   );
 });
+
+test("placeHyperliquidOrderWithTpSl rejects reduce-only parent orders", async () => {
+  await assert.rejects(
+    () =>
+      placeHyperliquidOrderWithTpSl({
+        wallet: mockWallet,
+        environment: "testnet",
+        nonce: 790,
+        referencePrice: 2000,
+        parent: {
+          symbol: "ETH",
+          side: "sell",
+          price: "1999",
+          size: "0.01",
+          tif: "Ioc",
+          reduceOnly: true,
+        },
+        takeProfit: {
+          triggerPx: "1900",
+          execution: "market",
+        },
+      }),
+    /Reduce-only parent orders are not supported with attached TP\/SL/i,
+  );
+});

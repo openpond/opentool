@@ -129,6 +129,7 @@ type HyperliquidHip3Dex = (typeof HYPERLIQUID_HIP3_DEXES)[number];
 type HyperliquidOpenOrderLike = {
     oid?: number;
     cloid?: string | null;
+    dex?: string | null;
     [key: string]: unknown;
 };
 type HyperliquidActiveAsset = {
@@ -146,8 +147,8 @@ declare class HyperliquidInfoClient {
     spotMetaAndAssetCtxs(): Promise<any>;
     assetCtxs(): Promise<any>;
     spotAssetCtxs(): Promise<any>;
-    openOrders(user: `0x${string}`): Promise<any>;
-    frontendOpenOrders(user: `0x${string}`): Promise<any>;
+    openOrders(user: `0x${string}`): Promise<HyperliquidOpenOrderLike[]>;
+    frontendOpenOrders(user: `0x${string}`): Promise<HyperliquidOpenOrderLike[]>;
     orderStatus(user: `0x${string}`, oid: number | string): Promise<any>;
     historicalOrders(user: `0x${string}`): Promise<any>;
     userFills(user: `0x${string}`): Promise<any>;
@@ -165,16 +166,16 @@ declare function fetchHyperliquidSpotMeta(environment?: HyperliquidEnvironment):
 declare function fetchHyperliquidSpotMetaAndAssetCtxs(environment?: HyperliquidEnvironment): Promise<any>;
 declare function fetchHyperliquidAssetCtxs(environment?: HyperliquidEnvironment): Promise<any>;
 declare function fetchHyperliquidSpotAssetCtxs(environment?: HyperliquidEnvironment): Promise<any>;
-declare function fetchHyperliquidOpenOrders(params: {
+declare function fetchHyperliquidOpenOrders<T extends HyperliquidOpenOrderLike = HyperliquidOpenOrderLike>(params: {
     environment?: HyperliquidEnvironment;
     user: `0x${string}`;
     dex?: string | null;
-}): Promise<any>;
-declare function fetchHyperliquidFrontendOpenOrders(params: {
+}): Promise<T[]>;
+declare function fetchHyperliquidFrontendOpenOrders<T extends HyperliquidOpenOrderLike = HyperliquidOpenOrderLike>(params: {
     environment?: HyperliquidEnvironment;
     user: `0x${string}`;
     dex?: string | null;
-}): Promise<any>;
+}): Promise<T[]>;
 declare function fetchHyperliquidOrderStatus(params: {
     environment?: HyperliquidEnvironment;
     user: `0x${string}`;
@@ -266,6 +267,10 @@ type UpdateLeverageInput = {
     symbol: string;
     leverageMode: "cross" | "isolated";
     leverage: number;
+    verifyApplied?: boolean;
+    verifyAttempts?: number;
+    verifyDelayMs?: number;
+    verifyUser?: `0x${string}`;
 };
 type UpdateIsolatedMarginInput = {
     symbol: string;

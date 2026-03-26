@@ -10,7 +10,9 @@ import {
   estimateHyperliquidLiquidationPrice,
   extractHyperliquidOrderIds,
   fetchHyperliquidActiveAsset,
+  fetchHyperliquidFrontendOpenOrders,
   fetchHyperliquidFrontendOpenOrdersAcrossDexes,
+  fetchHyperliquidOpenOrders,
   fetchHyperliquidOpenOrdersAcrossDexes,
   fetchHyperliquidBars,
   formatHyperliquidPrice,
@@ -309,15 +311,31 @@ test("open order aggregation merges primary and dex-scoped open orders", async (
     globalThis.fetch = originalFetch;
   });
 
+  const dexOpenOrders = await fetchHyperliquidOpenOrders({
+    environment: "mainnet",
+    user: "0x0000000000000000000000000000000000000001",
+    dex: "xyz",
+  });
+  assert.deepEqual(dexOpenOrders, [{ oid: 2, cloid: "0xxyz", coin: "xyz:GOLD", dex: "xyz" }]);
+
+  const dexFrontendOrders = await fetchHyperliquidFrontendOpenOrders({
+    environment: "mainnet",
+    user: "0x0000000000000000000000000000000000000001",
+    dex: "xyz",
+  });
+  assert.deepEqual(dexFrontendOrders, [{ oid: 2, cloid: "0xxyz", coin: "xyz:GOLD", dex: "xyz" }]);
+
   const openOrders = await fetchHyperliquidOpenOrdersAcrossDexes({
     environment: "mainnet",
     user: "0x0000000000000000000000000000000000000001",
     dexes: ["xyz"],
   });
   assert.equal(openOrders.length, 2);
+  assert.equal(openOrders.find((order) => order.oid === 1)?.dex ?? null, null);
+  assert.equal(openOrders.find((order) => order.oid === 2)?.dex ?? null, "xyz");
   assert.deepEqual(
     seenBodies.map((body) => body.dex ?? null),
-    [null, "xyz"],
+    ["xyz", "xyz", null, "xyz"],
   );
 
   seenBodies.length = 0;
@@ -327,6 +345,8 @@ test("open order aggregation merges primary and dex-scoped open orders", async (
     dexes: ["xyz"],
   });
   assert.equal(frontendOrders.length, 2);
+  assert.equal(frontendOrders.find((order) => order.oid === 1)?.dex ?? null, null);
+  assert.equal(frontendOrders.find((order) => order.oid === 2)?.dex ?? null, "xyz");
   assert.deepEqual(
     seenBodies.map((body) => body.dex ?? null),
     [null, "xyz"],

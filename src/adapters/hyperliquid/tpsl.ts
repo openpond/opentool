@@ -87,6 +87,14 @@ function normalizeExecutionType(value?: HyperliquidTpSlExecutionType): Hyperliqu
   return value ?? "market";
 }
 
+function assertSupportedParentOrder(parent: HyperliquidOrderIntent) {
+  if (parent.reduceOnly) {
+    throw new Error(
+      "Reduce-only parent orders are not supported with attached TP/SL. Use placeHyperliquidPositionTpSl for existing positions.",
+    );
+  }
+}
+
 function resolveTriggerDirection(params: {
   leg: HyperliquidTriggerType;
   parentSide: HyperliquidOrderIntent["side"];
@@ -238,6 +246,7 @@ async function buildAttachedTpSlOrders(params: {
 export async function placeHyperliquidOrderWithTpSl(
   options: HyperliquidPlaceOrderWithTpSlOptions,
 ): Promise<HyperliquidOrderResponse> {
+  assertSupportedParentOrder(options.parent);
   const env = options.environment ?? "mainnet";
   const childOrders = await buildAttachedTpSlOrders({
     symbol: options.parent.symbol,
