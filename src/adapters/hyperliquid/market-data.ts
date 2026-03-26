@@ -349,7 +349,11 @@ export async function fetchHyperliquidTickSize(params: {
   environment: HyperliquidEnvironment;
   symbol: string;
 }): Promise<HyperliquidTickSize> {
-  return fetchHyperliquidTickSizeForCoin(params.environment, params.symbol);
+  const coin = await fetchHyperliquidResolvedInfoCoin({
+    environment: params.environment,
+    symbol: params.symbol,
+  });
+  return fetchHyperliquidTickSizeForCoin(params.environment, coin);
 }
 
 export async function fetchHyperliquidSpotTickSize(params: {
@@ -648,7 +652,6 @@ export async function fetchHyperliquidResolvedMarketDescriptor(params: {
       quote: spotInfo.quote,
       displaySymbol: `${spotInfo.base}-${spotInfo.quote}`,
       orderSymbol,
-      marketDataCoin: `@${spotInfo.marketIndex}`,
       spotIndex: spotInfo.marketIndex,
       assetId: spotInfo.assetId,
     });
@@ -688,6 +691,15 @@ export async function fetchHyperliquidResolvedMarketDescriptor(params: {
     throw new Error(`Unable to build Hyperliquid market descriptor: ${params.symbol}`);
   }
   return descriptor;
+}
+
+export async function fetchHyperliquidResolvedInfoCoin(params: {
+  environment: HyperliquidEnvironment;
+  symbol: string;
+  mids?: Record<string, string | number> | null;
+}): Promise<string> {
+  const descriptor = await fetchHyperliquidResolvedMarketDescriptor(params);
+  return descriptor.marketDataCoin;
 }
 
 export async function fetchHyperliquidSizeDecimals(params: {

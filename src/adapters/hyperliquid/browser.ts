@@ -84,6 +84,7 @@ export {
   fetchHyperliquidSizeDecimals,
   fetchHyperliquidTickSize,
   fetchHyperliquidResolvedMarketDescriptor,
+  fetchHyperliquidResolvedInfoCoin,
 } from "./market-data";
 export {
   buildHyperliquidMarketDescriptor,

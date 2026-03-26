@@ -165,6 +165,32 @@ export function normalizeHyperliquidMetaSymbol(symbol: string): string {
   return (noPair.split("/")[0] ?? noPair).trim();
 }
 
+function resolveHyperliquidSpotInfoCoin(params: {
+  pair?: string | null;
+  spotIndex?: number | null;
+  fallback?: string | null;
+}): string | null {
+  const pair = resolveHyperliquidPair(params.pair);
+  const spotIndex =
+    typeof params.spotIndex === "number" && Number.isFinite(params.spotIndex)
+      ? Math.max(0, Math.trunc(params.spotIndex))
+      : null;
+  if (pair) {
+    if (spotIndex === 0) {
+      return pair;
+    }
+    if (spotIndex != null) {
+      return `@${spotIndex}`;
+    }
+    return pair;
+  }
+  if (spotIndex != null && spotIndex > 0) {
+    return `@${spotIndex}`;
+  }
+  const fallback = params.fallback?.trim();
+  return fallback ? fallback : null;
+}
+
 export function resolveHyperliquidPair(value?: string | null): string | null {
   if (!value) return null;
   const trimmed = value.trim();
@@ -215,7 +241,11 @@ export function buildHyperliquidMarketDescriptor(
       input.orderSymbol?.trim() || resolveHyperliquidOrderSymbol(normalized);
     const marketDataCoin =
       input.marketDataCoin?.trim() ||
-      (typeof input.spotIndex === "number" ? `@${input.spotIndex}` : resolveHyperliquidMarketDataCoin(normalized));
+      resolveHyperliquidSpotInfoCoin({
+        pair,
+        spotIndex: input.spotIndex ?? null,
+        fallback: resolveHyperliquidMarketDataCoin(normalized),
+      });
 
     if (!orderSymbol || !marketDataCoin) return null;
 
