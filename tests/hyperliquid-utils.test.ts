@@ -15,6 +15,7 @@ import {
   fetchHyperliquidOpenOrders,
   fetchHyperliquidOpenOrdersAcrossDexes,
   fetchHyperliquidBars,
+  fetchHyperliquidTickSize,
   formatHyperliquidPrice,
   formatHyperliquidSize,
   formatHyperliquidMarketablePrice,
@@ -34,6 +35,7 @@ import {
   resolveHyperliquidDcaSymbolEntries,
   resolveHyperliquidErrorDetail,
   resolveHyperliquidLeverageMode,
+  fetchHyperliquidResolvedInfoCoin,
   fetchHyperliquidResolvedMarketDescriptor,
   resolveHyperliquidMarketDataCoin,
   resolveHyperliquidMaxPerRunUsd,
@@ -258,6 +260,114 @@ test("resolved market descriptor separates spot order symbol from spot market-da
   assert.equal(descriptor.marketDataCoin, "@107");
   assert.equal(descriptor.spotIndex, 107);
   assert.equal(descriptor.canonicalPair, "HYPE/USDC");
+});
+
+test("resolved info coin uses pair for spot index zero and @index for other spot markets", async (t) => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+    const body = init?.body ? (JSON.parse(String(init.body)) as Record<string, unknown>) : null;
+    if (body?.type === "spotMetaAndAssetCtxs") {
+      return new Response(
+        JSON.stringify([
+          {
+            universe: [
+              { name: "PURR/USDC", tokens: [1, 0], index: 0 },
+              { name: "HYPE/USDC", tokens: [150, 0], index: 107 },
+            ],
+            tokens: [
+              { name: "USDC", index: 0, szDecimals: 6 },
+              { name: "PURR", index: 1, szDecimals: 0 },
+              { name: "HYPE", index: 150, szDecimals: 5 },
+            ],
+          },
+          [{ markPx: "0.0821" }, { markPx: "39.5" }],
+        ]),
+        { status: 200, headers: { "content-type": "application/json" } },
+      );
+    }
+    if (body?.type === "allMids") {
+      return new Response(JSON.stringify({ PURR: "0.0821", HYPE: "39.5" }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    }
+    throw new Error(`Unexpected fetch body: ${JSON.stringify(body)}`);
+  }) as typeof globalThis.fetch;
+
+  t.after(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  const purrCoin = await fetchHyperliquidResolvedInfoCoin({
+    environment: "mainnet",
+    symbol: "PURR-USDC",
+  });
+  const hypeCoin = await fetchHyperliquidResolvedInfoCoin({
+    environment: "mainnet",
+    symbol: "HYPE/USDC",
+  });
+
+  assert.equal(purrCoin, "PURR/USDC");
+  assert.equal(hypeCoin, "@107");
+});
+
+test("tick-size lookup resolves spot aliases to the correct info coin before l2Book", async (t) => {
+  const originalFetch = globalThis.fetch;
+  const l2BookCoins: string[] = [];
+
+  globalThis.fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+    const body = init?.body ? (JSON.parse(String(init.body)) as Record<string, unknown>) : null;
+    if (body?.type === "spotMetaAndAssetCtxs") {
+      return new Response(
+        JSON.stringify([
+          {
+            universe: [
+              { name: "PURR/USDC", tokens: [1, 0], index: 0 },
+              { name: "HYPE/USDC", tokens: [150, 0], index: 107 },
+            ],
+            tokens: [
+              { name: "USDC", index: 0, szDecimals: 6 },
+              { name: "PURR", index: 1, szDecimals: 0 },
+              { name: "HYPE", index: 150, szDecimals: 5 },
+            ],
+          },
+          [{ markPx: "0.0821" }, { markPx: "39.5" }],
+        ]),
+        { status: 200, headers: { "content-type": "application/json" } },
+      );
+    }
+    if (body?.type === "allMids") {
+      return new Response(JSON.stringify({ PURR: "0.0821", HYPE: "39.5" }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    }
+    if (body?.type === "l2Book") {
+      l2BookCoins.push(String(body.coin ?? ""));
+      return new Response(
+        JSON.stringify({
+          levels: [[{ px: "39.50" }], [{ px: "39.51" }]],
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      );
+    }
+    throw new Error(`Unexpected fetch body: ${JSON.stringify(body)}`);
+  }) as typeof globalThis.fetch;
+
+  t.after(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  await fetchHyperliquidTickSize({
+    environment: "mainnet",
+    symbol: "HYPE-USDC",
+  });
+  await fetchHyperliquidTickSize({
+    environment: "mainnet",
+    symbol: "PURR/USDC",
+  });
+
+  assert.deepEqual(l2BookCoins, ["@107", "PURR/USDC"]);
 });
 
 test("buildHyperliquidMarketDescriptor applies metadata-aware quote assets for HIP-3 perps", () => {

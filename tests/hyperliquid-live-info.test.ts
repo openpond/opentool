@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import {
+  fetchHyperliquidResolvedInfoCoin,
   fetchHyperliquidResolvedMarketDescriptor,
   fetchHyperliquidDexMeta,
   fetchHyperliquidMeta,
@@ -108,12 +109,39 @@ test("live hyperliquid spot universe resolves to metadata-backed order and marke
     });
     assert.equal(descriptor.kind, "spot", `expected spot descriptor for ${name}`);
     assert.ok(descriptor.orderSymbol.includes("/"), `expected pair order symbol for ${name}`);
-    assert.ok(descriptor.marketDataCoin.startsWith("@"), `expected spot index market-data coin for ${name}`);
     assert.ok(
       typeof descriptor.spotIndex === "number" && Number.isFinite(descriptor.spotIndex),
       `expected spot index for ${name}`,
     );
+    if (descriptor.spotIndex === 0) {
+      assert.equal(
+        descriptor.marketDataCoin,
+        descriptor.orderSymbol,
+        `expected pair info coin for zero-index spot market ${name}`,
+      );
+    } else {
+      assert.ok(
+        descriptor.marketDataCoin.startsWith("@"),
+        `expected spot index market-data coin for ${name}`,
+      );
+    }
   }
+});
+
+test("live resolved info coin uses pair only for zero-index spot markets", async () => {
+  const [purrCoin, hypeCoin] = await Promise.all([
+    fetchHyperliquidResolvedInfoCoin({
+      environment: "mainnet",
+      symbol: "PURR-USDC",
+    }),
+    fetchHyperliquidResolvedInfoCoin({
+      environment: "mainnet",
+      symbol: "HYPE-USDC",
+    }),
+  ]);
+
+  assert.equal(purrCoin, "PURR/USDC");
+  assert.equal(hypeCoin, "@107");
 });
 
 test("live HIP-3 descriptor resolves collateral-backed quote assets", async () => {
