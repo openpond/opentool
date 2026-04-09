@@ -3206,10 +3206,24 @@ async function fetchHyperliquidSizeDecimals(params) {
   const match = universe.find(
     (entry) => normalizeHyperliquidMetaSymbol(entry?.name ?? "").toUpperCase() === normalized
   );
-  if (!match || typeof match.szDecimals !== "number") {
+  if (match && typeof match.szDecimals === "number") {
+    return match.szDecimals;
+  }
+  const parsed = parseHyperliquidSymbol(symbol);
+  const dex = parsed?.dex ?? null;
+  if (!dex) {
     throw new Error(`No size decimals found for ${symbol}.`);
   }
-  return match.szDecimals;
+  const dexMetaAndCtxs = await fetchHyperliquidDexMetaAndAssetCtxs(environment, dex);
+  const dexUniverse = Array.isArray(dexMetaAndCtxs?.[0]?.universe) ? dexMetaAndCtxs[0].universe : [];
+  const dexMatch = dexUniverse.find(
+    (entry) => normalizeHyperliquidMetaSymbol(entry?.name ?? "").toUpperCase() === normalized
+  );
+  const dexSizeDecimals = readHyperliquidNumber(dexMatch?.szDecimals);
+  if (dexSizeDecimals == null) {
+    throw new Error(`No size decimals found for ${symbol}.`);
+  }
+  return dexSizeDecimals;
 }
 function buildHyperliquidSpotUsdPriceMap(params) {
   const universe = params.meta.universe ?? [];

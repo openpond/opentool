@@ -9,12 +9,17 @@ export type HyperliquidTradePlan = {
   targetSize: number;
 };
 
-export interface HyperliquidTargetSizeConfig {
-  allocationMode: "percent_equity" | "fixed";
-  percentOfEquity: number;
-  maxPercentOfEquity: number;
-  amountUsd?: number;
-}
+export type HyperliquidTargetSizeConfig =
+  | {
+      allocationMode: "fixed";
+      amountUsd?: number;
+    }
+  | {
+      allocationMode: "percent_equity";
+      percentOfEquity: number;
+      maxPercentOfEquity: number;
+      amountUsd?: number;
+    };
 
 export interface HyperliquidTargetSizeExecution {
   size?: number;

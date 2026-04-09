@@ -23,12 +23,15 @@ type HyperliquidTradePlan = {
     reduceOnly: boolean;
     targetSize: number;
 };
-interface HyperliquidTargetSizeConfig {
-    allocationMode: "percent_equity" | "fixed";
+type HyperliquidTargetSizeConfig = {
+    allocationMode: "fixed";
+    amountUsd?: number;
+} | {
+    allocationMode: "percent_equity";
     percentOfEquity: number;
     maxPercentOfEquity: number;
     amountUsd?: number;
-}
+};
 interface HyperliquidTargetSizeExecution {
     size?: number;
 }
