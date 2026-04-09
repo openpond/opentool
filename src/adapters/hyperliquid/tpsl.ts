@@ -183,6 +183,8 @@ async function buildTpSlChildOrder(params: {
           side: childSide,
           slippageBps: params.triggerMarketSlippageBps,
           tick,
+          szDecimals,
+          marketType,
         });
 
   return {
