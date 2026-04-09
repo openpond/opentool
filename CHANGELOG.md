@@ -1,5 +1,11 @@
 # opentool
 
+## 0.19.6
+
+### Patch Changes
+
+- c849284: fix tick
+
 ## 0.19.5
 
 ### Patch Changes
