@@ -559,8 +559,6 @@ test("shared target sizing helper supports fixed and percent modes", () => {
       config: {
         allocationMode: "fixed",
         amountUsd: 200,
-        percentOfEquity: 2,
-        maxPercentOfEquity: 10,
       },
       execution: {},
       accountValue: null,
@@ -591,8 +589,6 @@ test("shared dca/budget helpers parse and normalize reusable strategy inputs", (
       config: {
         allocationMode: "fixed",
         amountUsd: 150,
-        percentOfEquity: 2,
-        maxPercentOfEquity: 10,
       },
       accountValue: null,
     }),
