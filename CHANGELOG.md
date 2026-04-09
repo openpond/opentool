@@ -1,5 +1,11 @@
 # opentool
 
+## 0.19.8
+
+### Patch Changes
+
+- 677b3d7: patching tick rounding logic
+
 ## 0.19.6
 
 ### Patch Changes
