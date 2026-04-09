@@ -677,6 +677,37 @@ test("order utils format sizes/prices and extract ids", () => {
     }),
     "101"
   );
+  assert.equal(
+    formatHyperliquidMarketablePrice({
+      mid: 95.12,
+      side: "buy",
+      slippageBps: 50,
+      szDecimals: 3,
+      marketType: "perp",
+    }),
+    "95.596",
+  );
+  assert.equal(
+    formatHyperliquidMarketablePrice({
+      mid: 95.12,
+      side: "sell",
+      slippageBps: 50,
+      szDecimals: 3,
+      marketType: "perp",
+    }),
+    "94.644",
+  );
+  assert.equal(
+    formatHyperliquidMarketablePrice({
+      mid: 100,
+      side: "buy",
+      slippageBps: 50,
+      tick: { tickSizeInt: 25n, tickDecimals: 2 },
+      szDecimals: 4,
+      marketType: "perp",
+    }),
+    "100.5",
+  );
 
   const ids = extractHyperliquidOrderIds([
     {

@@ -107,6 +107,40 @@ const StringMath = {
     }
     return digits.join("").replace(/^0+(?=\d)/, "") || "0";
   },
+  toPrecisionDirectional(
+    value: string,
+    precision: number,
+    mode: HyperliquidDirectionalMode,
+  ): string {
+    if (!Number.isInteger(precision) || precision < 1) {
+      throw new RangeError("Precision must be a positive integer.");
+    }
+    if (/^-?0+(\.0*)?$/.test(value)) return "0";
+
+    const negative = value.startsWith("-");
+    const abs = negative ? value.slice(1) : value;
+    const magnitude = StringMath.log10Floor(abs);
+    const shiftAmount = precision - magnitude - 1;
+    const shifted = StringMath.multiplyByPow10(abs, shiftAmount);
+    const rounded = StringMath.roundInteger(shifted, mode);
+    const shiftedBack = StringMath.multiplyByPow10(rounded, -shiftAmount);
+    return normalizeDecimalString(negative ? `-${shiftedBack}` : shiftedBack);
+  },
+  toFixedDirectional(
+    value: string,
+    decimals: number,
+    mode: HyperliquidDirectionalMode,
+  ): string {
+    if (!Number.isInteger(decimals) || decimals < 0) {
+      throw new RangeError("Decimals must be a non-negative integer.");
+    }
+    if (decimals === 0) {
+      return normalizeDecimalString(StringMath.roundInteger(value, mode));
+    }
+    const shifted = StringMath.multiplyByPow10(value, decimals);
+    const rounded = StringMath.roundInteger(shifted, mode);
+    return normalizeDecimalString(StringMath.multiplyByPow10(rounded, -decimals));
+  },
   toPrecisionTruncate(value: string, precision: number): string {
     if (!Number.isInteger(precision) || precision < 1) {
       throw new RangeError("Precision must be a positive integer.");
@@ -216,6 +250,36 @@ export function formatHyperliquidOrderSize(value: number, szDecimals: number): s
   }
 }
 
+function resolveSizeDecimals(value: number | null | undefined): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) return 8;
+  return Math.max(0, Math.min(8, Math.floor(value)));
+}
+
+function formatDirectionalHyperliquidPrice(
+  price: string | number,
+  params: {
+    szDecimals: number | null | undefined;
+    marketType: HyperliquidMarketType;
+    mode: HyperliquidDirectionalMode;
+  },
+): string | null {
+  const normalized = price.toString().trim();
+  assertNumberString(normalized);
+  if (/^-?\d+$/.test(normalized)) {
+    return normalizeDecimalString(normalized);
+  }
+
+  const szDecimals = resolveSizeDecimals(params.szDecimals);
+  const maxDecimals = Math.max((params.marketType === "perp" ? 6 : 8) - szDecimals, 0);
+  const decimalsAdjusted = StringMath.toFixedDirectional(normalized, maxDecimals, params.mode);
+  const sigFigAdjusted = StringMath.toPrecisionDirectional(
+    decimalsAdjusted,
+    5,
+    params.mode,
+  );
+  return sigFigAdjusted === "0" ? null : sigFigAdjusted;
+}
+
 export function roundHyperliquidPriceToTick(
   price: string | number,
   tick: HyperliquidTickSize,
@@ -252,13 +316,33 @@ export function formatHyperliquidMarketablePrice(params: {
   side: "buy" | "sell";
   slippageBps: number;
   tick?: HyperliquidTickSize | null;
+  szDecimals?: number | null;
+  marketType?: HyperliquidMarketType;
 }): string {
-  const { mid, side, slippageBps, tick } = params;
+  const { mid, side, slippageBps, tick, szDecimals, marketType = "perp" } = params;
   if (!Number.isFinite(mid) || mid <= 0) {
     throw new Error("mid must be a positive number.");
   }
   if (!Number.isFinite(slippageBps) || slippageBps < 0) {
     throw new Error("slippageBps must be a non-negative number.");
+  }
+
+  const adjustedMid =
+    mid *
+    (side === "buy" ? 1 + slippageBps / 10_000 : 1 - slippageBps / 10_000);
+
+  if (typeof szDecimals === "number" && Number.isFinite(szDecimals)) {
+    // Once szDecimals are known, Hyperliquid market-order caps should follow the
+    // exchange precision rules directly rather than raw tick rounding alone.
+    const formatted = formatDirectionalHyperliquidPrice(adjustedMid, {
+      szDecimals,
+      marketType,
+      mode: side === "buy" ? "up" : "down",
+    });
+    if (!formatted) {
+      throw new RangeError("Marketable price is too small and was truncated to 0.");
+    }
+    return formatted;
   }
 
   const midString = normalizeDecimalString(mid.toString());
@@ -272,14 +356,14 @@ export function formatHyperliquidMarketablePrice(params: {
     side === "buy"
       ? ceilDiv(scaledMid * slippageNumerator, 10_000n)
       : (scaledMid * slippageNumerator) / 10_000n;
-  const adjusted = formatScaledDecimal(adjustedScaled, workDecimals);
+  const adjustedString = formatScaledDecimal(adjustedScaled, workDecimals);
 
   if (tick) {
-    return roundHyperliquidPriceToTick(adjusted, tick, side);
+    return roundHyperliquidPriceToTick(adjustedString, tick, side);
   }
 
   const roundedScaled = scaleDecimalToInt(
-    adjusted,
+    adjustedString,
     baseDecimals,
     side === "buy" ? "up" : "down",
   );

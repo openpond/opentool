@@ -2422,6 +2422,31 @@ var StringMath = {
     }
     return digits.join("").replace(/^0+(?=\d)/, "") || "0";
   },
+  toPrecisionDirectional(value, precision, mode) {
+    if (!Number.isInteger(precision) || precision < 1) {
+      throw new RangeError("Precision must be a positive integer.");
+    }
+    if (/^-?0+(\.0*)?$/.test(value)) return "0";
+    const negative = value.startsWith("-");
+    const abs = negative ? value.slice(1) : value;
+    const magnitude = StringMath.log10Floor(abs);
+    const shiftAmount = precision - magnitude - 1;
+    const shifted = StringMath.multiplyByPow10(abs, shiftAmount);
+    const rounded = StringMath.roundInteger(shifted, mode);
+    const shiftedBack = StringMath.multiplyByPow10(rounded, -shiftAmount);
+    return normalizeDecimalString(negative ? `-${shiftedBack}` : shiftedBack);
+  },
+  toFixedDirectional(value, decimals, mode) {
+    if (!Number.isInteger(decimals) || decimals < 0) {
+      throw new RangeError("Decimals must be a non-negative integer.");
+    }
+    if (decimals === 0) {
+      return normalizeDecimalString(StringMath.roundInteger(value, mode));
+    }
+    const shifted = StringMath.multiplyByPow10(value, decimals);
+    const rounded = StringMath.roundInteger(shifted, mode);
+    return normalizeDecimalString(StringMath.multiplyByPow10(rounded, -decimals));
+  },
   toPrecisionTruncate(value, precision) {
     if (!Number.isInteger(precision) || precision < 1) {
       throw new RangeError("Precision must be a positive integer.");
@@ -2514,6 +2539,26 @@ function formatHyperliquidOrderSize(value, szDecimals) {
     return "0";
   }
 }
+function resolveSizeDecimals(value) {
+  if (typeof value !== "number" || !Number.isFinite(value)) return 8;
+  return Math.max(0, Math.min(8, Math.floor(value)));
+}
+function formatDirectionalHyperliquidPrice(price, params) {
+  const normalized = price.toString().trim();
+  assertNumberString(normalized);
+  if (/^-?\d+$/.test(normalized)) {
+    return normalizeDecimalString(normalized);
+  }
+  const szDecimals = resolveSizeDecimals(params.szDecimals);
+  const maxDecimals2 = Math.max((params.marketType === "perp" ? 6 : 8) - szDecimals, 0);
+  const decimalsAdjusted = StringMath.toFixedDirectional(normalized, maxDecimals2, params.mode);
+  const sigFigAdjusted = StringMath.toPrecisionDirectional(
+    decimalsAdjusted,
+    5,
+    params.mode
+  );
+  return sigFigAdjusted === "0" ? null : sigFigAdjusted;
+}
 function roundHyperliquidPriceToTick(price, tick, side) {
   if (!Number.isFinite(tick.tickDecimals) || tick.tickDecimals < 0) {
     throw new Error("tick.tickDecimals must be a non-negative number.");
@@ -2536,12 +2581,24 @@ function roundHyperliquidPriceToTick(price, tick, side) {
   return formatScaledDecimal(rounded, tick.tickDecimals);
 }
 function formatHyperliquidMarketablePrice(params) {
-  const { mid, side, slippageBps, tick } = params;
+  const { mid, side, slippageBps, tick, szDecimals, marketType = "perp" } = params;
   if (!Number.isFinite(mid) || mid <= 0) {
     throw new Error("mid must be a positive number.");
   }
   if (!Number.isFinite(slippageBps) || slippageBps < 0) {
     throw new Error("slippageBps must be a non-negative number.");
+  }
+  const adjustedMid = mid * (side === "buy" ? 1 + slippageBps / 1e4 : 1 - slippageBps / 1e4);
+  if (typeof szDecimals === "number" && Number.isFinite(szDecimals)) {
+    const formatted = formatDirectionalHyperliquidPrice(adjustedMid, {
+      szDecimals,
+      marketType,
+      mode: side === "buy" ? "up" : "down"
+    });
+    if (!formatted) {
+      throw new RangeError("Marketable price is too small and was truncated to 0.");
+    }
+    return formatted;
   }
   const midString = normalizeDecimalString(mid.toString());
   const baseDecimals = countDecimalPlaces(midString);
@@ -2551,12 +2608,12 @@ function formatHyperliquidMarketablePrice(params) {
     side === "buy" ? 1e4 + slippageBps : 1e4 - slippageBps
   );
   const adjustedScaled = side === "buy" ? ceilDiv(scaledMid * slippageNumerator, 10000n) : scaledMid * slippageNumerator / 10000n;
-  const adjusted = formatScaledDecimal(adjustedScaled, workDecimals);
+  const adjustedString = formatScaledDecimal(adjustedScaled, workDecimals);
   if (tick) {
-    return roundHyperliquidPriceToTick(adjusted, tick, side);
+    return roundHyperliquidPriceToTick(adjustedString, tick, side);
   }
   const roundedScaled = scaleDecimalToInt(
-    adjusted,
+    adjustedString,
     baseDecimals,
     side === "buy" ? "up" : "down"
   );
@@ -3551,7 +3608,9 @@ async function buildTpSlChildOrder(params) {
     mid: triggerPxNumeric,
     side: childSide,
     slippageBps: params.triggerMarketSlippageBps,
-    tick
+    tick,
+    szDecimals,
+    marketType
   });
   return {
     symbol: params.symbol,

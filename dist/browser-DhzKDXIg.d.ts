@@ -500,6 +500,8 @@ declare function formatHyperliquidMarketablePrice(params: {
     side: "buy" | "sell";
     slippageBps: number;
     tick?: HyperliquidTickSize | null;
+    szDecimals?: number | null;
+    marketType?: HyperliquidMarketType;
 }): string;
 declare function extractHyperliquidOrderIds(responses: HyperliquidOrderResponseLike[]): {
     cloids: string[];
