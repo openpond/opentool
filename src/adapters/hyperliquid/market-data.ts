@@ -628,6 +628,16 @@ export async function fetchHyperliquidResolvedMarketDescriptor(params: {
     throw new Error(`Unable to parse Hyperliquid symbol: ${params.symbol}`);
   }
 
+  if (parsed.kind === "outcome") {
+    const descriptor = buildHyperliquidMarketDescriptor({
+      symbol: params.symbol,
+    });
+    if (!descriptor) {
+      throw new Error(`Unable to build Hyperliquid outcome market descriptor: ${params.symbol}`);
+    }
+    return descriptor;
+  }
+
   if (parsed.kind === "spot" || parsed.kind === "spotIndex") {
     const spotInfo =
       parsed.kind === "spotIndex"
@@ -707,6 +717,11 @@ export async function fetchHyperliquidSizeDecimals(params: {
   symbol: string;
 }): Promise<number> {
   const { symbol, environment } = params;
+  const parsed = parseHyperliquidSymbol(symbol);
+  if (parsed?.kind === "outcome") {
+    return 0;
+  }
+
   if (isHyperliquidSpotSymbol(symbol)) {
     const meta = (await fetchHyperliquidSpotMeta(environment)) as SpotMetaResponse;
     return resolveSpotSizeDecimals(meta, symbol);
@@ -724,7 +739,6 @@ export async function fetchHyperliquidSizeDecimals(params: {
     return match.szDecimals;
   }
 
-  const parsed = parseHyperliquidSymbol(symbol);
   const dex = parsed?.dex ?? null;
   if (!dex) {
     throw new Error(`No size decimals found for ${symbol}.`);

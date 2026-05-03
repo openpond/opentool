@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { updateHyperliquidLeverage } from "../src/adapters/hyperliquid";
+import { placeHyperliquidOrder, updateHyperliquidLeverage } from "../src/adapters/hyperliquid";
 import type { WalletFullContext } from "../src/wallet/types";
 
 const mockWallet = {
@@ -144,5 +144,75 @@ test("updateHyperliquidLeverage rejects when Hyperliquid still reports stale lev
     );
   } finally {
     restore();
+  }
+});
+
+test("placeHyperliquidOrder resolves HIP-4 outcome asset ids without metadata lookup", async () => {
+  const originalFetch = globalThis.fetch;
+  const exchangeBodies: Array<Record<string, unknown>> = [];
+  const infoBodies: Array<Record<string, unknown>> = [];
+
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url =
+      typeof input === "string"
+        ? input
+        : input instanceof URL
+          ? input.toString()
+          : input.url;
+    const body = init?.body ? (JSON.parse(String(init.body)) as Record<string, unknown>) : {};
+
+    if (url.endsWith("/exchange")) {
+      exchangeBodies.push(body);
+      return new Response(
+        JSON.stringify({
+          status: "ok",
+          response: {
+            type: "order",
+            data: { statuses: [{ resting: { oid: 123 } }] },
+          },
+        }),
+        {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        },
+      );
+    }
+
+    if (url.endsWith("/info")) {
+      infoBodies.push(body);
+    }
+
+    throw new Error(`Unexpected fetch: ${url} ${JSON.stringify(body)}`);
+  }) as typeof globalThis.fetch;
+
+  try {
+    const response = await placeHyperliquidOrder({
+      wallet: mockWallet,
+      environment: "testnet",
+      nonce: 103,
+      orders: [
+        {
+          symbol: "#8891",
+          side: "buy",
+          price: "0.42",
+          size: "3",
+          tif: "Ioc",
+        },
+      ],
+    });
+
+    assert.equal(response.status, "ok");
+    assert.equal(infoBodies.length, 0);
+    assert.equal(exchangeBodies.length, 1);
+    const action = exchangeBodies[0]?.action as {
+      orders?: Array<{ a?: unknown; b?: unknown; r?: unknown }>;
+      builder?: unknown;
+    };
+    assert.equal(action.orders?.[0]?.a, 100008891);
+    assert.equal(action.orders?.[0]?.b, true);
+    assert.equal(action.orders?.[0]?.r, false);
+    assert.equal(action.builder, undefined);
+  } finally {
+    globalThis.fetch = originalFetch;
   }
 });
