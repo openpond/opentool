@@ -1207,6 +1207,9 @@ var HyperliquidInfoClient = class {
   spotAssetCtxs() {
     return fetchHyperliquidSpotAssetCtxs(this.environment);
   }
+  outcomeMeta() {
+    return fetchHyperliquidOutcomeMeta(this.environment);
+  }
   openOrders(user) {
     return fetchHyperliquidOpenOrders({ user, environment: this.environment });
   }
@@ -1287,6 +1290,9 @@ async function fetchHyperliquidAssetCtxs(environment = "mainnet") {
 }
 async function fetchHyperliquidSpotAssetCtxs(environment = "mainnet") {
   return postInfo(environment, { type: "spotAssetCtxs" });
+}
+async function fetchHyperliquidOutcomeMeta(environment = "mainnet") {
+  return postInfo(environment, { type: "outcomeMeta" });
 }
 async function fetchHyperliquidOpenOrders(params) {
   const env = params.environment ?? "mainnet";

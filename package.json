@@ -15,6 +15,7 @@
     "lint:fix": "oxlint --fix src",
     "typecheck": "tsc --noEmit",
     "test": "tsx --test tests/*.test.ts",
+    "test:live:hyperliquid-mainnet": "tsx --test tests/live/hyperliquid-mainnet-trading.test.ts",
     "prepublishOnly": "npm run typecheck && npm run build && tsx scripts/sync-template.ts",
     "changeset": "changeset",
     "changeset:version": "changeset version",
