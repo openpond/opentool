@@ -1,8 +1,24 @@
 import type { HyperliquidEnvironment } from "./base";
 
 const UNKNOWN_SYMBOL = "UNKNOWN";
+const OUTCOME_ORDER_ASSET_OFFSET = 100_000_000;
+const OUTCOME_MARKET_DATA_PATTERN = /^#([0-9]+)$/;
+const OUTCOME_TOKEN_PATTERN = /^\+([0-9]+)$/;
 
-export type HyperliquidParsedSymbolKind = "perp" | "spot" | "spotIndex";
+export type HyperliquidParsedSymbolKind = "perp" | "spot" | "spotIndex" | "outcome";
+
+export type HyperliquidOutcomeSymbol = {
+  outcomeId: number;
+  side: number;
+  encoding: number;
+  orderSymbol: string;
+  marketDataCoin: string;
+  tokenName: string;
+  sideName: string;
+  displaySymbol: string;
+  routeTicker: string;
+  assetId: number;
+};
 
 export type HyperliquidParsedSymbol = {
   raw: string;
@@ -57,6 +73,22 @@ export function parseHyperliquidSymbol(value?: string | null): HyperliquidParsed
   if (!value) return null;
   const trimmed = value.trim();
   if (!trimmed) return null;
+
+  const outcome = parseHyperliquidOutcomeSymbol(trimmed);
+  if (outcome) {
+    return {
+      raw: trimmed,
+      kind: "outcome",
+      normalized: outcome.marketDataCoin,
+      routeTicker: outcome.routeTicker,
+      displaySymbol: outcome.displaySymbol,
+      base: outcome.sideName,
+      quote: "USDH",
+      pair: null,
+      dex: null,
+      leverageMode: "cross",
+    };
+  }
 
   if (trimmed.startsWith("@")) {
     return {
@@ -121,6 +153,51 @@ export function parseHyperliquidSymbol(value?: string | null): HyperliquidParsed
     pair: null,
     dex: null,
     leverageMode: "cross",
+  };
+}
+
+export function parseHyperliquidOutcomeSymbol(
+  value?: string | null,
+): HyperliquidOutcomeSymbol | null {
+  const trimmed = value?.trim();
+  if (!trimmed) return null;
+
+  const encodedMatch =
+    OUTCOME_MARKET_DATA_PATTERN.exec(trimmed) ??
+    OUTCOME_TOKEN_PATTERN.exec(trimmed);
+  if (!encodedMatch) return null;
+  const encoding = Number.parseInt(encodedMatch[1] ?? "", 10);
+  const outcomeId = Math.floor(encoding / 10);
+  const side = encoding % 10;
+
+  if (
+    outcomeId == null ||
+    side == null ||
+    encoding == null ||
+    !Number.isSafeInteger(outcomeId) ||
+    !Number.isSafeInteger(side) ||
+    !Number.isSafeInteger(encoding) ||
+    outcomeId < 0 ||
+    side < 0 ||
+    side > 1 ||
+    encoding < 0
+  ) {
+    return null;
+  }
+
+  const marketDataCoin = `#${encoding}`;
+  const sideName = side === 0 ? "YES" : "NO";
+  return {
+    outcomeId,
+    side,
+    encoding,
+    orderSymbol: marketDataCoin,
+    marketDataCoin,
+    tokenName: `+${encoding}`,
+    sideName,
+    displaySymbol: marketDataCoin,
+    routeTicker: marketDataCoin,
+    assetId: OUTCOME_ORDER_ASSET_OFFSET + encoding,
   };
 }
 
@@ -222,6 +299,30 @@ export function buildHyperliquidMarketDescriptor(
 
   const explicitPair = resolveHyperliquidPair(input.pair);
   const explicitQuote = normalizeHyperliquidQuoteSymbol(input.quote);
+
+  if (parsed.kind === "outcome") {
+    const outcome = parseHyperliquidOutcomeSymbol(rawSymbol);
+    if (!outcome) return null;
+    const orderSymbol = input.orderSymbol?.trim() || outcome.orderSymbol;
+    const marketDataCoin = input.marketDataCoin?.trim() || outcome.marketDataCoin;
+    return {
+      rawSymbol,
+      kind: "outcome",
+      routeTicker: outcome.routeTicker,
+      displaySymbol: input.displaySymbol?.trim() || outcome.displaySymbol,
+      normalized: outcome.marketDataCoin,
+      orderSymbol,
+      marketDataCoin,
+      base: outcome.sideName,
+      quote: explicitQuote || "USDH",
+      pair: null,
+      canonicalPair: null,
+      dex: null,
+      leverageMode: "cross",
+      spotIndex: null,
+      assetId: input.assetId ?? outcome.assetId,
+    };
+  }
 
   if (parsed.kind === "spot" || parsed.kind === "spotIndex") {
     const canonicalPair = explicitPair ?? parsed.pair;
@@ -385,6 +486,7 @@ export function parseSpotPairSymbol(symbol: string): { base: string; quote: stri
 export function isHyperliquidSpotSymbol(symbol: string): boolean {
   const trimmed = symbol.trim();
   if (!trimmed) return false;
+  if (parseHyperliquidOutcomeSymbol(trimmed)) return false;
   if (trimmed.startsWith("@") || trimmed.includes("/")) return true;
   if (trimmed.includes(":")) return false;
   return resolveHyperliquidPair(trimmed) !== null;
@@ -394,6 +496,8 @@ export function resolveHyperliquidMarketDataCoin(value?: string | null): string 
   if (!value) return null;
   const trimmed = value.trim();
   if (!trimmed) return null;
+  const outcome = parseHyperliquidOutcomeSymbol(trimmed);
+  if (outcome) return outcome.marketDataCoin;
   if (trimmed.startsWith("@")) return trimmed;
   const pair = resolveHyperliquidPair(trimmed);
   if (pair && !extractHyperliquidDex(trimmed)) {
@@ -406,6 +510,9 @@ export function supportsHyperliquidBuilderFee(params: {
   symbol: string;
   side: "buy" | "sell";
 }): boolean {
+  if (parseHyperliquidOutcomeSymbol(params.symbol)) {
+    return false;
+  }
   if (!isHyperliquidSpotSymbol(params.symbol)) {
     return true;
   }
@@ -436,6 +543,8 @@ export function resolveHyperliquidOrderSymbol(value?: string | null): string | n
   if (!value) return null;
   const trimmed = value.trim();
   if (!trimmed) return null;
+  const outcome = parseHyperliquidOutcomeSymbol(trimmed);
+  if (outcome) return outcome.orderSymbol;
   if (trimmed.startsWith("@")) return trimmed;
   if (trimmed.includes(":")) {
     const [rawDex, ...restParts] = trimmed.split(":");
@@ -455,6 +564,8 @@ export function resolveHyperliquidOrderSymbol(value?: string | null): string | n
 export function resolveHyperliquidSymbol(asset: string, override?: string): string {
   const raw = override && override.trim().length > 0 ? override.trim() : asset.trim();
   if (!raw) return raw;
+  const outcome = parseHyperliquidOutcomeSymbol(raw);
+  if (outcome) return outcome.orderSymbol;
   if (raw.startsWith("@")) return raw;
   if (raw.includes(":")) {
     const [dexRaw, ...restParts] = raw.split(":");

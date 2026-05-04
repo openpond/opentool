@@ -94,6 +94,7 @@ export {
   normalizeHyperliquidBaseSymbol,
   normalizeHyperliquidMetaSymbol,
   normalizeSpotTokenName,
+  parseHyperliquidOutcomeSymbol,
   parseHyperliquidSymbol,
   parseSpotPairSymbol,
   resolveHyperliquidLeverageMode,
@@ -120,6 +121,7 @@ export type { HyperliquidApproximateLiquidationParams } from "./risk-utils";
 export type {
   HyperliquidMarketDescriptor,
   HyperliquidMarketDescriptorInput,
+  HyperliquidOutcomeSymbol,
   HyperliquidParsedSymbol,
   HyperliquidParsedSymbolKind,
 } from "./symbols";

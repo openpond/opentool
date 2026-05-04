@@ -84,6 +84,22 @@ export type HyperliquidMarketIdentityInput = {
 };
 
 const UNKNOWN_SYMBOL = "UNKNOWN";
+const OUTCOME_ORDER_ASSET_OFFSET = 100_000_000;
+const OUTCOME_MARKET_DATA_PATTERN = /^#([0-9]+)$/;
+const OUTCOME_TOKEN_PATTERN = /^\+([0-9]+)$/;
+
+function parseHyperliquidOutcomeEncoding(value?: string | null): number | null {
+  const trimmed = value?.trim();
+  if (!trimmed) return null;
+
+  const encodedMatch =
+    OUTCOME_MARKET_DATA_PATTERN.exec(trimmed) ??
+    OUTCOME_TOKEN_PATTERN.exec(trimmed);
+  if (!encodedMatch) return null;
+  const encoding = Number.parseInt(encodedMatch[1] ?? "", 10);
+  const side = encoding % 10;
+  return Number.isSafeInteger(encoding) && encoding >= 0 && side <= 1 ? encoding : null;
+}
 
 const extractDexPrefix = (value?: string | null): string | null => {
   if (!value) return null;
@@ -625,6 +641,11 @@ export async function resolveHyperliquidAssetIndex(args: {
   const trimmed = args.symbol.trim();
   if (!trimmed) {
     throw new Error("Hyperliquid symbol must be a non-empty string.");
+  }
+
+  const outcomeEncoding = parseHyperliquidOutcomeEncoding(trimmed);
+  if (outcomeEncoding != null) {
+    return OUTCOME_ORDER_ASSET_OFFSET + outcomeEncoding;
   }
 
   if (trimmed.startsWith("@")) {

@@ -15,6 +15,7 @@ type InfoPayload =
   | { type: "spotMetaAndAssetCtxs" }
   | { type: "assetCtxs" }
   | { type: "spotAssetCtxs" }
+  | { type: "outcomeMeta" }
   | { type: "openOrders"; user: `0x${string}`; dex?: string }
   | { type: "frontendOpenOrders"; user: `0x${string}`; dex?: string }
   | { type: "orderStatus"; user: `0x${string}`; oid: number | string }
@@ -151,6 +152,10 @@ export class HyperliquidInfoClient {
     return fetchHyperliquidSpotAssetCtxs(this.environment);
   }
 
+  outcomeMeta() {
+    return fetchHyperliquidOutcomeMeta(this.environment);
+  }
+
   openOrders(user: `0x${string}`) {
     return fetchHyperliquidOpenOrders({ user, environment: this.environment });
   }
@@ -263,6 +268,10 @@ export async function fetchHyperliquidSpotAssetCtxs(
   environment: HyperliquidEnvironment = "mainnet",
 ) {
   return postInfo(environment, { type: "spotAssetCtxs" });
+}
+
+export async function fetchHyperliquidOutcomeMeta(environment: HyperliquidEnvironment = "mainnet") {
+  return postInfo(environment, { type: "outcomeMeta" });
 }
 
 export async function fetchHyperliquidOpenOrders<T extends HyperliquidOpenOrderLike = HyperliquidOpenOrderLike>(params: {

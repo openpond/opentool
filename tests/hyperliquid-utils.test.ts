@@ -15,6 +15,7 @@ import {
   fetchHyperliquidOpenOrders,
   fetchHyperliquidOpenOrdersAcrossDexes,
   fetchHyperliquidBars,
+  fetchHyperliquidSizeDecimals,
   fetchHyperliquidTickSize,
   formatHyperliquidPrice,
   formatHyperliquidSize,
@@ -22,6 +23,7 @@ import {
   formatHyperliquidOrderSize,
   isHyperliquidSpotSymbol,
   normalizeHyperliquidMetaSymbol,
+  parseHyperliquidOutcomeSymbol,
   parseHyperliquidSymbol,
   parseSpotPairSymbol,
   clampHyperliquidAbs,
@@ -153,17 +155,73 @@ test("symbol helpers normalize perp and spot symbols consistently", () => {
   assert.equal(resolveHyperliquidOrderSymbol("btc-usdc"), "BTC/USDC");
   assert.equal(resolveHyperliquidOrderSymbol("xyz:sol"), "xyz:SOL");
   assert.equal(resolveHyperliquidOrderSymbol("@123"), "@123");
+  assert.equal(resolveHyperliquidOrderSymbol("#8891"), "#8891");
+  assert.equal(resolveHyperliquidOrderSymbol("+8891"), "#8891");
   assert.equal(resolveHyperliquidMarketDataCoin("SOL-USDC"), "SOL/USDC");
   assert.equal(resolveHyperliquidMarketDataCoin("PURR/USDC"), "PURR/USDC");
   assert.equal(resolveHyperliquidMarketDataCoin("xyz:GOLD"), "xyz:GOLD");
   assert.equal(resolveHyperliquidMarketDataCoin("@107"), "@107");
+  assert.equal(resolveHyperliquidMarketDataCoin("+8891"), "#8891");
   assert.deepEqual(parseSpotPairSymbol("btc/usdc"), { base: "BTC", quote: "USDC" });
   assert.deepEqual(resolveSpotMidCandidates("UBTC"), ["UBTC", "BTC"]);
   assert.deepEqual(resolveSpotTokenCandidates("UBTC0"), ["UBTC", "BTC"]);
   assert.equal(isHyperliquidSpotSymbol("SOL-USDC"), true);
+  assert.equal(isHyperliquidSpotSymbol("#8891"), false);
   assert.equal(supportsHyperliquidBuilderFee({ symbol: "BTC", side: "buy" }), true);
   assert.equal(supportsHyperliquidBuilderFee({ symbol: "PURR-USDC", side: "buy" }), false);
   assert.equal(supportsHyperliquidBuilderFee({ symbol: "PURR-USDC", side: "sell" }), true);
+  assert.equal(supportsHyperliquidBuilderFee({ symbol: "#8891", side: "buy" }), false);
+});
+
+test("outcome symbol helpers resolve HIP-4 side encodings", async () => {
+  assert.deepEqual(parseHyperliquidOutcomeSymbol("#8891"), {
+    outcomeId: 889,
+    side: 1,
+    encoding: 8891,
+    orderSymbol: "#8891",
+    marketDataCoin: "#8891",
+    tokenName: "+8891",
+    sideName: "NO",
+    displaySymbol: "#8891",
+    routeTicker: "#8891",
+    assetId: 100008891,
+  });
+  assert.deepEqual(parseHyperliquidOutcomeSymbol("#8890"), {
+    outcomeId: 889,
+    side: 0,
+    encoding: 8890,
+    orderSymbol: "#8890",
+    marketDataCoin: "#8890",
+    tokenName: "+8890",
+    sideName: "YES",
+    displaySymbol: "#8890",
+    routeTicker: "#8890",
+    assetId: 100008890,
+  });
+  assert.equal(parseHyperliquidOutcomeSymbol("#8892"), null);
+
+  const descriptor = buildHyperliquidMarketDescriptor({ symbol: "#8891" });
+  assert.equal(descriptor?.kind, "outcome");
+  assert.equal(descriptor?.orderSymbol, "#8891");
+  assert.equal(descriptor?.marketDataCoin, "#8891");
+  assert.equal(descriptor?.assetId, 100008891);
+  assert.equal(descriptor?.quote, "USDH");
+
+  const resolved = await fetchHyperliquidResolvedMarketDescriptor({
+    environment: "testnet",
+    symbol: "+8890",
+  });
+  assert.equal(resolved.kind, "outcome");
+  assert.equal(resolved.orderSymbol, "#8890");
+  assert.equal(resolved.marketDataCoin, "#8890");
+  assert.equal(await fetchHyperliquidResolvedInfoCoin({
+    environment: "testnet",
+    symbol: "#8890",
+  }), "#8890");
+  assert.equal(await fetchHyperliquidSizeDecimals({
+    environment: "testnet",
+    symbol: "#8890",
+  }), 0);
 });
 
 test("parseHyperliquidSymbol returns canonical descriptors for perp, spot, dex, and spot index", () => {
@@ -211,6 +269,18 @@ test("parseHyperliquidSymbol returns canonical descriptors for perp, spot, dex, 
     displaySymbol: "@107",
     base: null,
     quote: null,
+    pair: null,
+    dex: null,
+    leverageMode: "cross",
+  });
+  assert.deepEqual(parseHyperliquidSymbol("#8891"), {
+    raw: "#8891",
+    kind: "outcome",
+    normalized: "#8891",
+    routeTicker: "#8891",
+    displaySymbol: "#8891",
+    base: "NO",
+    quote: "USDH",
     pair: null,
     dex: null,
     leverageMode: "cross",
