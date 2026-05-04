@@ -1,5 +1,15 @@
 # opentool
 
+## 0.20.0
+
+### Minor Changes
+
+- 295f9c4: hip-4 updates
+
+### Patch Changes
+
+- 295f9c4: added test cases for hip-4
+
 ## 0.19.8
 
 ### Patch Changes
