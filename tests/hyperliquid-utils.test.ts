@@ -5,6 +5,7 @@ import {
   HYPERLIQUID_HIP3_DEXES,
   HyperliquidApiError,
   buildHyperliquidMarketDescriptor,
+  buildHyperliquidOutcomeMarketIdentity,
   buildHyperliquidProfileAssets,
   extractHyperliquidDex,
   estimateHyperliquidLiquidationPrice,
@@ -222,6 +223,35 @@ test("outcome symbol helpers resolve HIP-4 side encodings", async () => {
     environment: "testnet",
     symbol: "#8890",
   }), 0);
+});
+
+test("outcome market identity helper stores HIP-4 as prediction market", () => {
+  assert.deepEqual(
+    buildHyperliquidOutcomeMarketIdentity({
+      environment: "mainnet",
+      marketDataCoin: "#8890",
+      outcomeTokenName: "+8890",
+      outcomeId: 889,
+      outcomeSide: 0,
+      sideName: "Yes",
+      underlying: "BTC",
+      roundKey:
+        "hip4:mainnet:btc:price-binary:above:target-78213:exp-20260504-0600-utc",
+    }),
+    {
+      market_type: "prediction",
+      venue: "hyperliquid",
+      environment: "mainnet",
+      base: "BTC-YES",
+      quote: "USDH",
+      raw_symbol: "#8890",
+      protocol_market_id:
+        "hip4:mainnet:btc:price-binary:above:target-78213:exp-20260504-0600-utc",
+      position_id: "#8890",
+      canonical_symbol:
+        "prediction:hyperliquid:hip4:mainnet:btc:price-binary:above:target-78213:exp-20260504-0600-utc:#8890",
+    },
+  );
 });
 
 test("parseHyperliquidSymbol returns canonical descriptors for perp, spot, dex, and spot index", () => {
@@ -777,6 +807,28 @@ test("order utils format sizes/prices and extract ids", () => {
       marketType: "perp",
     }),
     "100.5",
+  );
+  assert.equal(
+    formatHyperliquidMarketablePrice({
+      mid: 0.01082,
+      side: "buy",
+      slippageBps: 800,
+      tick: { tickSizeInt: 1n, tickDecimals: 5 },
+      szDecimals: 0,
+      marketType: "spot",
+    }),
+    "0.01169",
+  );
+  assert.equal(
+    formatHyperliquidMarketablePrice({
+      mid: 0.01082,
+      side: "sell",
+      slippageBps: 800,
+      tick: { tickSizeInt: 1n, tickDecimals: 5 },
+      szDecimals: 0,
+      marketType: "spot",
+    }),
+    "0.00995",
   );
 
   const ids = extractHyperliquidOrderIds([
