@@ -1,5 +1,11 @@
 # opentool
 
+## 0.20.1
+
+### Patch Changes
+
+- 614d1a2: hip-4 support
+
 ## 0.20.0
 
 ### Minor Changes
