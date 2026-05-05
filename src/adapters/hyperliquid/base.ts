@@ -59,16 +59,18 @@ const perpDexsCache = new Map<string, { fetchedAt: number; dexs: PerpDexsRespons
 export type HyperliquidEnvironment = "mainnet" | "testnet";
 
 export type MarketIdentity = {
-  market_type: "perp" | "spot" | "dex";
+  market_type: "perp" | "spot" | "dex" | "prediction";
   venue: "hyperliquid";
   environment: HyperliquidEnvironment;
-  base: string;
+  base?: string | null;
   quote?: string | null;
   dex?: string | null;
   chain_id?: number | null;
   pool_address?: string | null;
   token0_address?: string | null;
   token1_address?: string | null;
+  protocol_market_id?: string | null;
+  position_id?: string | null;
   fee_tier?: number | null;
   raw_symbol?: string | null;
   canonical_symbol: string;
@@ -81,6 +83,21 @@ export type HyperliquidMarketIdentityInput = {
   isSpot?: boolean;
   base?: string | null;
   quote?: string | null;
+};
+
+export type HyperliquidOutcomeMarketIdentityInput = {
+  environment: HyperliquidEnvironment;
+  marketDataCoin?: string | null;
+  outcomeTokenName?: string | null;
+  rawSymbol?: string | null;
+  outcomeId?: string | number | null;
+  outcomeSide?: string | number | null;
+  sideName?: string | null;
+  underlying?: string | null;
+  seriesKey?: string | null;
+  roundKey?: string | null;
+  protocolMarketId?: string | null;
+  positionId?: string | null;
 };
 
 const UNKNOWN_SYMBOL = "UNKNOWN";
@@ -121,6 +138,26 @@ const normalizeHyperliquidBase = (value?: string | null): string | null => {
   const normalized = (base.split("/")[0] ?? base).trim().toUpperCase();
   if (!normalized || normalized === UNKNOWN_SYMBOL) return null;
   return normalized;
+};
+
+const normalizeText = (value?: string | null): string | null => {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : null;
+};
+
+const normalizeSymbolText = (value?: string | null): string | null => {
+  const trimmed = value?.trim().toUpperCase();
+  return trimmed ? trimmed : null;
+};
+
+const normalizeOutcomeMarketDataCoin = (value?: string | null): string | null => {
+  const encoding = parseHyperliquidOutcomeEncoding(value);
+  return encoding == null ? null : `#${encoding}`;
+};
+
+const normalizeOutcomeTokenName = (value?: string | null): string | null => {
+  const encoding = parseHyperliquidOutcomeEncoding(value);
+  return encoding == null ? null : `+${encoding}`;
 };
 
 const normalizeSpotTokenName = (value?: string | null): string => {
@@ -190,6 +227,73 @@ export function buildHyperliquidMarketIdentity(
     canonical_symbol: `perp:hyperliquid:${base}`,
   };
 }
+
+export function buildHyperliquidOutcomeMarketIdentity(
+  input: HyperliquidOutcomeMarketIdentityInput,
+): MarketIdentity | null {
+  const rawSymbol = normalizeText(input.rawSymbol);
+  const marketDataCoin =
+    normalizeOutcomeMarketDataCoin(input.marketDataCoin) ??
+    normalizeOutcomeMarketDataCoin(rawSymbol) ??
+    normalizeOutcomeMarketDataCoin(input.outcomeTokenName);
+  const outcomeTokenName =
+    normalizeOutcomeTokenName(input.outcomeTokenName) ??
+    normalizeOutcomeTokenName(rawSymbol) ??
+    normalizeOutcomeTokenName(input.marketDataCoin);
+  const outcomeId =
+    typeof input.outcomeId === "number" && Number.isSafeInteger(input.outcomeId)
+      ? input.outcomeId
+      : typeof input.outcomeId === "string" && input.outcomeId.trim().length > 0
+        ? Number.parseInt(input.outcomeId, 10)
+        : null;
+  const outcomeSide =
+    typeof input.outcomeSide === "number" && Number.isSafeInteger(input.outcomeSide)
+      ? input.outcomeSide
+      : typeof input.outcomeSide === "string" && input.outcomeSide.trim().length > 0
+        ? Number.parseInt(input.outcomeSide, 10)
+        : null;
+  const derivedEncoding =
+    outcomeId != null &&
+    outcomeId >= 0 &&
+    outcomeSide != null &&
+    outcomeSide >= 0 &&
+    outcomeSide <= 1
+      ? outcomeId * 10 + outcomeSide
+      : null;
+  const derivedMarketDataCoin =
+    marketDataCoin ?? (derivedEncoding != null ? `#${derivedEncoding}` : null);
+  const positionId =
+    normalizeText(input.positionId) ??
+    derivedMarketDataCoin ??
+    outcomeTokenName ??
+    null;
+  const protocolMarketId =
+    normalizeText(input.protocolMarketId) ??
+    normalizeText(input.roundKey) ??
+    normalizeText(input.seriesKey) ??
+    (outcomeId != null && outcomeId >= 0 ? `hip4-outcome-${outcomeId}` : null);
+  if (!protocolMarketId || !positionId) return null;
+
+  const sideName = normalizeSymbolText(input.sideName);
+  const underlying = normalizeSymbolText(input.underlying);
+  const base =
+    underlying && sideName
+      ? `${underlying}-${sideName}`
+      : sideName ?? underlying ?? null;
+
+  return {
+    market_type: "prediction",
+    venue: "hyperliquid",
+    environment: input.environment,
+    base,
+    quote: "USDH",
+    raw_symbol: rawSymbol ?? derivedMarketDataCoin ?? outcomeTokenName,
+    protocol_market_id: protocolMarketId,
+    position_id: positionId,
+    canonical_symbol: `prediction:hyperliquid:${protocolMarketId}:${positionId}`,
+  };
+}
+
 export type HyperliquidTimeInForce = "Gtc" | "Ioc" | "Alo" | "FrontendMarket" | "LiquidationMarket";
 export type HyperliquidGrouping = "na" | "normalTpsl" | "positionTpsl";
 export type HyperliquidTriggerType = "tp" | "sl";

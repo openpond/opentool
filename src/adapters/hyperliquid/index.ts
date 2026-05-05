@@ -42,6 +42,7 @@ export type {
   HyperliquidBuilderFee,
   MarketIdentity,
   HyperliquidMarketIdentityInput,
+  HyperliquidOutcomeMarketIdentityInput,
   HyperliquidExchangeResponse,
 } from "./base";
 export {
@@ -54,6 +55,7 @@ export {
   computeHyperliquidMarketIocLimitPrice,
   resolveHyperliquidAbstractionFromMode,
   buildHyperliquidMarketIdentity,
+  buildHyperliquidOutcomeMarketIdentity,
 } from "./base";
 export {
   fetchHyperliquidMeta,

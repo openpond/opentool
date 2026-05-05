@@ -342,7 +342,7 @@ export function formatHyperliquidMarketablePrice(params: {
     if (!formatted) {
       throw new RangeError("Marketable price is too small and was truncated to 0.");
     }
-    return formatted;
+    return tick ? roundHyperliquidPriceToTick(formatted, tick, side) : formatted;
   }
 
   const midString = normalizeDecimalString(mid.toString());
