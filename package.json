@@ -127,6 +127,10 @@
       "import": "./dist/backtest/index.js",
       "types": "./dist/backtest/index.d.ts"
     },
+    "./quant": {
+      "import": "./dist/quant/index.js",
+      "types": "./dist/quant/index.d.ts"
+    },
     "./validation": {
       "import": "./dist/validation/index.js",
       "types": "./dist/validation/index.d.ts"

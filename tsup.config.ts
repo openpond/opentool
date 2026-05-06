@@ -5,6 +5,7 @@ export default defineConfig({
     "src/index.ts",
     "src/runtime/index.ts",
     "src/backtest/index.ts",
+    "src/quant/index.ts",
     "src/validation/index.ts",
     "src/cli/index.ts",
     "src/viem/index.ts",

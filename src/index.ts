@@ -8,4 +8,5 @@ export * from "./adapters/news/index";
 export * from "./ai/index";
 export * from "./store/index";
 export * from "./backtest/index";
+export * from "./quant/index";
 export { createMcpAdapter, responseToToolResponse } from "./adapters/mcp";
