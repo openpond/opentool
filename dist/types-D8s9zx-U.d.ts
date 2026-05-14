@@ -35,6 +35,15 @@ interface WalletRegistry {
 type ChainReference = string | number;
 type WalletProviderType = "readonly" | "privateKey" | "turnkey";
 type TurnkeySignWith = string;
+type TurnkeyActivityOperation = "signRawPayload" | "signTransaction";
+interface TurnkeyActivityTrace {
+    activityId: string;
+    organizationId?: string;
+    operation: TurnkeyActivityOperation;
+    type?: string;
+    status?: string;
+    capturedAt: string;
+}
 interface TurnkeyOptions {
     organizationId: string;
     apiPublicKey: string;
@@ -42,11 +51,15 @@ interface TurnkeyOptions {
     /** Identifier of the delegated signer (Turnkey address or private key ID). */
     signWith: TurnkeySignWith;
     apiBaseUrl?: string;
+    /** Capture Turnkey signing activity IDs for debugging/audit responses. */
+    captureActivities?: boolean;
 }
 interface WalletOptionsBase {
     chain?: ChainReference;
     apiKey?: string;
     rpcUrl?: string;
+    /** Capture Turnkey signing activity IDs when env-based Turnkey credentials are used. */
+    captureTurnkeyActivities?: boolean;
 }
 interface WalletPrivateKeyOptions extends WalletOptionsBase {
     privateKey: string;
@@ -83,6 +96,10 @@ interface WalletSignerContext {
      * Optional monotonic nonce provider for systems that require client-side nonces.
      */
     nonceSource?: NonceSource;
+    /** Returns captured Turnkey signing activities when captureActivities is enabled. */
+    getTurnkeyActivities?: () => TurnkeyActivityTrace[];
+    /** Clears captured Turnkey signing activities when captureActivities is enabled. */
+    clearTurnkeyActivities?: () => void;
 }
 interface WalletBaseContext {
     chain: ChainMetadata;
@@ -98,4 +115,4 @@ type WalletReadonlyContext = WalletBaseContext;
 type WalletFullContext = WalletBaseContext & WalletSignerContext;
 type WalletContext = WalletReadonlyContext | WalletFullContext;
 
-export type { ChainMetadata as C, Hex as H, NonceSource as N, RpcProviderOptions as R, TokenMetadata as T, WalletBaseContext as W, ChainReference as a, ChainTokenMap as b, HexAddress as c, RpcUrlResolver as d, TurnkeyOptions as e, TurnkeySignWith as f, WalletContext as g, WalletFullContext as h, WalletOptions as i, WalletOptionsBase as j, WalletPrivateKeyOptions as k, WalletProviderType as l, WalletReadonlyContext as m, WalletReadonlyOptions as n, WalletRegistry as o, WalletSendTransactionParams as p, WalletSignerContext as q, WalletTransferParams as r, WalletTurnkeyOptions as s };
+export type { ChainMetadata as C, Hex as H, NonceSource as N, RpcProviderOptions as R, TokenMetadata as T, WalletBaseContext as W, ChainReference as a, ChainTokenMap as b, HexAddress as c, RpcUrlResolver as d, TurnkeyActivityOperation as e, TurnkeyActivityTrace as f, TurnkeyOptions as g, TurnkeySignWith as h, WalletContext as i, WalletFullContext as j, WalletOptions as k, WalletOptionsBase as l, WalletPrivateKeyOptions as m, WalletProviderType as n, WalletReadonlyContext as o, WalletReadonlyOptions as p, WalletRegistry as q, WalletSendTransactionParams as r, WalletSignerContext as s, WalletTransferParams as t, WalletTurnkeyOptions as u };

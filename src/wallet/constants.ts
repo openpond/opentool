@@ -1,5 +1,5 @@
 import { zeroAddress } from "viem";
-import { arbitrum, arbitrumSepolia, base, baseSepolia, mainnet } from "viem/chains";
+import { arbitrum, arbitrumSepolia, base, baseSepolia, mainnet, tempo } from "viem/chains";
 
 import type {
   ChainMetadata,
@@ -14,6 +14,7 @@ const ETHEREUM_ALCHEMY_HOST = "https://eth-mainnet.g.alchemy.com/v2/";
 const BASE_SEPOLIA_ALCHEMY_HOST = "https://base-sepolia.g.alchemy.com/v2/";
 const ARBITRUM_ALCHEMY_HOST = "https://arb-mainnet.g.alchemy.com/v2/";
 const ARBITRUM_SEPOLIA_ALCHEMY_HOST = "https://arb-sepolia.g.alchemy.com/v2/";
+const TEMPO_RPC_URL = "https://rpc.tempo.xyz";
 
 function buildRpcResolver(host: string, fallbackUrls: readonly string[]): RpcUrlResolver {
   return (options) => {
@@ -75,6 +76,14 @@ const chains: Record<string, ChainMetadata> = {
     rpcUrl: buildRpcResolver(ARBITRUM_SEPOLIA_ALCHEMY_HOST, arbitrumSepolia.rpcUrls.default.http),
     publicRpcUrls: arbitrumSepolia.rpcUrls.default.http,
   },
+  tempo: {
+    id: tempo.id,
+    slug: "tempo",
+    name: "Tempo",
+    chain: tempo,
+    rpcUrl: buildRpcResolver(TEMPO_RPC_URL, [TEMPO_RPC_URL]),
+    publicRpcUrls: [TEMPO_RPC_URL],
+  },
 };
 
 function createNativeToken(chainId: number, symbol: string, name: string): ChainTokenMap {
@@ -126,6 +135,23 @@ const tokens: Record<string, ChainTokenMap> = {
       "USDC",
       "USD Coin",
       "0x1baAbB04529D43a73232B713C0FE471f7c7334d5",
+      6,
+    ),
+  },
+  tempo: {
+    ...createNativeToken(tempo.id, "USD", "USD"),
+    USDC: token(
+      tempo.id,
+      "USDC",
+      "Tempo USDC (USDC.e)",
+      "0x20C000000000000000000000b9537d11c60E8b50",
+      6,
+    ),
+    PathUSD: token(
+      tempo.id,
+      "PathUSD",
+      "PathUSD",
+      "0x20c0000000000000000000000000000000000000",
       6,
     ),
   },

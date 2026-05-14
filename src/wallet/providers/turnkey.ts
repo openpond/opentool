@@ -14,6 +14,8 @@ import { createMonotonicNonceSource } from "../nonces";
 import type {
   ChainMetadata,
   HexAddress,
+  TurnkeyActivityOperation,
+  TurnkeyActivityTrace,
   TurnkeySignWith,
   WalletSignerContext,
   WalletSendTransactionParams,
@@ -28,10 +30,89 @@ export interface TurnkeyProviderConfig {
   apiPrivateKey: string;
   signWith: TurnkeySignWith;
   apiBaseUrl?: string;
+  captureActivities?: boolean;
 }
 
 export interface TurnkeyProviderResult extends WalletSignerContext {
   publicClient: PublicClient<Transport, Chain>;
+}
+
+type TurnkeyApiClient = ReturnType<InstanceType<typeof Turnkey>["apiClient"]>;
+
+function toRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function toString(value: unknown): string | undefined {
+  return typeof value === "string" && value.length > 0 ? value : undefined;
+}
+
+function extractActivity(response: unknown): Record<string, unknown> | null {
+  const record = toRecord(response);
+  return toRecord(record?.activity);
+}
+
+function recordActivityTrace(params: {
+  traces: TurnkeyActivityTrace[];
+  operation: TurnkeyActivityOperation;
+  organizationId: string;
+  response?: unknown;
+  error?: unknown;
+}) {
+  const activity = extractActivity(params.response);
+  const errorRecord = toRecord(params.error);
+  const activityId = toString(activity?.id) ?? toString(errorRecord?.activityId);
+  if (!activityId) return;
+
+  const type = toString(activity?.type) ?? toString(errorRecord?.activityType);
+  const status = toString(activity?.status) ?? toString(errorRecord?.activityStatus);
+
+  params.traces.push({
+    activityId,
+    organizationId: toString(activity?.organizationId) ?? params.organizationId,
+    operation: params.operation,
+    capturedAt: new Date().toISOString(),
+    ...(type ? { type } : {}),
+    ...(status ? { status } : {}),
+  });
+}
+
+function createActivityCaptureClient(
+  client: TurnkeyApiClient,
+  traces: TurnkeyActivityTrace[],
+  organizationId: string,
+): TurnkeyApiClient {
+  return new Proxy(client, {
+    get(target, prop, receiver) {
+      const value = Reflect.get(target, prop, receiver);
+      if (prop !== "signRawPayload" && prop !== "signTransaction") {
+        return typeof value === "function" ? value.bind(target) : value;
+      }
+
+      return async (...args: unknown[]) => {
+        try {
+          const response = await (value as (...args: unknown[]) => Promise<unknown>).apply(target, args);
+          recordActivityTrace({
+            traces,
+            operation: prop,
+            organizationId,
+            response,
+          });
+          return response;
+        } catch (error) {
+          recordActivityTrace({
+            traces,
+            operation: prop,
+            organizationId,
+            error,
+          });
+          throw error;
+        }
+      };
+    },
+  });
 }
 
 export async function createTurnkeyProvider(
@@ -44,9 +125,14 @@ export async function createTurnkeyProvider(
     apiPublicKey: config.apiPublicKey,
     apiPrivateKey: config.apiPrivateKey,
   });
+  const activityTraces: TurnkeyActivityTrace[] = [];
+  const apiClient = turnkey.apiClient();
+  const accountClient = config.captureActivities
+    ? createActivityCaptureClient(apiClient, activityTraces, config.organizationId)
+    : apiClient;
 
   const account = (await createAccount({
-    client: turnkey.apiClient(),
+    client: accountClient,
     organizationId: config.organizationId,
     signWith: config.signWith,
   })) as Account;
@@ -101,5 +187,13 @@ export async function createTurnkeyProvider(
     getNativeBalance,
     transfer,
     nonceSource: createMonotonicNonceSource(),
+    ...(config.captureActivities
+      ? {
+          getTurnkeyActivities: () => activityTraces.map((trace) => ({ ...trace })),
+          clearTurnkeyActivities: () => {
+            activityTraces.length = 0;
+          },
+        }
+      : {}),
   };
 }

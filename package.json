@@ -60,7 +60,8 @@
     "commander": "^11.0.0",
     "dotenv": "^17.3.1",
     "esbuild": "^0.25.12",
-    "viem": "^2.31.7",
+    "mppx": "^0.6.17",
+    "viem": "^2.47.5",
     "zod": "^4.3.6"
   },
   "devDependencies": {
@@ -90,6 +91,10 @@
     "./x402": {
       "import": "./dist/x402/index.js",
       "types": "./dist/x402/index.d.ts"
+    },
+    "./mpp": {
+      "import": "./dist/mpp/index.js",
+      "types": "./dist/mpp/index.d.ts"
     },
     "./viem": {
       "import": "./dist/viem/index.js",

@@ -10,6 +10,7 @@ export default defineConfig({
     "src/cli/index.ts",
     "src/viem/index.ts",
     "src/x402/index.ts",
+    "src/mpp/index.ts",
     "src/wallet/index.ts",
     "src/wallet/browser.ts",
     "src/ai/index.ts",
