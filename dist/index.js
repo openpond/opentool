@@ -1,7 +1,9 @@
 import { z } from 'zod';
 import { zeroAddress, createWalletClient, http, createPublicClient, parseUnits, encodeFunctionData, erc20Abi, maxUint256, decodeFunctionData } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
-import { arbitrumSepolia, arbitrum, baseSepolia, mainnet, base } from 'viem/chains';
+import { tempo, arbitrumSepolia, arbitrum, baseSepolia, mainnet, base } from 'viem/chains';
+import { Receipt } from 'mppx';
+import { tempo as tempo$1, Mppx } from 'mppx/client';
 import { Turnkey } from '@turnkey/sdk-server';
 import { createAccount } from '@turnkey/viem';
 import { encode } from '@msgpack/msgpack';
@@ -759,11 +761,79 @@ async function payX402WithWallet(walletClient, chainId, request) {
   const client = new X402BrowserClient({ walletClient, chainId });
   return client.pay(request);
 }
+var MPP_TEMPO_MAINNET_CHAIN_ID = 4217;
+var MPP_TEMPO_USDCE_ADDRESS = "0x20C000000000000000000000b9537d11c60E8b50";
+var MPP_TEMPO_PATHUSD_ADDRESS = "0x20c0000000000000000000000000000000000000";
+var MPP_DEFAULT_TEMPO_CURRENCY = MPP_TEMPO_USDCE_ADDRESS;
+function createMppClient(options) {
+  assertMppWallet(options.wallet);
+  const methods = [
+    tempo$1({
+      account: options.wallet.account,
+      getClient: ({ chainId }) => resolveWalletClient(options.wallet, chainId),
+      ...options.tempo?.autoSwap !== void 0 ? { autoSwap: options.tempo.autoSwap } : {},
+      ...options.tempo?.deposit !== void 0 ? { deposit: options.tempo.deposit } : {},
+      ...options.tempo?.maxDeposit !== void 0 ? { maxDeposit: options.tempo.maxDeposit } : {},
+      ...options.tempo?.mode !== void 0 ? { mode: options.tempo.mode } : {}
+    })
+  ];
+  const client = Mppx.create({
+    methods,
+    polyfill: options.polyfill ?? false,
+    ...options.fetch ? { fetch: options.fetch } : {},
+    ...options.acceptPaymentPolicy ? { acceptPaymentPolicy: options.acceptPaymentPolicy } : {}
+  });
+  return {
+    fetch: client.fetch,
+    rawFetch: client.rawFetch,
+    createCredential: (response, context) => client.createCredential(response, context)
+  };
+}
+function createMppFetch(options) {
+  return createMppClient(options).fetch;
+}
+async function createMppCredential(response, options, context) {
+  const client = createMppClient(options);
+  const authorization = await client.createCredential(response, context);
+  return { authorization };
+}
+async function fetchWithMpp(request, options) {
+  const client = createMppClient(options);
+  const init = request.context === void 0 ? request.init : {
+    ...request.init,
+    context: request.context
+  };
+  const response = await client.fetch(request.input, init);
+  return {
+    response,
+    receipt: readMppReceipt(response)
+  };
+}
+function readMppReceipt(response) {
+  if (!response.headers.has("Payment-Receipt")) {
+    return null;
+  }
+  return Receipt.fromResponse(response);
+}
+function assertMppWallet(wallet2) {
+  if (!wallet2.account || !wallet2.walletClient) {
+    throw new Error("MPP payments require a signing wallet context");
+  }
+}
+function resolveWalletClient(wallet2, chainId) {
+  if (chainId !== void 0 && wallet2.chain.id !== chainId) {
+    throw new Error(
+      `MPP challenge requires chain ${chainId}, but wallet is configured for chain ${wallet2.chain.id}`
+    );
+  }
+  return wallet2.walletClient;
+}
 var BASE_ALCHEMY_HOST = "https://base-mainnet.g.alchemy.com/v2/";
 var ETHEREUM_ALCHEMY_HOST = "https://eth-mainnet.g.alchemy.com/v2/";
 var BASE_SEPOLIA_ALCHEMY_HOST = "https://base-sepolia.g.alchemy.com/v2/";
 var ARBITRUM_ALCHEMY_HOST = "https://arb-mainnet.g.alchemy.com/v2/";
 var ARBITRUM_SEPOLIA_ALCHEMY_HOST = "https://arb-sepolia.g.alchemy.com/v2/";
+var TEMPO_RPC_URL = "https://rpc.tempo.xyz";
 function buildRpcResolver(host, fallbackUrls) {
   return (options) => {
     if (options?.url) {
@@ -819,6 +889,14 @@ var chains = {
     chain: arbitrumSepolia,
     rpcUrl: buildRpcResolver(ARBITRUM_SEPOLIA_ALCHEMY_HOST, arbitrumSepolia.rpcUrls.default.http),
     publicRpcUrls: arbitrumSepolia.rpcUrls.default.http
+  },
+  tempo: {
+    id: tempo.id,
+    slug: "tempo",
+    name: "Tempo",
+    chain: tempo,
+    rpcUrl: buildRpcResolver(TEMPO_RPC_URL, [TEMPO_RPC_URL]),
+    publicRpcUrls: [TEMPO_RPC_URL]
   }
 };
 function createNativeToken(chainId, symbol, name) {
@@ -862,6 +940,23 @@ var tokens = {
       "USDC",
       "USD Coin",
       "0x1baAbB04529D43a73232B713C0FE471f7c7334d5",
+      6
+    )
+  },
+  tempo: {
+    ...createNativeToken(tempo.id, "USD", "USD"),
+    USDC: token(
+      tempo.id,
+      "USDC",
+      "Tempo USDC (USDC.e)",
+      "0x20C000000000000000000000b9537d11c60E8b50",
+      6
+    ),
+    PathUSD: token(
+      tempo.id,
+      "PathUSD",
+      "PathUSD",
+      "0x20c0000000000000000000000000000000000000",
       6
     )
   }
@@ -945,6 +1040,62 @@ function createPrivateKeyProvider(config) {
     nonceSource: createMonotonicNonceSource()
   };
 }
+function toRecord(value) {
+  return value && typeof value === "object" && !Array.isArray(value) ? value : null;
+}
+function toString(value) {
+  return typeof value === "string" && value.length > 0 ? value : void 0;
+}
+function extractActivity(response) {
+  const record = toRecord(response);
+  return toRecord(record?.activity);
+}
+function recordActivityTrace(params) {
+  const activity = extractActivity(params.response);
+  const errorRecord = toRecord(params.error);
+  const activityId = toString(activity?.id) ?? toString(errorRecord?.activityId);
+  if (!activityId) return;
+  const type = toString(activity?.type) ?? toString(errorRecord?.activityType);
+  const status = toString(activity?.status) ?? toString(errorRecord?.activityStatus);
+  params.traces.push({
+    activityId,
+    organizationId: toString(activity?.organizationId) ?? params.organizationId,
+    operation: params.operation,
+    capturedAt: (/* @__PURE__ */ new Date()).toISOString(),
+    ...type ? { type } : {},
+    ...status ? { status } : {}
+  });
+}
+function createActivityCaptureClient(client, traces, organizationId) {
+  return new Proxy(client, {
+    get(target, prop, receiver) {
+      const value = Reflect.get(target, prop, receiver);
+      if (prop !== "signRawPayload" && prop !== "signTransaction") {
+        return typeof value === "function" ? value.bind(target) : value;
+      }
+      return async (...args) => {
+        try {
+          const response = await value.apply(target, args);
+          recordActivityTrace({
+            traces,
+            operation: prop,
+            organizationId,
+            response
+          });
+          return response;
+        } catch (error) {
+          recordActivityTrace({
+            traces,
+            operation: prop,
+            organizationId,
+            error
+          });
+          throw error;
+        }
+      };
+    }
+  });
+}
 async function createTurnkeyProvider(config) {
   const turnkey = new Turnkey({
     apiBaseUrl: config.apiBaseUrl ?? "https://api.turnkey.com",
@@ -953,8 +1104,11 @@ async function createTurnkeyProvider(config) {
     apiPublicKey: config.apiPublicKey,
     apiPrivateKey: config.apiPrivateKey
   });
+  const activityTraces = [];
+  const apiClient = turnkey.apiClient();
+  const accountClient = config.captureActivities ? createActivityCaptureClient(apiClient, activityTraces, config.organizationId) : apiClient;
   const account = await createAccount({
-    client: turnkey.apiClient(),
+    client: accountClient,
     organizationId: config.organizationId,
     signWith: config.signWith
   });
@@ -1001,7 +1155,13 @@ async function createTurnkeyProvider(config) {
     sendTransaction,
     getNativeBalance,
     transfer,
-    nonceSource: createMonotonicNonceSource()
+    nonceSource: createMonotonicNonceSource(),
+    ...config.captureActivities ? {
+      getTurnkeyActivities: () => activityTraces.map((trace) => ({ ...trace })),
+      clearTurnkeyActivities: () => {
+        activityTraces.length = 0;
+      }
+    } : {}
   };
 }
 
@@ -1106,7 +1266,8 @@ async function wallet(options = {}) {
       organizationId: effectiveTurnkey.organizationId,
       apiPublicKey: effectiveTurnkey.apiPublicKey,
       apiPrivateKey: effectiveTurnkey.apiPrivateKey,
-      signWith: effectiveTurnkey.signWith
+      signWith: effectiveTurnkey.signWith,
+      captureActivities: options.captureTurnkeyActivities ?? effectiveTurnkey.captureActivities
     };
     if (effectiveTurnkey.apiBaseUrl) {
       turnkeyConfig.apiBaseUrl = effectiveTurnkey.apiBaseUrl;
@@ -9230,6 +9391,6 @@ async function responseToToolResponse(response) {
   };
 }
 
-export { AIAbortError, AIError, AIFetchError, AIResponseError, BACKTEST_DECISION_MODE, DEFAULT_BASE_URL, DEFAULT_CHAIN, DEFAULT_FACILITATOR, DEFAULT_HYPERLIQUID_CADENCE_CRON, DEFAULT_HYPERLIQUID_MARKET_SLIPPAGE_BPS, DEFAULT_HYPERLIQUID_TPSL_MARKET_SLIPPAGE_BPS, DEFAULT_MODEL, DEFAULT_OPENPOND_GATEWAY_URL2 as DEFAULT_OPENPOND_GATEWAY_URL, DEFAULT_TIMEOUT_MS, DEFAULT_TOKENS, DONCHIAN_BREAKOUT_RULE_KIND, FUNDING_CARRY_RULE_KIND, HTTP_METHODS, HYPERLIQUID_HIP3_DEXES, HyperliquidApiError, HyperliquidBuilderApprovalError, HyperliquidExchangeClient, HyperliquidGuardError, HyperliquidInfoClient, HyperliquidTermsError, MACD_CROSSOVER_RULE_KIND, MA_CROSS_RULE_KIND, MOMENTUM_RULE_KIND, NewsSignalClient, PAYMENT_HEADERS, POLYMARKET_CHAIN_ID, POLYMARKET_CLOB_AUTH_DOMAIN, POLYMARKET_CLOB_DOMAIN, POLYMARKET_ENDPOINTS, POLYMARKET_EXCHANGE_ADDRESSES, PolymarketApiError, PolymarketAuthError, PolymarketExchangeClient, PolymarketInfoClient, QUANT_FAMILY_CAPABILITIES, QUANT_RESOLUTION_SECONDS, RSI_MEAN_REVERSION_RULE_KIND, SUPPORTED_CURRENCIES, StoreError, WEBSEARCH_TOOL_DEFINITION, WEBSEARCH_TOOL_NAME, X402BrowserClient, X402Client, X402PaymentRequiredError, ZSCORE_MEAN_REVERSION_RULE_KIND, __hyperliquidInternals, __hyperliquidMarketDataInternals, approveHyperliquidBuilderFee, assertQuantWindow, atr, backtestDecisionRequestSchema, batchModifyHyperliquidOrders, beta, bollinger, buildBacktestDecisionSeriesInput, buildEventWindows, buildHmacSignature, buildHyperliquidMarketDescriptor, buildHyperliquidMarketIdentity, buildHyperliquidOutcomeMarketIdentity, buildHyperliquidProfileAssets, buildHyperliquidSpotUsdPriceMap, buildL1Headers, buildL2Headers, buildPolymarketApprovalTransactions, buildPolymarketOrderAmounts, buildPolymarketOutcomeTokenApprovalTransactions, buildPolymarketUsdcApprovalTransaction, buildQuantDataLineage, buildQuantTestPlan, buildSignedOrderPayload, cancelAllHyperliquidOrders, cancelAllPolymarketOrders, cancelHyperliquidOrders, cancelHyperliquidOrdersByCloid, cancelHyperliquidTwapOrder, cancelMarketPolymarketOrders, cancelPolymarketOrder, cancelPolymarketOrders, chains, clampHyperliquidAbs, clampHyperliquidFloat, clampHyperliquidInt, closePrices, compactDecisionChanges, computeHyperliquidMarketIocLimitPrice, correlation, createAIClient, createHyperliquidSubAccount, createMcpAdapter, createMonotonicNonceFactory, createOrDerivePolymarketApiKey, createPolymarketApiKey, cumulativeFunding, decodePolymarketBootstrapTransaction, defineX402Payment, depositToHyperliquidBridge, derivePolymarketApiKey, donchian, ema, ensureTextContent, estimateCountBack, estimateHyperliquidLiquidationPrice, evaluateNewsContinuationGate, evaluateQuantRule, executeTool, extractHyperliquidDex, extractHyperliquidOrderIds, fetchHyperliquidActiveAsset, fetchHyperliquidAllMids, fetchHyperliquidAssetCtxs, fetchHyperliquidBars, fetchHyperliquidClearinghouseState, fetchHyperliquidDexMeta, fetchHyperliquidDexMetaAndAssetCtxs, fetchHyperliquidFrontendOpenOrders, fetchHyperliquidFrontendOpenOrdersAcrossDexes, fetchHyperliquidHistoricalOrders, fetchHyperliquidMeta, fetchHyperliquidMetaAndAssetCtxs, fetchHyperliquidOpenOrders, fetchHyperliquidOpenOrdersAcrossDexes, fetchHyperliquidOrderStatus, fetchHyperliquidOutcomeMeta, fetchHyperliquidPerpMarketInfo, fetchHyperliquidPreTransferCheck, fetchHyperliquidResolvedInfoCoin, fetchHyperliquidResolvedMarketDescriptor, fetchHyperliquidSizeDecimals, fetchHyperliquidSpotAccountValue, fetchHyperliquidSpotAssetCtxs, fetchHyperliquidSpotClearinghouseState, fetchHyperliquidSpotMarketInfo, fetchHyperliquidSpotMeta, fetchHyperliquidSpotMetaAndAssetCtxs, fetchHyperliquidSpotTickSize, fetchHyperliquidSpotUsdPriceMap, fetchHyperliquidTickSize, fetchHyperliquidUserFills, fetchHyperliquidUserFillsByTime, fetchHyperliquidUserRateLimit, fetchNewsEventSignal, fetchNewsPropositionSignal, fetchPolymarketActivity, fetchPolymarketApprovalState, fetchPolymarketClosedPositions, fetchPolymarketDepositAddresses, fetchPolymarketMarket, fetchPolymarketMarkets, fetchPolymarketMidpoint, fetchPolymarketOrderbook, fetchPolymarketPositionValue, fetchPolymarketPositions, fetchPolymarketPrice, fetchPolymarketPriceHistory, fetchPolymarketPublicProfile, finalizeQuantTesterReport, flattenMessageContent, formatHyperliquidMarketablePrice, formatHyperliquidOrderSize, formatHyperliquidPrice, formatHyperliquidSize, forwardReturns, fundingRates, generateText, getHyperliquidMaxBuilderFee, getKnownHyperliquidDexes, getModelConfig, getMyPerformance, getMyTools, getRpcUrl, getX402PaymentContext, hitRate, informationCoefficient, isHyperliquidSpotSymbol, isStreamingSupported, isToolCallingSupported, listModels, logReturns, macd, modifyHyperliquidOrder, momentum, normalizeHyperliquidBaseSymbol, normalizeHyperliquidDcaEntries, normalizeHyperliquidIndicatorBars, normalizeHyperliquidMetaSymbol, normalizeModelName, normalizeNumberArrayish, normalizeQuantBars, normalizeSpotTokenName2 as normalizeSpotTokenName, normalizeStringArrayish, parseHyperliquidJson, parseHyperliquidOutcomeSymbol, parseHyperliquidSymbol, parseQuantTimeToSeconds, parseSpotPairSymbol, parseTimeToSeconds, payX402, payX402WithWallet, placeHyperliquidOrder2 as placeHyperliquidOrder, placeHyperliquidOrderWithTpSl, placeHyperliquidPositionTpSl, placeHyperliquidTwapOrder, placePolymarketOrder, planHyperliquidTrade, postAgentDigest, quantBarSchema, quantCostBps, quantDataWarnings, quantDecisionActionSchema, quantDecisionArtifactV1Schema, quantDecisionSchema, quantFeatureSpecSchema, quantIdeaSpecV1Schema, quantResolutionSchema, quantResolutionToSeconds, quantRuleSpecSchema, quantStrategyFamilySchema, quantTestKindSchema, quantTestRequestV1Schema, quantTesterReportV1Schema, readHyperliquidAccountValue, readHyperliquidNumber, readHyperliquidPerpPosition, readHyperliquidPerpPositionSize, readHyperliquidSpotAccountValue, readHyperliquidSpotBalance, readHyperliquidSpotBalanceSize, recordHyperliquidBuilderApproval, recordHyperliquidTermsAcceptance, registry, relativeStrength, relativeVolume, requireX402Payment, reserveHyperliquidRequestWeight, resolutionToSeconds, resolveBacktestAccountValueUsd, resolveBacktestMode, resolveBacktestWindow, resolveConfig2 as resolveConfig, resolveExchangeAddress, resolveHyperliquidAbstractionFromMode, resolveHyperliquidBudgetUsd, resolveHyperliquidCadenceCron, resolveHyperliquidCadenceFromResolution, resolveHyperliquidChain, resolveHyperliquidChainConfig, resolveHyperliquidDcaSymbolEntries, resolveHyperliquidErrorDetail, resolveHyperliquidHourlyInterval, resolveHyperliquidIntervalCron, resolveHyperliquidLeverageMode, resolveHyperliquidMarketDataCoin, resolveHyperliquidMaxPerRunUsd, resolveHyperliquidOrderRef, resolveHyperliquidOrderSymbol, resolveHyperliquidPair, resolveHyperliquidPerpSymbol, resolveHyperliquidProfileChain, resolveHyperliquidRpcEnvVar, resolveHyperliquidScheduleEvery, resolveHyperliquidScheduleUnit, resolveHyperliquidSpotSymbol, resolveHyperliquidStoreNetwork, resolveHyperliquidSymbol, resolveHyperliquidTargetSize, resolveNewsGatewayBase, resolvePolymarketBaseUrl, resolvePolymarketBootstrapContracts, resolveQuantFamilyCapability, resolveSpotMidCandidates, resolveSpotTokenCandidates, resolveToolset, responseToToolResponse, retrieve, rollingCorrelation, rollingVolatility, rollingZScore, roundHyperliquidPriceToTick, rsi, runQuantIdeaTest, runSignalStudy, scheduleHyperliquidCancel, sendHyperliquidSpot, setHyperliquidAccountAbstractionMode, setHyperliquidPortfolioMargin, signalStudySummary, simpleReturns, sliceBarsToWindow, sma, store, streamText, studyForwardReturns, summarizeExcursions, summarizeNumbers, supportsHyperliquidBuilderFee, tokens, transferHyperliquidSubAccount, trueRanges, typicalPrices, updateHyperliquidIsolatedMargin, updateHyperliquidLeverage, validateDecisionArtifact, volumes, wallet, walletToolkit, withX402Payment, withdrawFromHyperliquid };
+export { AIAbortError, AIError, AIFetchError, AIResponseError, BACKTEST_DECISION_MODE, DEFAULT_BASE_URL, DEFAULT_CHAIN, DEFAULT_FACILITATOR, DEFAULT_HYPERLIQUID_CADENCE_CRON, DEFAULT_HYPERLIQUID_MARKET_SLIPPAGE_BPS, DEFAULT_HYPERLIQUID_TPSL_MARKET_SLIPPAGE_BPS, DEFAULT_MODEL, DEFAULT_OPENPOND_GATEWAY_URL2 as DEFAULT_OPENPOND_GATEWAY_URL, DEFAULT_TIMEOUT_MS, DEFAULT_TOKENS, DONCHIAN_BREAKOUT_RULE_KIND, FUNDING_CARRY_RULE_KIND, HTTP_METHODS, HYPERLIQUID_HIP3_DEXES, HyperliquidApiError, HyperliquidBuilderApprovalError, HyperliquidExchangeClient, HyperliquidGuardError, HyperliquidInfoClient, HyperliquidTermsError, MACD_CROSSOVER_RULE_KIND, MA_CROSS_RULE_KIND, MOMENTUM_RULE_KIND, MPP_DEFAULT_TEMPO_CURRENCY, MPP_TEMPO_MAINNET_CHAIN_ID, MPP_TEMPO_PATHUSD_ADDRESS, MPP_TEMPO_USDCE_ADDRESS, NewsSignalClient, PAYMENT_HEADERS, POLYMARKET_CHAIN_ID, POLYMARKET_CLOB_AUTH_DOMAIN, POLYMARKET_CLOB_DOMAIN, POLYMARKET_ENDPOINTS, POLYMARKET_EXCHANGE_ADDRESSES, PolymarketApiError, PolymarketAuthError, PolymarketExchangeClient, PolymarketInfoClient, QUANT_FAMILY_CAPABILITIES, QUANT_RESOLUTION_SECONDS, RSI_MEAN_REVERSION_RULE_KIND, SUPPORTED_CURRENCIES, StoreError, WEBSEARCH_TOOL_DEFINITION, WEBSEARCH_TOOL_NAME, X402BrowserClient, X402Client, X402PaymentRequiredError, ZSCORE_MEAN_REVERSION_RULE_KIND, __hyperliquidInternals, __hyperliquidMarketDataInternals, approveHyperliquidBuilderFee, assertQuantWindow, atr, backtestDecisionRequestSchema, batchModifyHyperliquidOrders, beta, bollinger, buildBacktestDecisionSeriesInput, buildEventWindows, buildHmacSignature, buildHyperliquidMarketDescriptor, buildHyperliquidMarketIdentity, buildHyperliquidOutcomeMarketIdentity, buildHyperliquidProfileAssets, buildHyperliquidSpotUsdPriceMap, buildL1Headers, buildL2Headers, buildPolymarketApprovalTransactions, buildPolymarketOrderAmounts, buildPolymarketOutcomeTokenApprovalTransactions, buildPolymarketUsdcApprovalTransaction, buildQuantDataLineage, buildQuantTestPlan, buildSignedOrderPayload, cancelAllHyperliquidOrders, cancelAllPolymarketOrders, cancelHyperliquidOrders, cancelHyperliquidOrdersByCloid, cancelHyperliquidTwapOrder, cancelMarketPolymarketOrders, cancelPolymarketOrder, cancelPolymarketOrders, chains, clampHyperliquidAbs, clampHyperliquidFloat, clampHyperliquidInt, closePrices, compactDecisionChanges, computeHyperliquidMarketIocLimitPrice, correlation, createAIClient, createHyperliquidSubAccount, createMcpAdapter, createMonotonicNonceFactory, createMppClient, createMppCredential, createMppFetch, createOrDerivePolymarketApiKey, createPolymarketApiKey, cumulativeFunding, decodePolymarketBootstrapTransaction, defineX402Payment, depositToHyperliquidBridge, derivePolymarketApiKey, donchian, ema, ensureTextContent, estimateCountBack, estimateHyperliquidLiquidationPrice, evaluateNewsContinuationGate, evaluateQuantRule, executeTool, extractHyperliquidDex, extractHyperliquidOrderIds, fetchHyperliquidActiveAsset, fetchHyperliquidAllMids, fetchHyperliquidAssetCtxs, fetchHyperliquidBars, fetchHyperliquidClearinghouseState, fetchHyperliquidDexMeta, fetchHyperliquidDexMetaAndAssetCtxs, fetchHyperliquidFrontendOpenOrders, fetchHyperliquidFrontendOpenOrdersAcrossDexes, fetchHyperliquidHistoricalOrders, fetchHyperliquidMeta, fetchHyperliquidMetaAndAssetCtxs, fetchHyperliquidOpenOrders, fetchHyperliquidOpenOrdersAcrossDexes, fetchHyperliquidOrderStatus, fetchHyperliquidOutcomeMeta, fetchHyperliquidPerpMarketInfo, fetchHyperliquidPreTransferCheck, fetchHyperliquidResolvedInfoCoin, fetchHyperliquidResolvedMarketDescriptor, fetchHyperliquidSizeDecimals, fetchHyperliquidSpotAccountValue, fetchHyperliquidSpotAssetCtxs, fetchHyperliquidSpotClearinghouseState, fetchHyperliquidSpotMarketInfo, fetchHyperliquidSpotMeta, fetchHyperliquidSpotMetaAndAssetCtxs, fetchHyperliquidSpotTickSize, fetchHyperliquidSpotUsdPriceMap, fetchHyperliquidTickSize, fetchHyperliquidUserFills, fetchHyperliquidUserFillsByTime, fetchHyperliquidUserRateLimit, fetchNewsEventSignal, fetchNewsPropositionSignal, fetchPolymarketActivity, fetchPolymarketApprovalState, fetchPolymarketClosedPositions, fetchPolymarketDepositAddresses, fetchPolymarketMarket, fetchPolymarketMarkets, fetchPolymarketMidpoint, fetchPolymarketOrderbook, fetchPolymarketPositionValue, fetchPolymarketPositions, fetchPolymarketPrice, fetchPolymarketPriceHistory, fetchPolymarketPublicProfile, fetchWithMpp, finalizeQuantTesterReport, flattenMessageContent, formatHyperliquidMarketablePrice, formatHyperliquidOrderSize, formatHyperliquidPrice, formatHyperliquidSize, forwardReturns, fundingRates, generateText, getHyperliquidMaxBuilderFee, getKnownHyperliquidDexes, getModelConfig, getMyPerformance, getMyTools, getRpcUrl, getX402PaymentContext, hitRate, informationCoefficient, isHyperliquidSpotSymbol, isStreamingSupported, isToolCallingSupported, listModels, logReturns, macd, modifyHyperliquidOrder, momentum, normalizeHyperliquidBaseSymbol, normalizeHyperliquidDcaEntries, normalizeHyperliquidIndicatorBars, normalizeHyperliquidMetaSymbol, normalizeModelName, normalizeNumberArrayish, normalizeQuantBars, normalizeSpotTokenName2 as normalizeSpotTokenName, normalizeStringArrayish, parseHyperliquidJson, parseHyperliquidOutcomeSymbol, parseHyperliquidSymbol, parseQuantTimeToSeconds, parseSpotPairSymbol, parseTimeToSeconds, payX402, payX402WithWallet, placeHyperliquidOrder2 as placeHyperliquidOrder, placeHyperliquidOrderWithTpSl, placeHyperliquidPositionTpSl, placeHyperliquidTwapOrder, placePolymarketOrder, planHyperliquidTrade, postAgentDigest, quantBarSchema, quantCostBps, quantDataWarnings, quantDecisionActionSchema, quantDecisionArtifactV1Schema, quantDecisionSchema, quantFeatureSpecSchema, quantIdeaSpecV1Schema, quantResolutionSchema, quantResolutionToSeconds, quantRuleSpecSchema, quantStrategyFamilySchema, quantTestKindSchema, quantTestRequestV1Schema, quantTesterReportV1Schema, readHyperliquidAccountValue, readHyperliquidNumber, readHyperliquidPerpPosition, readHyperliquidPerpPositionSize, readHyperliquidSpotAccountValue, readHyperliquidSpotBalance, readHyperliquidSpotBalanceSize, readMppReceipt, recordHyperliquidBuilderApproval, recordHyperliquidTermsAcceptance, registry, relativeStrength, relativeVolume, requireX402Payment, reserveHyperliquidRequestWeight, resolutionToSeconds, resolveBacktestAccountValueUsd, resolveBacktestMode, resolveBacktestWindow, resolveConfig2 as resolveConfig, resolveExchangeAddress, resolveHyperliquidAbstractionFromMode, resolveHyperliquidBudgetUsd, resolveHyperliquidCadenceCron, resolveHyperliquidCadenceFromResolution, resolveHyperliquidChain, resolveHyperliquidChainConfig, resolveHyperliquidDcaSymbolEntries, resolveHyperliquidErrorDetail, resolveHyperliquidHourlyInterval, resolveHyperliquidIntervalCron, resolveHyperliquidLeverageMode, resolveHyperliquidMarketDataCoin, resolveHyperliquidMaxPerRunUsd, resolveHyperliquidOrderRef, resolveHyperliquidOrderSymbol, resolveHyperliquidPair, resolveHyperliquidPerpSymbol, resolveHyperliquidProfileChain, resolveHyperliquidRpcEnvVar, resolveHyperliquidScheduleEvery, resolveHyperliquidScheduleUnit, resolveHyperliquidSpotSymbol, resolveHyperliquidStoreNetwork, resolveHyperliquidSymbol, resolveHyperliquidTargetSize, resolveNewsGatewayBase, resolvePolymarketBaseUrl, resolvePolymarketBootstrapContracts, resolveQuantFamilyCapability, resolveSpotMidCandidates, resolveSpotTokenCandidates, resolveToolset, responseToToolResponse, retrieve, rollingCorrelation, rollingVolatility, rollingZScore, roundHyperliquidPriceToTick, rsi, runQuantIdeaTest, runSignalStudy, scheduleHyperliquidCancel, sendHyperliquidSpot, setHyperliquidAccountAbstractionMode, setHyperliquidPortfolioMargin, signalStudySummary, simpleReturns, sliceBarsToWindow, sma, store, streamText, studyForwardReturns, summarizeExcursions, summarizeNumbers, supportsHyperliquidBuilderFee, tokens, transferHyperliquidSubAccount, trueRanges, typicalPrices, updateHyperliquidIsolatedMargin, updateHyperliquidLeverage, validateDecisionArtifact, volumes, wallet, walletToolkit, withX402Payment, withdrawFromHyperliquid };
 //# sourceMappingURL=index.js.map
 //# sourceMappingURL=index.js.map

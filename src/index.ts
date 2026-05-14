@@ -1,6 +1,7 @@
 export * from "./types/index";
 export * from "./types/tool";
 export * from "./x402/index";
+export * from "./mpp/index";
 export * from "./wallet/index";
 export * from "./adapters/hyperliquid/index";
 export * from "./adapters/polymarket/index";

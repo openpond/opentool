@@ -45,6 +45,17 @@ export type WalletProviderType = "readonly" | "privateKey" | "turnkey";
 
 export type TurnkeySignWith = string;
 
+export type TurnkeyActivityOperation = "signRawPayload" | "signTransaction";
+
+export interface TurnkeyActivityTrace {
+  activityId: string;
+  organizationId?: string;
+  operation: TurnkeyActivityOperation;
+  type?: string;
+  status?: string;
+  capturedAt: string;
+}
+
 export interface TurnkeyOptions {
   organizationId: string;
   apiPublicKey: string;
@@ -52,12 +63,16 @@ export interface TurnkeyOptions {
   /** Identifier of the delegated signer (Turnkey address or private key ID). */
   signWith: TurnkeySignWith;
   apiBaseUrl?: string;
+  /** Capture Turnkey signing activity IDs for debugging/audit responses. */
+  captureActivities?: boolean;
 }
 
 export interface WalletOptionsBase {
   chain?: ChainReference;
   apiKey?: string;
   rpcUrl?: string;
+  /** Capture Turnkey signing activity IDs when env-based Turnkey credentials are used. */
+  captureTurnkeyActivities?: boolean;
 }
 
 export interface WalletPrivateKeyOptions extends WalletOptionsBase {
@@ -101,6 +116,10 @@ export interface WalletSignerContext {
    * Optional monotonic nonce provider for systems that require client-side nonces.
    */
   nonceSource?: NonceSource;
+  /** Returns captured Turnkey signing activities when captureActivities is enabled. */
+  getTurnkeyActivities?: () => TurnkeyActivityTrace[];
+  /** Clears captured Turnkey signing activities when captureActivities is enabled. */
+  clearTurnkeyActivities?: () => void;
 }
 
 export interface WalletBaseContext {

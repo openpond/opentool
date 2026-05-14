@@ -127,6 +127,7 @@ export async function wallet(options: WalletOptions = {}): Promise<WalletContext
       apiPublicKey: effectiveTurnkey.apiPublicKey,
       apiPrivateKey: effectiveTurnkey.apiPrivateKey,
       signWith: effectiveTurnkey.signWith,
+      captureActivities: options.captureTurnkeyActivities ?? effectiveTurnkey.captureActivities,
     } as Parameters<typeof createTurnkeyProvider>[0];
 
     if (effectiveTurnkey.apiBaseUrl) {

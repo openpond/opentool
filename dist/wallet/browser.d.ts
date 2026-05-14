@@ -1,7 +1,7 @@
 import { createAccount } from '@turnkey/viem';
 import { WalletClient, Transport, Chain, PublicClient } from 'viem';
 import { Account } from 'viem/accounts';
-import { a as ChainReference, c as HexAddress, l as WalletProviderType, C as ChainMetadata, f as TurnkeySignWith, h as WalletFullContext } from '../types-BaTmu0gS.js';
+import { a as ChainReference, c as HexAddress, n as WalletProviderType, C as ChainMetadata, h as TurnkeySignWith, j as WalletFullContext } from '../types-D8s9zx-U.js';
 
 type NonceSource = () => number;
 declare function createMonotonicNonceSource(start?: number): NonceSource;

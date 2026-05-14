@@ -4,6 +4,7 @@ export type TurnkeyEnvConfig = {
   apiPrivateKey: string;
   signWith: string;
   apiBaseUrl?: string;
+  captureActivities?: boolean;
 };
 
 function readTrimmed(name: string): string | undefined {
