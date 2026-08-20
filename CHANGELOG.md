@@ -1,5 +1,11 @@
 # opentool
 
+## 0.22.0
+
+### Minor Changes
+
+- e6dcdc1: Add paid streaming helpers, a payments entrypoint, MPP challenge hooks, and parsed streaming tool execution events.
+
 ## 0.21.0
 
 ### Minor Changes
