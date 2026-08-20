@@ -1172,14 +1172,7 @@ function resolveHyperliquidSpotSymbol(asset, defaultQuote = "USDC") {
 }
 
 // src/adapters/hyperliquid/info.ts
-var HYPERLIQUID_HIP3_DEXES = [
-  "xyz",
-  "flx",
-  "vntl",
-  "hyna",
-  "km",
-  "cash"
-];
+var HYPERLIQUID_HIP3_DEXES = ["xyz", "flx", "vntl", "hyna", "km", "cash"];
 async function postInfo(environment, payload) {
   const baseUrl = API_BASES[environment];
   const response = await fetch(`${baseUrl}/info`, {
@@ -3107,11 +3100,7 @@ function formatDirectionalHyperliquidPrice(price, params) {
   const szDecimals = resolveSizeDecimals(params.szDecimals);
   const maxDecimals2 = Math.max((params.marketType === "perp" ? 6 : 8) - szDecimals, 0);
   const decimalsAdjusted = StringMath.toFixedDirectional(normalized, maxDecimals2, params.mode);
-  const sigFigAdjusted = StringMath.toPrecisionDirectional(
-    decimalsAdjusted,
-    5,
-    params.mode
-  );
+  const sigFigAdjusted = StringMath.toPrecisionDirectional(decimalsAdjusted, 5, params.mode);
   return sigFigAdjusted === "0" ? null : sigFigAdjusted;
 }
 function roundHyperliquidPriceToTick(price, tick, side) {
@@ -3126,11 +3115,7 @@ function roundHyperliquidPriceToTick(price, tick, side) {
   if (Number.parseFloat(normalized) <= 0) {
     throw new Error("Price must be positive.");
   }
-  const scaled = scaleDecimalToInt(
-    normalized,
-    tick.tickDecimals,
-    side === "buy" ? "up" : "down"
-  );
+  const scaled = scaleDecimalToInt(normalized, tick.tickDecimals, side === "buy" ? "up" : "down");
   const tickSize = tick.tickSizeInt;
   const rounded = side === "sell" ? scaled / tickSize * tickSize : (scaled + tickSize - 1n) / tickSize * tickSize;
   return formatScaledDecimal(rounded, tick.tickDecimals);
@@ -3159,9 +3144,7 @@ function formatHyperliquidMarketablePrice(params) {
   const baseDecimals = countDecimalPlaces(midString);
   const workDecimals = Math.max(baseDecimals + 4, tick?.tickDecimals ?? 0, 8);
   const scaledMid = scaleDecimalToInt(midString, workDecimals, "down");
-  const slippageNumerator = BigInt(
-    side === "buy" ? 1e4 + slippageBps : 1e4 - slippageBps
-  );
+  const slippageNumerator = BigInt(side === "buy" ? 1e4 + slippageBps : 1e4 - slippageBps);
   const adjustedScaled = side === "buy" ? ceilDiv(scaledMid * slippageNumerator, 10000n) : scaledMid * slippageNumerator / 10000n;
   const adjustedString = formatScaledDecimal(adjustedScaled, workDecimals);
   if (tick) {
@@ -3263,11 +3246,7 @@ async function buildTpSlChildOrder(params) {
       throw new Error(`${params.legType} buy limit price must be at or above the trigger price.`);
     }
   }
-  const price = execution === "limit" ? formatHyperliquidPrice(
-    explicitLimitPrice,
-    szDecimals,
-    marketType
-  ) : formatHyperliquidMarketablePrice({
+  const price = execution === "limit" ? formatHyperliquidPrice(explicitLimitPrice, szDecimals, marketType) : formatHyperliquidMarketablePrice({
     mid: triggerPxNumeric,
     side: childSide,
     slippageBps: params.triggerMarketSlippageBps,
@@ -3291,30 +3270,28 @@ async function buildTpSlChildOrder(params) {
 }
 async function buildAttachedTpSlOrders(params) {
   const referencePrice = toPositiveNumber(params.referencePrice, "referencePrice");
-  const legs = await Promise.all(
-    [
-      params.takeProfit ? buildTpSlChildOrder({
-        symbol: params.symbol,
-        parentSide: params.parentSide,
-        size: params.size,
-        referencePrice,
-        legType: "tp",
-        leg: params.takeProfit,
-        environment: params.environment,
-        triggerMarketSlippageBps: params.triggerMarketSlippageBps
-      }) : null,
-      params.stopLoss ? buildTpSlChildOrder({
-        symbol: params.symbol,
-        parentSide: params.parentSide,
-        size: params.size,
-        referencePrice,
-        legType: "sl",
-        leg: params.stopLoss,
-        environment: params.environment,
-        triggerMarketSlippageBps: params.triggerMarketSlippageBps
-      }) : null
-    ]
-  );
+  const legs = await Promise.all([
+    params.takeProfit ? buildTpSlChildOrder({
+      symbol: params.symbol,
+      parentSide: params.parentSide,
+      size: params.size,
+      referencePrice,
+      legType: "tp",
+      leg: params.takeProfit,
+      environment: params.environment,
+      triggerMarketSlippageBps: params.triggerMarketSlippageBps
+    }) : null,
+    params.stopLoss ? buildTpSlChildOrder({
+      symbol: params.symbol,
+      parentSide: params.parentSide,
+      size: params.size,
+      referencePrice,
+      legType: "sl",
+      leg: params.stopLoss,
+      environment: params.environment,
+      triggerMarketSlippageBps: params.triggerMarketSlippageBps
+    }) : null
+  ]);
   return legs.filter((entry) => Boolean(entry));
 }
 async function placeHyperliquidOrderWithTpSl(options) {

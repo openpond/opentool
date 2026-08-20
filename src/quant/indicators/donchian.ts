@@ -3,11 +3,7 @@ export type DonchianPoint = {
   upper: number | null;
 };
 
-export function donchian(
-  highs: number[],
-  lows: number[],
-  period = 20,
-): DonchianPoint[] {
+export function donchian(highs: number[], lows: number[], period = 20): DonchianPoint[] {
   if (highs.length !== lows.length) {
     throw new Error("Donchian high/low arrays must have the same length");
   }

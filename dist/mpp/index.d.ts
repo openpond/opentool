@@ -1,4 +1,4 @@
-import { Receipt } from 'mppx';
+import { Challenge, Receipt } from 'mppx';
 import { j as WalletFullContext, c as HexAddress } from '../types-D8s9zx-U.js';
 import 'viem';
 import 'viem/accounts';
@@ -34,6 +34,9 @@ interface MppClientOptions {
     polyfill?: boolean;
     acceptPaymentPolicy?: MppAcceptPaymentPolicy;
     tempo?: MppTempoOptions;
+    onChallenge?: (challenge: Challenge.Challenge, helpers: {
+        createCredential: (context?: unknown) => Promise<string>;
+    }) => Promise<string | undefined>;
 }
 type MppFetch = (input: RequestInfo | URL, init?: RequestInit & {
     context?: unknown;

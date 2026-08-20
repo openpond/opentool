@@ -94,9 +94,7 @@ function resolveRequiredExchangeNonce(options: {
   }
 
   const resolved =
-    options.walletNonceProvider?.() ??
-    options.wallet.nonceSource?.() ??
-    options.nonceSource?.();
+    options.walletNonceProvider?.() ?? options.wallet.nonceSource?.() ?? options.nonceSource?.();
 
   if (resolved === undefined) {
     throw new Error(`${options.action} requires an explicit nonce or wallet nonce source.`);
@@ -111,7 +109,9 @@ function sleep(ms: number) {
   });
 }
 
-function normalizeReportedLeverageMode(value: string | null | undefined): "cross" | "isolated" | null {
+function normalizeReportedLeverageMode(
+  value: string | null | undefined,
+): "cross" | "isolated" | null {
   if (!value) return null;
   const normalized = value.trim().toLowerCase();
   if (normalized === "cross" || normalized === "isolated") {
@@ -126,9 +126,7 @@ function resolveLeverageVerificationUser(options: {
   input: UpdateLeverageInput;
 }): `0x${string}` {
   return normalizeAddress(
-    options.input.verifyUser ??
-      options.vaultAddress ??
-      (options.wallet.address as `0x${string}`),
+    options.input.verifyUser ?? options.vaultAddress ?? (options.wallet.address as `0x${string}`),
   );
 }
 
@@ -142,15 +140,11 @@ async function verifyAppliedHyperliquidLeverage(params: {
   delayMs?: number;
 }) {
   const attempts =
-    typeof params.attempts === "number" &&
-    Number.isFinite(params.attempts) &&
-    params.attempts > 0
+    typeof params.attempts === "number" && Number.isFinite(params.attempts) && params.attempts > 0
       ? Math.max(1, Math.floor(params.attempts))
       : DEFAULT_HYPERLIQUID_LEVERAGE_VERIFY_ATTEMPTS;
   const delayMs =
-    typeof params.delayMs === "number" &&
-    Number.isFinite(params.delayMs) &&
-    params.delayMs >= 0
+    typeof params.delayMs === "number" && Number.isFinite(params.delayMs) && params.delayMs >= 0
       ? Math.max(0, Math.floor(params.delayMs))
       : DEFAULT_HYPERLIQUID_LEVERAGE_VERIFY_DELAY_MS;
   let lastReportedLeverage: number | null = null;

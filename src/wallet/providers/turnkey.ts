@@ -93,7 +93,10 @@ function createActivityCaptureClient(
 
       return async (...args: unknown[]) => {
         try {
-          const response = await (value as (...args: unknown[]) => Promise<unknown>).apply(target, args);
+          const response = await (value as (...args: unknown[]) => Promise<unknown>).apply(
+            target,
+            args,
+          );
           recordActivityTrace({
             traces,
             operation: prop,

@@ -127,13 +127,7 @@ var tokens = {
       "0x20C000000000000000000000b9537d11c60E8b50",
       6
     ),
-    PathUSD: token(
-      tempo.id,
-      "PathUSD",
-      "PathUSD",
-      "0x20c0000000000000000000000000000000000000",
-      6
-    )
+    PathUSD: token(tempo.id, "PathUSD", "PathUSD", "0x20c0000000000000000000000000000000000000", 6)
   }
 };
 var DEFAULT_CHAIN = chains.base;

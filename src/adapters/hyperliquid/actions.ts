@@ -330,9 +330,9 @@ export async function placeHyperliquidOrder(
   const errorStatuses = statuses.filter((entry): entry is { error: string } =>
     Boolean(
       entry &&
-        typeof entry === "object" &&
-        "error" in entry &&
-        typeof (entry as { error?: unknown }).error === "string",
+      typeof entry === "object" &&
+      "error" in entry &&
+      typeof (entry as { error?: unknown }).error === "string",
     ),
   );
   if (errorStatuses.length) {

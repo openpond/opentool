@@ -22,7 +22,8 @@ function createMppClient(options) {
     methods,
     polyfill: options.polyfill ?? false,
     ...options.fetch ? { fetch: options.fetch } : {},
-    ...options.acceptPaymentPolicy ? { acceptPaymentPolicy: options.acceptPaymentPolicy } : {}
+    ...options.acceptPaymentPolicy ? { acceptPaymentPolicy: options.acceptPaymentPolicy } : {},
+    ...options.onChallenge ? { onChallenge: options.onChallenge } : {}
   });
   return {
     fetch: client.fetch,

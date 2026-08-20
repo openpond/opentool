@@ -75,15 +75,16 @@ function toPositiveNumber(value: string | number | bigint, label: string): numbe
     }
     return Number(value);
   }
-  const numeric =
-    typeof value === "number" ? value : Number.parseFloat(value.toString().trim());
+  const numeric = typeof value === "number" ? value : Number.parseFloat(value.toString().trim());
   if (!Number.isFinite(numeric) || numeric <= 0) {
     throw new Error(`${label} must be positive.`);
   }
   return numeric;
 }
 
-function normalizeExecutionType(value?: HyperliquidTpSlExecutionType): HyperliquidTpSlExecutionType {
+function normalizeExecutionType(
+  value?: HyperliquidTpSlExecutionType,
+): HyperliquidTpSlExecutionType {
   return value ?? "market";
 }
 
@@ -173,11 +174,7 @@ async function buildTpSlChildOrder(params: {
   }
   const price =
     execution === "limit"
-      ? formatHyperliquidPrice(
-          explicitLimitPrice!,
-          szDecimals,
-          marketType,
-        )
+      ? formatHyperliquidPrice(explicitLimitPrice!, szDecimals, marketType)
       : formatHyperliquidMarketablePrice({
           mid: triggerPxNumeric,
           side: childSide,
@@ -213,34 +210,32 @@ async function buildAttachedTpSlOrders(params: {
   triggerMarketSlippageBps: number;
 }): Promise<HyperliquidOrderIntent[]> {
   const referencePrice = toPositiveNumber(params.referencePrice, "referencePrice");
-  const legs = await Promise.all(
-    [
-      params.takeProfit
-        ? buildTpSlChildOrder({
-            symbol: params.symbol,
-            parentSide: params.parentSide,
-            size: params.size,
-            referencePrice,
-            legType: "tp",
-            leg: params.takeProfit,
-            environment: params.environment,
-            triggerMarketSlippageBps: params.triggerMarketSlippageBps,
-          })
-        : null,
-      params.stopLoss
-        ? buildTpSlChildOrder({
-            symbol: params.symbol,
-            parentSide: params.parentSide,
-            size: params.size,
-            referencePrice,
-            legType: "sl",
-            leg: params.stopLoss,
-            environment: params.environment,
-            triggerMarketSlippageBps: params.triggerMarketSlippageBps,
-          })
-        : null,
-    ],
-  );
+  const legs = await Promise.all([
+    params.takeProfit
+      ? buildTpSlChildOrder({
+          symbol: params.symbol,
+          parentSide: params.parentSide,
+          size: params.size,
+          referencePrice,
+          legType: "tp",
+          leg: params.takeProfit,
+          environment: params.environment,
+          triggerMarketSlippageBps: params.triggerMarketSlippageBps,
+        })
+      : null,
+    params.stopLoss
+      ? buildTpSlChildOrder({
+          symbol: params.symbol,
+          parentSide: params.parentSide,
+          size: params.size,
+          referencePrice,
+          legType: "sl",
+          leg: params.stopLoss,
+          environment: params.environment,
+          triggerMarketSlippageBps: params.triggerMarketSlippageBps,
+        })
+      : null,
+  ]);
 
   return legs.filter((entry): entry is HyperliquidOrderIntent => Boolean(entry));
 }

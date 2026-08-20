@@ -30,8 +30,7 @@ export function sliceBarsToWindow(params: {
   warmupBars?: number;
 }): QuantBar[] {
   const startIndex = params.bars.findIndex((bar) => bar.time >= params.startSeconds);
-  const fromIndex = startIndex < 0 ? params.bars.length : Math.max(0, startIndex - (params.warmupBars ?? 0));
-  return params.bars
-    .slice(fromIndex)
-    .filter((bar) => bar.time <= params.endSeconds);
+  const fromIndex =
+    startIndex < 0 ? params.bars.length : Math.max(0, startIndex - (params.warmupBars ?? 0));
+  return params.bars.slice(fromIndex).filter((bar) => bar.time <= params.endSeconds);
 }

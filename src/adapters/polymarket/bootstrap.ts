@@ -108,9 +108,7 @@ export function resolvePolymarketBootstrapContracts(
 ): PolymarketBootstrapContracts {
   const contracts = POLYMARKET_BOOTSTRAP_CONTRACTS_BY_ENV[environment];
   if (!contracts) {
-    throw new Error(
-      `Polymarket bootstrap contracts are not configured for ${environment}.`,
-    );
+    throw new Error(`Polymarket bootstrap contracts are not configured for ${environment}.`);
   }
   return contracts;
 }
@@ -243,9 +241,7 @@ export async function fetchPolymarketDepositAddresses(args: {
   })) as PolymarketDepositAddressesResponse;
 }
 
-export function decodePolymarketBootstrapTransaction(
-  transaction: PolymarketBootstrapTransaction,
-): {
+export function decodePolymarketBootstrapTransaction(transaction: PolymarketBootstrapTransaction): {
   to: `0x${string}`;
   functionName: string;
   args: readonly unknown[];

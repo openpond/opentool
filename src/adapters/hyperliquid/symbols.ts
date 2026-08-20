@@ -163,8 +163,7 @@ export function parseHyperliquidOutcomeSymbol(
   if (!trimmed) return null;
 
   const encodedMatch =
-    OUTCOME_MARKET_DATA_PATTERN.exec(trimmed) ??
-    OUTCOME_TOKEN_PATTERN.exec(trimmed);
+    OUTCOME_MARKET_DATA_PATTERN.exec(trimmed) ?? OUTCOME_TOKEN_PATTERN.exec(trimmed);
   if (!encodedMatch) return null;
   const encoding = Number.parseInt(encodedMatch[1] ?? "", 10);
   const outcomeId = Math.floor(encoding / 10);
@@ -333,13 +332,11 @@ export function buildHyperliquidMarketDescriptor(
     const base = pairBase || parsed.base;
     const quote = pairQuote || explicitQuote || parsed.quote;
     const normalized = pair ?? parsed.normalized;
-    const routeTicker =
-      pair && base && quote ? `${base}-${quote}` : parsed.routeTicker;
+    const routeTicker = pair && base && quote ? `${base}-${quote}` : parsed.routeTicker;
     const displaySymbol =
       input.displaySymbol?.trim() ||
       (pair && base && quote ? `${base}-${quote}` : parsed.displaySymbol);
-    const orderSymbol =
-      input.orderSymbol?.trim() || resolveHyperliquidOrderSymbol(normalized);
+    const orderSymbol = input.orderSymbol?.trim() || resolveHyperliquidOrderSymbol(normalized);
     const marketDataCoin =
       input.marketDataCoin?.trim() ||
       resolveHyperliquidSpotInfoCoin({
@@ -377,11 +374,10 @@ export function buildHyperliquidMarketDescriptor(
     (canonicalPair
       ? canonicalPair.replace("/", "-")
       : parsed.dex
-        ? base ?? parsed.normalized
+        ? (base ?? parsed.normalized)
         : parsed.displaySymbol);
   const normalized = parsed.normalized;
-  const orderSymbol =
-    input.orderSymbol?.trim() || resolveHyperliquidOrderSymbol(normalized);
+  const orderSymbol = input.orderSymbol?.trim() || resolveHyperliquidOrderSymbol(normalized);
   const marketDataCoin =
     input.marketDataCoin?.trim() || resolveHyperliquidMarketDataCoin(normalized);
 
@@ -571,7 +567,8 @@ export function resolveHyperliquidSymbol(asset: string, override?: string): stri
     const [dexRaw, ...restParts] = raw.split(":");
     const dex = dexRaw.trim().toLowerCase();
     const rest = restParts.join(":");
-    const normalizedBase = normalizeHyperliquidBaseSymbol(rest) ?? canonicalizeHyperliquidTokenCase(rest);
+    const normalizedBase =
+      normalizeHyperliquidBaseSymbol(rest) ?? canonicalizeHyperliquidTokenCase(rest);
     if (!dex) return normalizedBase;
     return `${dex}:${normalizedBase}`;
   }
@@ -593,7 +590,10 @@ export function resolveHyperliquidPerpSymbol(asset: string): string {
   return dex ? `${dex}:${base}` : base;
 }
 
-export function resolveHyperliquidSpotSymbol(asset: string, defaultQuote = "USDC"): {
+export function resolveHyperliquidSpotSymbol(
+  asset: string,
+  defaultQuote = "USDC",
+): {
   symbol: string;
   base: string;
   quote: string;

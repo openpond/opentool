@@ -8,8 +8,6 @@ export function relativeStrength(
   const assetMomentum = momentum(assetPrices, lookbackBars);
   const benchmarkMomentum = momentum(benchmarkPrices, lookbackBars);
   return assetMomentum.map((value, index) =>
-    value == null || benchmarkMomentum[index] == null
-      ? null
-      : value - benchmarkMomentum[index],
+    value == null || benchmarkMomentum[index] == null ? null : value - benchmarkMomentum[index],
   );
 }

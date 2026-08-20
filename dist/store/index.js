@@ -255,11 +255,100 @@ async function postAgentDigest(input, options) {
 async function executeTool(input, options) {
   const { baseUrl } = resolveConfig(options);
   const url = `${baseUrl}/apps/tools/execute`;
+  if (input.stream === true) {
+    const { apiKey, fetchFn } = resolveConfig(options);
+    const response = await fetchFn(url, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        accept: "text/event-stream",
+        "openpond-api-key": apiKey
+      },
+      body: JSON.stringify(input)
+    });
+    const contentType = response.headers.get("content-type") ?? "";
+    if (!response.ok && !contentType.toLowerCase().includes("text/event-stream")) {
+      let body;
+      try {
+        body = await response.json();
+      } catch {
+        body = await response.text().catch(() => void 0);
+      }
+      throw new StoreError(`Request failed with status ${response.status}`, response.status, body);
+    }
+    return {
+      response,
+      events: parseToolExecuteStream(response)
+    };
+  }
   const data = await requestJson(url, options, {
     method: "POST",
     body: JSON.stringify(input)
   });
   return data;
+}
+async function* parseToolExecuteStream(response) {
+  if (!response.body) {
+    return;
+  }
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true }).replace(/\r\n/g, "\n");
+      let boundaryIndex;
+      while ((boundaryIndex = buffer.indexOf("\n\n")) !== -1) {
+        const block = buffer.slice(0, boundaryIndex);
+        buffer = buffer.slice(boundaryIndex + 2);
+        const event = parseToolExecuteStreamBlock(block);
+        if (event) yield event;
+      }
+    }
+    const trailing = decoder.decode();
+    if (trailing) buffer += trailing;
+    if (buffer.trim()) {
+      const event = parseToolExecuteStreamBlock(buffer);
+      if (event) yield event;
+    }
+  } finally {
+    reader.releaseLock();
+  }
+}
+function parseToolExecuteStreamBlock(block) {
+  const lines = block.split("\n");
+  const dataLines = [];
+  let event = "message";
+  let id;
+  for (const rawLine of lines) {
+    if (!rawLine || rawLine.startsWith(":")) continue;
+    if (rawLine.startsWith("event:")) {
+      event = rawLine.slice("event:".length).trim() || "message";
+      continue;
+    }
+    if (rawLine.startsWith("id:")) {
+      id = rawLine.slice("id:".length).trim();
+      continue;
+    }
+    if (rawLine.startsWith("data:")) {
+      const value = rawLine.slice("data:".length);
+      dataLines.push(value.startsWith(" ") ? value.slice(1) : value);
+    }
+  }
+  if (dataLines.length === 0) return null;
+  const dataString = dataLines.join("\n");
+  let data = dataString;
+  try {
+    data = JSON.parse(dataString);
+  } catch {
+  }
+  return {
+    event,
+    data,
+    ...id ? { id } : {}
+  };
 }
 
 export { StoreError, executeTool, getMyPerformance, getMyTools, postAgentDigest, retrieve, store };

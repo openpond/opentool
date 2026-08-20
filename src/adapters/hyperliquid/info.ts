@@ -1,9 +1,4 @@
-import {
-  API_BASES,
-  HyperliquidApiError,
-  HyperliquidEnvironment,
-  normalizeAddress,
-} from "./base";
+import { API_BASES, HyperliquidApiError, HyperliquidEnvironment, normalizeAddress } from "./base";
 import { resolveHyperliquidOrderSymbol } from "./symbols";
 
 type InfoPayload =
@@ -33,14 +28,7 @@ type InfoPayload =
   | { type: "spotClearinghouseState"; user: `0x${string}` }
   | { type: "activeAssetData"; user: `0x${string}`; coin: string };
 
-export const HYPERLIQUID_HIP3_DEXES = [
-  "xyz",
-  "flx",
-  "vntl",
-  "hyna",
-  "km",
-  "cash",
-] as const;
+export const HYPERLIQUID_HIP3_DEXES = ["xyz", "flx", "vntl", "hyna", "km", "cash"] as const;
 
 export type HyperliquidHip3Dex = (typeof HYPERLIQUID_HIP3_DEXES)[number];
 
@@ -84,9 +72,8 @@ function mergeHyperliquidOpenOrders<T extends HyperliquidOpenOrderLike>(batches:
         typeof order.oid === "number" || typeof order.oid === "string"
           ? String(order.oid)
           : "no-oid";
-      const cloid = typeof order.cloid === "string" && order.cloid.trim().length > 0
-        ? order.cloid
-        : "no-cloid";
+      const cloid =
+        typeof order.cloid === "string" && order.cloid.trim().length > 0 ? order.cloid : "no-cloid";
       merged.set(`${oid}:${cloid}`, order);
     }
   }
@@ -97,7 +84,8 @@ function applyHyperliquidOpenOrderDexContext<T extends HyperliquidOpenOrderLike>
   orders: T[],
   dex?: string | null,
 ): T[] {
-  const resolvedDex = typeof dex === "string" && dex.trim().length > 0 ? dex.trim().toLowerCase() : null;
+  const resolvedDex =
+    typeof dex === "string" && dex.trim().length > 0 ? dex.trim().toLowerCase() : null;
   return orders.map((order) => {
     const existingDex =
       typeof order.dex === "string" && order.dex.trim().length > 0
@@ -274,7 +262,9 @@ export async function fetchHyperliquidOutcomeMeta(environment: HyperliquidEnviro
   return postInfo(environment, { type: "outcomeMeta" });
 }
 
-export async function fetchHyperliquidOpenOrders<T extends HyperliquidOpenOrderLike = HyperliquidOpenOrderLike>(params: {
+export async function fetchHyperliquidOpenOrders<
+  T extends HyperliquidOpenOrderLike = HyperliquidOpenOrderLike,
+>(params: {
   environment?: HyperliquidEnvironment;
   user: `0x${string}`;
   dex?: string | null;
@@ -391,18 +381,20 @@ export async function fetchHyperliquidSpotClearinghouseState(params: {
   });
 }
 
-export function getKnownHyperliquidDexes(environment: HyperliquidEnvironment = "mainnet"): string[] {
+export function getKnownHyperliquidDexes(
+  environment: HyperliquidEnvironment = "mainnet",
+): string[] {
   return environment === "mainnet" ? [...HYPERLIQUID_HIP3_DEXES] : [];
 }
 
-export async function fetchHyperliquidOpenOrdersAcrossDexes<T extends HyperliquidOpenOrderLike>(
-  params: {
-    environment?: HyperliquidEnvironment;
-    user: `0x${string}`;
-    dexes?: string[];
-    includePrimary?: boolean;
-  },
-): Promise<T[]> {
+export async function fetchHyperliquidOpenOrdersAcrossDexes<
+  T extends HyperliquidOpenOrderLike,
+>(params: {
+  environment?: HyperliquidEnvironment;
+  user: `0x${string}`;
+  dexes?: string[];
+  includePrimary?: boolean;
+}): Promise<T[]> {
   const environment = params.environment ?? "mainnet";
   const requests = [
     ...(params.includePrimary === false
@@ -465,9 +457,7 @@ export async function fetchHyperliquidActiveAsset(params: {
     coin,
   });
   const record =
-    raw && typeof raw === "object" && !Array.isArray(raw)
-      ? (raw as Record<string, unknown>)
-      : null;
+    raw && typeof raw === "object" && !Array.isArray(raw) ? (raw as Record<string, unknown>) : null;
   const leverageRecord =
     record?.leverage && typeof record.leverage === "object" && !Array.isArray(record.leverage)
       ? (record.leverage as Record<string, unknown>)

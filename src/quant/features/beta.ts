@@ -4,8 +4,7 @@ export function beta(assetReturns: number[], benchmarkReturns: number[]): number
   const asset = assetReturns.slice(assetReturns.length - length);
   const benchmark = benchmarkReturns.slice(benchmarkReturns.length - length);
   const meanAsset = asset.reduce((total, value) => total + value, 0) / length;
-  const meanBenchmark =
-    benchmark.reduce((total, value) => total + value, 0) / length;
+  const meanBenchmark = benchmark.reduce((total, value) => total + value, 0) / length;
   let covariance = 0;
   let benchmarkVariance = 0;
   for (let index = 0; index < length; index += 1) {

@@ -440,9 +440,7 @@ async function createOrDerivePolymarketApiKey(args) {
   if (deriveError) {
     throw deriveError;
   }
-  throw new PolymarketAuthError(
-    "Failed to derive or create Polymarket API key."
-  );
+  throw new PolymarketAuthError("Failed to derive or create Polymarket API key.");
 }
 async function placePolymarketOrder(args) {
   const environment = args.environment ?? "mainnet";
@@ -1208,9 +1206,7 @@ async function requestJson3(url, init) {
 function resolvePolymarketBootstrapContracts(environment) {
   const contracts = POLYMARKET_BOOTSTRAP_CONTRACTS_BY_ENV[environment];
   if (!contracts) {
-    throw new Error(
-      `Polymarket bootstrap contracts are not configured for ${environment}.`
-    );
+    throw new Error(`Polymarket bootstrap contracts are not configured for ${environment}.`);
   }
   return contracts;
 }

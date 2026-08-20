@@ -285,8 +285,7 @@ export async function buildL1Headers(args: {
   const nonce = args.nonce ?? Date.now();
   const chainId = POLYMARKET_CHAIN_ID[args.environment ?? "mainnet"];
   const address = args.wallet.address as `0x${string}`;
-  const message =
-    args.message ?? "This message attests that I control the given wallet";
+  const message = args.message ?? "This message attests that I control the given wallet";
 
   const signature = await args.wallet.walletClient.signTypedData({
     account: args.wallet.account,

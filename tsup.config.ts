@@ -11,6 +11,7 @@ export default defineConfig({
     "src/viem/index.ts",
     "src/x402/index.ts",
     "src/mpp/index.ts",
+    "src/payments/index.ts",
     "src/wallet/index.ts",
     "src/wallet/browser.ts",
     "src/ai/index.ts",

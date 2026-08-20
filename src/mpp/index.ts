@@ -1,14 +1,12 @@
-import { Receipt } from "mppx";
+import { Challenge, Receipt } from "mppx";
 import { Mppx, tempo } from "mppx/client";
 import type { Account, Client } from "viem";
 
 import type { HexAddress, WalletFullContext } from "../wallet/types";
 
 export const MPP_TEMPO_MAINNET_CHAIN_ID = 4217;
-export const MPP_TEMPO_USDCE_ADDRESS =
-  "0x20C000000000000000000000b9537d11c60E8b50" as const;
-export const MPP_TEMPO_PATHUSD_ADDRESS =
-  "0x20c0000000000000000000000000000000000000" as const;
+export const MPP_TEMPO_USDCE_ADDRESS = "0x20C000000000000000000000b9537d11c60E8b50" as const;
+export const MPP_TEMPO_PATHUSD_ADDRESS = "0x20c0000000000000000000000000000000000000" as const;
 export const MPP_DEFAULT_TEMPO_CURRENCY = MPP_TEMPO_USDCE_ADDRESS;
 
 export type MppTempoChargeMode = "push" | "pull";
@@ -39,6 +37,10 @@ export interface MppClientOptions {
   polyfill?: boolean;
   acceptPaymentPolicy?: MppAcceptPaymentPolicy;
   tempo?: MppTempoOptions;
+  onChallenge?: (
+    challenge: Challenge.Challenge,
+    helpers: { createCredential: (context?: unknown) => Promise<string> },
+  ) => Promise<string | undefined>;
 }
 
 export type MppFetch = (
@@ -86,6 +88,7 @@ export function createMppClient(options: MppClientOptions): MppClient {
     polyfill: options.polyfill ?? false,
     ...(options.fetch ? { fetch: options.fetch } : {}),
     ...(options.acceptPaymentPolicy ? { acceptPaymentPolicy: options.acceptPaymentPolicy } : {}),
+    ...(options.onChallenge ? { onChallenge: options.onChallenge as never } : {}),
   });
 
   return {

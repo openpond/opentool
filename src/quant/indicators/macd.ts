@@ -6,7 +6,12 @@ export type MacdPoint = {
   signal: number | null;
 };
 
-export function macd(values: number[], fastPeriod = 12, slowPeriod = 26, signalPeriod = 9): MacdPoint[] {
+export function macd(
+  values: number[],
+  fastPeriod = 12,
+  slowPeriod = 26,
+  signalPeriod = 9,
+): MacdPoint[] {
   if (fastPeriod >= slowPeriod) {
     throw new Error("MACD fast period must be less than slow period");
   }
@@ -23,8 +28,7 @@ export function macd(values: number[], fastPeriod = 12, slowPeriod = 26, signalP
     return {
       macd: macdValue,
       signal: signalValue,
-      histogram:
-        macdValue == null || signalValue == null ? null : macdValue - signalValue,
+      histogram: macdValue == null || signalValue == null ? null : macdValue - signalValue,
     };
   });
 }

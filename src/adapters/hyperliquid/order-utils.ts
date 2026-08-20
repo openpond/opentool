@@ -126,11 +126,7 @@ const StringMath = {
     const shiftedBack = StringMath.multiplyByPow10(rounded, -shiftAmount);
     return normalizeDecimalString(negative ? `-${shiftedBack}` : shiftedBack);
   },
-  toFixedDirectional(
-    value: string,
-    decimals: number,
-    mode: HyperliquidDirectionalMode,
-  ): string {
+  toFixedDirectional(value: string, decimals: number, mode: HyperliquidDirectionalMode): string {
     if (!Number.isInteger(decimals) || decimals < 0) {
       throw new RangeError("Decimals must be a non-negative integer.");
     }
@@ -272,11 +268,7 @@ function formatDirectionalHyperliquidPrice(
   const szDecimals = resolveSizeDecimals(params.szDecimals);
   const maxDecimals = Math.max((params.marketType === "perp" ? 6 : 8) - szDecimals, 0);
   const decimalsAdjusted = StringMath.toFixedDirectional(normalized, maxDecimals, params.mode);
-  const sigFigAdjusted = StringMath.toPrecisionDirectional(
-    decimalsAdjusted,
-    5,
-    params.mode,
-  );
+  const sigFigAdjusted = StringMath.toPrecisionDirectional(decimalsAdjusted, 5, params.mode);
   return sigFigAdjusted === "0" ? null : sigFigAdjusted;
 }
 
@@ -298,11 +290,7 @@ export function roundHyperliquidPriceToTick(
     throw new Error("Price must be positive.");
   }
 
-  const scaled = scaleDecimalToInt(
-    normalized,
-    tick.tickDecimals,
-    side === "buy" ? "up" : "down",
-  );
+  const scaled = scaleDecimalToInt(normalized, tick.tickDecimals, side === "buy" ? "up" : "down");
   const tickSize = tick.tickSizeInt;
   const rounded =
     side === "sell"
@@ -327,9 +315,7 @@ export function formatHyperliquidMarketablePrice(params: {
     throw new Error("slippageBps must be a non-negative number.");
   }
 
-  const adjustedMid =
-    mid *
-    (side === "buy" ? 1 + slippageBps / 10_000 : 1 - slippageBps / 10_000);
+  const adjustedMid = mid * (side === "buy" ? 1 + slippageBps / 10_000 : 1 - slippageBps / 10_000);
 
   if (typeof szDecimals === "number" && Number.isFinite(szDecimals)) {
     // Once szDecimals are known, Hyperliquid market-order caps should follow the
@@ -349,9 +335,7 @@ export function formatHyperliquidMarketablePrice(params: {
   const baseDecimals = countDecimalPlaces(midString);
   const workDecimals = Math.max(baseDecimals + 4, tick?.tickDecimals ?? 0, 8);
   const scaledMid = scaleDecimalToInt(midString, workDecimals, "down");
-  const slippageNumerator = BigInt(
-    side === "buy" ? 10_000 + slippageBps : 10_000 - slippageBps,
-  );
+  const slippageNumerator = BigInt(side === "buy" ? 10_000 + slippageBps : 10_000 - slippageBps);
   const adjustedScaled =
     side === "buy"
       ? ceilDiv(scaledMid * slippageNumerator, 10_000n)

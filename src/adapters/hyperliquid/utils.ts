@@ -1,11 +1,6 @@
 export type HyperliquidScheduleUnit = "minutes" | "hours";
 
-export type HyperliquidCadence =
-  | "daily"
-  | "hourly"
-  | "weekly"
-  | "twice-weekly"
-  | "monthly";
+export type HyperliquidCadence = "daily" | "hourly" | "weekly" | "twice-weekly" | "monthly";
 
 export type HyperliquidResolution = "1" | "5" | "15" | "30" | "60" | "240" | "1D" | "1W";
 
@@ -83,10 +78,7 @@ export function resolveHyperliquidIntervalCron(
   return every === 1 ? "0 * * * *" : `0 */${every} * * *`;
 }
 
-export function resolveHyperliquidHourlyInterval(
-  input: unknown,
-  fallback = 1,
-): number {
+export function resolveHyperliquidHourlyInterval(input: unknown, fallback = 1): number {
   return clampHyperliquidInt(input, 1, 24, fallback);
 }
 
@@ -102,9 +94,10 @@ export function resolveHyperliquidCadenceCron(
   return interval === 1 ? cadenceToCron.hourly : `0 */${interval} * * *`;
 }
 
-export function resolveHyperliquidCadenceFromResolution(
-  resolution: HyperliquidResolution,
-): { cadence: HyperliquidCadence; hourlyInterval?: number } {
+export function resolveHyperliquidCadenceFromResolution(resolution: HyperliquidResolution): {
+  cadence: HyperliquidCadence;
+  hourlyInterval?: number;
+} {
   if (resolution === "60") {
     return { cadence: "hourly", hourlyInterval: 1 };
   }

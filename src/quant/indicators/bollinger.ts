@@ -15,8 +15,7 @@ export function bollinger(values: number[], period = 20, standardDeviations = 2)
       return { lower: null, middle: null, upper: null, width: null };
     }
     const window = values.slice(index - period + 1, index + 1);
-    const variance =
-      window.reduce((total, value) => total + (value - average) ** 2, 0) / period;
+    const variance = window.reduce((total, value) => total + (value - average) ** 2, 0) / period;
     const deviation = Math.sqrt(variance);
     const lower = average - deviation * standardDeviations;
     const upper = average + deviation * standardDeviations;

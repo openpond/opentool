@@ -6,9 +6,7 @@ export function buildQuantDataLineage(params: {
   warnings?: string[];
 }) {
   const symbol =
-    params.request.idea.market.symbol ??
-    params.request.idea.market.universe?.[0] ??
-    "UNKNOWN";
+    params.request.idea.market.symbol ?? params.request.idea.market.universe?.[0] ?? "UNKNOWN";
   return {
     venue: params.request.idea.market.venue,
     symbols: params.request.idea.market.universe ?? [symbol],

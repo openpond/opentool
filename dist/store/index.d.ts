@@ -81,12 +81,22 @@ type ToolExecuteRequest = {
     deploymentId: string;
     toolName: string;
     method?: "GET" | "POST" | "PUT" | "DELETE";
+    stream?: boolean;
     body?: unknown;
 };
 type ToolExecuteResponse = {
     ok: boolean;
     status: number;
     data: unknown;
+};
+type ToolExecuteStreamEvent = {
+    event: string;
+    data: unknown;
+    id?: string;
+};
+type ToolExecuteStreamResponse = {
+    response: Response;
+    events: AsyncIterable<ToolExecuteStreamEvent>;
 };
 type AgentDigestRequest = {
     content: string;
@@ -109,6 +119,9 @@ declare function retrieve(params?: StoreRetrieveParams, options?: StoreOptions):
 declare function getMyTools(options?: StoreOptions): Promise<MyToolsResponse>;
 declare function getMyPerformance(options?: StoreOptions): Promise<unknown>;
 declare function postAgentDigest(input: AgentDigestRequest, options?: StoreOptions): Promise<unknown>;
+declare function executeTool(input: ToolExecuteRequest & {
+    stream: true;
+}, options?: StoreOptions): Promise<ToolExecuteStreamResponse>;
 declare function executeTool(input: ToolExecuteRequest, options?: StoreOptions): Promise<ToolExecuteResponse>;
 
-export { type AgentDigestRequest, type MyToolsResponse, type StoreAction, StoreError, type StoreEventInput, type StoreEventLevel, type StoreMode, type StoreOptions, type StoreResponse, type StoreRetrieveParams, type StoreRetrieveResult, type StoreSimulationConfig, type ToolExecuteRequest, type ToolExecuteResponse, executeTool, getMyPerformance, getMyTools, postAgentDigest, retrieve, store };
+export { type AgentDigestRequest, type MyToolsResponse, type StoreAction, StoreError, type StoreEventInput, type StoreEventLevel, type StoreMode, type StoreOptions, type StoreResponse, type StoreRetrieveParams, type StoreRetrieveResult, type StoreSimulationConfig, type ToolExecuteRequest, type ToolExecuteResponse, type ToolExecuteStreamEvent, type ToolExecuteStreamResponse, executeTool, getMyPerformance, getMyTools, postAgentDigest, retrieve, store };

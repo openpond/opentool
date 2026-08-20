@@ -104,10 +104,7 @@ const allMidsCache = new Map<
 >();
 
 function resolveGatewayBase(override?: string | null): string | null {
-  const value =
-    override ??
-    process.env.OPENPOND_GATEWAY_URL ??
-    DEFAULT_OPENPOND_GATEWAY_URL;
+  const value = override ?? process.env.OPENPOND_GATEWAY_URL ?? DEFAULT_OPENPOND_GATEWAY_URL;
   if (typeof value !== "string") {
     return null;
   }
@@ -332,8 +329,7 @@ export function normalizeHyperliquidIndicatorBars(
       const open = typeof bar.open === "number" && Number.isFinite(bar.open) ? bar.open : close;
       const high = typeof bar.high === "number" && Number.isFinite(bar.high) ? bar.high : close;
       const low = typeof bar.low === "number" && Number.isFinite(bar.low) ? bar.low : close;
-      const volume =
-        typeof bar.volume === "number" && Number.isFinite(bar.volume) ? bar.volume : 0;
+      const volume = typeof bar.volume === "number" && Number.isFinite(bar.volume) ? bar.volume : 0;
       return {
         time: bar.time,
         open,
@@ -671,27 +667,27 @@ export async function fetchHyperliquidResolvedMarketDescriptor(params: {
     return descriptor;
   }
 
-  const quote =
-    parsed.dex
-      ? await (async () => {
-          const dex = parsed.dex;
-          if (!dex) return null;
-          const [dexMetaAndCtxs, spotMetaRaw] = await Promise.all([
-            fetchHyperliquidDexMetaAndAssetCtxs(params.environment, dex),
-            fetchHyperliquidSpotMeta(params.environment),
-          ]);
-          const metaHeader =
-            Array.isArray(dexMetaAndCtxs) && dexMetaAndCtxs.length > 0
-              ? (dexMetaAndCtxs[0] as { collateralToken?: unknown } | null)
-              : null;
-          const collateralToken =
-            typeof metaHeader?.collateralToken === "number" ? metaHeader.collateralToken : null;
-          if (collateralToken == null) return null;
-          const spotMeta = spotMetaRaw as SpotMetaResponse;
-          const token = (spotMeta.tokens ?? []).find((entry) => entry?.index === collateralToken) ?? null;
-          return normalizeSpotTokenName(token?.name).toUpperCase() || null;
-        })()
-      : "USDC";
+  const quote = parsed.dex
+    ? await (async () => {
+        const dex = parsed.dex;
+        if (!dex) return null;
+        const [dexMetaAndCtxs, spotMetaRaw] = await Promise.all([
+          fetchHyperliquidDexMetaAndAssetCtxs(params.environment, dex),
+          fetchHyperliquidSpotMeta(params.environment),
+        ]);
+        const metaHeader =
+          Array.isArray(dexMetaAndCtxs) && dexMetaAndCtxs.length > 0
+            ? (dexMetaAndCtxs[0] as { collateralToken?: unknown } | null)
+            : null;
+        const collateralToken =
+          typeof metaHeader?.collateralToken === "number" ? metaHeader.collateralToken : null;
+        if (collateralToken == null) return null;
+        const spotMeta = spotMetaRaw as SpotMetaResponse;
+        const token =
+          (spotMeta.tokens ?? []).find((entry) => entry?.index === collateralToken) ?? null;
+        return normalizeSpotTokenName(token?.name).toUpperCase() || null;
+      })()
+    : "USDC";
 
   const descriptor = buildHyperliquidMarketDescriptor({
     symbol: params.symbol,
@@ -748,7 +744,9 @@ export async function fetchHyperliquidSizeDecimals(params: {
     { universe?: Array<{ name?: string; szDecimals?: number | string }> },
     Array<Record<string, unknown>>,
   ];
-  const dexUniverse = Array.isArray(dexMetaAndCtxs?.[0]?.universe) ? dexMetaAndCtxs[0].universe : [];
+  const dexUniverse = Array.isArray(dexMetaAndCtxs?.[0]?.universe)
+    ? dexMetaAndCtxs[0].universe
+    : [];
   const dexMatch = dexUniverse.find(
     (entry) => normalizeHyperliquidMetaSymbol(entry?.name ?? "").toUpperCase() === normalized,
   );

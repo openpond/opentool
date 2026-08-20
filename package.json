@@ -96,6 +96,10 @@
       "import": "./dist/mpp/index.js",
       "types": "./dist/mpp/index.d.ts"
     },
+    "./payments": {
+      "import": "./dist/payments/index.js",
+      "types": "./dist/payments/index.d.ts"
+    },
     "./viem": {
       "import": "./dist/viem/index.js",
       "types": "./dist/viem/index.d.ts"

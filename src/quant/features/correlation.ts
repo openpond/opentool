@@ -19,11 +19,7 @@ export function correlation(a: number[], b: number[]): number | null {
   return covariance / Math.sqrt(varianceA * varianceB);
 }
 
-export function rollingCorrelation(
-  a: number[],
-  b: number[],
-  period = 20,
-): Array<number | null> {
+export function rollingCorrelation(a: number[], b: number[], period = 20): Array<number | null> {
   return a.map((_, index) => {
     if (index < period - 1) return null;
     return correlation(

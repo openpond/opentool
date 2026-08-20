@@ -110,8 +110,7 @@ function parseHyperliquidOutcomeEncoding(value?: string | null): number | null {
   if (!trimmed) return null;
 
   const encodedMatch =
-    OUTCOME_MARKET_DATA_PATTERN.exec(trimmed) ??
-    OUTCOME_TOKEN_PATTERN.exec(trimmed);
+    OUTCOME_MARKET_DATA_PATTERN.exec(trimmed) ?? OUTCOME_TOKEN_PATTERN.exec(trimmed);
   if (!encodedMatch) return null;
   const encoding = Number.parseInt(encodedMatch[1] ?? "", 10);
   const side = encoding % 10;
@@ -263,10 +262,7 @@ export function buildHyperliquidOutcomeMarketIdentity(
   const derivedMarketDataCoin =
     marketDataCoin ?? (derivedEncoding != null ? `#${derivedEncoding}` : null);
   const positionId =
-    normalizeText(input.positionId) ??
-    derivedMarketDataCoin ??
-    outcomeTokenName ??
-    null;
+    normalizeText(input.positionId) ?? derivedMarketDataCoin ?? outcomeTokenName ?? null;
   const protocolMarketId =
     normalizeText(input.protocolMarketId) ??
     normalizeText(input.roundKey) ??
@@ -277,9 +273,7 @@ export function buildHyperliquidOutcomeMarketIdentity(
   const sideName = normalizeSymbolText(input.sideName);
   const underlying = normalizeSymbolText(input.underlying);
   const base =
-    underlying && sideName
-      ? `${underlying}-${sideName}`
-      : sideName ?? underlying ?? null;
+    underlying && sideName ? `${underlying}-${sideName}` : (sideName ?? underlying ?? null);
 
   return {
     market_type: "prediction",
@@ -498,18 +492,18 @@ export class HyperliquidApiError extends Error {
       "response" in responseRecord.body
         ? (
             (
-              (responseRecord.body as {
+              responseRecord.body as {
                 response?: {
                   data?: {
                     statuses?: Array<{ error?: unknown }>;
                     status?: { error?: unknown };
                   };
                 };
-              }).response?.data?.statuses ?? []
-            )
-              .map((status) => (typeof status?.error === "string" ? status.error : null))
-              .filter((entry): entry is string => Boolean(entry && entry.trim().length > 0))
+              }
+            ).response?.data?.statuses ?? []
           )
+            .map((status) => (typeof status?.error === "string" ? status.error : null))
+            .filter((entry): entry is string => Boolean(entry && entry.trim().length > 0))
         : [];
     const singleStatusError =
       responseRecord?.body &&
@@ -517,14 +511,14 @@ export class HyperliquidApiError extends Error {
       responseRecord.body !== null &&
       "response" in responseRecord.body
         ? (
-            (responseRecord.body as {
+            responseRecord.body as {
               response?: {
                 data?: {
                   status?: { error?: unknown };
                 };
               };
-            }).response?.data?.status?.error
-          )
+            }
+          ).response?.data?.status?.error
         : null;
     const details = Array.from(
       new Set(

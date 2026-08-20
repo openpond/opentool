@@ -4,8 +4,9 @@ import { test } from "node:test";
 import { fetchHyperliquidBars } from "../src/adapters/hyperliquid";
 
 const gatewayBase = process.env.OPENPOND_GATEWAY_URL ?? "https://gateway.openpond.dev";
+const liveTest = process.env.OPENPOND_RUN_LIVE_GATEWAY_TESTS === "1" ? test : test.skip;
 
-test("live gateway smoke: fetchHyperliquidBars returns normalized bar rows", async () => {
+liveTest("live gateway smoke: fetchHyperliquidBars returns normalized bar rows", async () => {
   const bars = await fetchHyperliquidBars({
     // Production gateway bars endpoint currently accepts canonical perp symbols (e.g. BTC).
     symbol: "BTC",
@@ -21,7 +22,7 @@ test("live gateway smoke: fetchHyperliquidBars returns normalized bar rows", asy
   assert.equal(typeof first?.close, "number");
 });
 
-test("live gateway resolves canonical symbol casing", async () => {
+liveTest("live gateway resolves canonical symbol casing", async () => {
   const barsUpper = await fetchHyperliquidBars({
     symbol: "BTC",
     resolution: "60",
@@ -41,7 +42,7 @@ test("live gateway resolves canonical symbol casing", async () => {
   assert.equal(typeof barsLower[0]?.close, "number");
 });
 
-test("live gateway accepts bounded backfill window params", async () => {
+liveTest("live gateway accepts bounded backfill window params", async () => {
   const now = Math.trunc(Date.now() / 1000);
   const from = now - 6 * 3600;
   const to = now;

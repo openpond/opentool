@@ -32,10 +32,10 @@ export function parseQuantTimeToSeconds(value: unknown): number | null {
   return null;
 }
 
-export function assertQuantWindow(params: {
-  timeframeEnd: string;
-  timeframeStart: string;
-}): { endSeconds: number; startSeconds: number } {
+export function assertQuantWindow(params: { timeframeEnd: string; timeframeStart: string }): {
+  endSeconds: number;
+  startSeconds: number;
+} {
   const startSeconds = parseQuantTimeToSeconds(params.timeframeStart);
   const endSeconds = parseQuantTimeToSeconds(params.timeframeEnd);
   if (startSeconds == null || endSeconds == null) {

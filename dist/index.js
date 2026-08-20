@@ -781,7 +781,8 @@ function createMppClient(options) {
     methods,
     polyfill: options.polyfill ?? false,
     ...options.fetch ? { fetch: options.fetch } : {},
-    ...options.acceptPaymentPolicy ? { acceptPaymentPolicy: options.acceptPaymentPolicy } : {}
+    ...options.acceptPaymentPolicy ? { acceptPaymentPolicy: options.acceptPaymentPolicy } : {},
+    ...options.onChallenge ? { onChallenge: options.onChallenge } : {}
   });
   return {
     fetch: client.fetch,
@@ -952,13 +953,7 @@ var tokens = {
       "0x20C000000000000000000000b9537d11c60E8b50",
       6
     ),
-    PathUSD: token(
-      tempo.id,
-      "PathUSD",
-      "PathUSD",
-      "0x20c0000000000000000000000000000000000000",
-      6
-    )
+    PathUSD: token(tempo.id, "PathUSD", "PathUSD", "0x20c0000000000000000000000000000000000000", 6)
   }
 };
 var DEFAULT_CHAIN = chains.base;
@@ -1075,7 +1070,10 @@ function createActivityCaptureClient(client, traces, organizationId) {
       }
       return async (...args) => {
         try {
-          const response = await value.apply(target, args);
+          const response = await value.apply(
+            target,
+            args
+          );
           recordActivityTrace({
             traces,
             operation: prop,
@@ -1566,11 +1564,100 @@ async function postAgentDigest(input, options) {
 async function executeTool(input, options) {
   const { baseUrl } = resolveConfig(options);
   const url = `${baseUrl}/apps/tools/execute`;
+  if (input.stream === true) {
+    const { apiKey, fetchFn } = resolveConfig(options);
+    const response = await fetchFn(url, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        accept: "text/event-stream",
+        "openpond-api-key": apiKey
+      },
+      body: JSON.stringify(input)
+    });
+    const contentType = response.headers.get("content-type") ?? "";
+    if (!response.ok && !contentType.toLowerCase().includes("text/event-stream")) {
+      let body;
+      try {
+        body = await response.json();
+      } catch {
+        body = await response.text().catch(() => void 0);
+      }
+      throw new StoreError(`Request failed with status ${response.status}`, response.status, body);
+    }
+    return {
+      response,
+      events: parseToolExecuteStream(response)
+    };
+  }
   const data = await requestJson(url, options, {
     method: "POST",
     body: JSON.stringify(input)
   });
   return data;
+}
+async function* parseToolExecuteStream(response) {
+  if (!response.body) {
+    return;
+  }
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true }).replace(/\r\n/g, "\n");
+      let boundaryIndex;
+      while ((boundaryIndex = buffer.indexOf("\n\n")) !== -1) {
+        const block = buffer.slice(0, boundaryIndex);
+        buffer = buffer.slice(boundaryIndex + 2);
+        const event = parseToolExecuteStreamBlock(block);
+        if (event) yield event;
+      }
+    }
+    const trailing = decoder.decode();
+    if (trailing) buffer += trailing;
+    if (buffer.trim()) {
+      const event = parseToolExecuteStreamBlock(buffer);
+      if (event) yield event;
+    }
+  } finally {
+    reader.releaseLock();
+  }
+}
+function parseToolExecuteStreamBlock(block) {
+  const lines = block.split("\n");
+  const dataLines = [];
+  let event = "message";
+  let id;
+  for (const rawLine of lines) {
+    if (!rawLine || rawLine.startsWith(":")) continue;
+    if (rawLine.startsWith("event:")) {
+      event = rawLine.slice("event:".length).trim() || "message";
+      continue;
+    }
+    if (rawLine.startsWith("id:")) {
+      id = rawLine.slice("id:".length).trim();
+      continue;
+    }
+    if (rawLine.startsWith("data:")) {
+      const value = rawLine.slice("data:".length);
+      dataLines.push(value.startsWith(" ") ? value.slice(1) : value);
+    }
+  }
+  if (dataLines.length === 0) return null;
+  const dataString = dataLines.join("\n");
+  let data = dataString;
+  try {
+    data = JSON.parse(dataString);
+  } catch {
+  }
+  return {
+    event,
+    data,
+    ...id ? { id } : {}
+  };
 }
 var CACHE_TTL_MS = 5 * 60 * 1e3;
 var API_BASES = {
@@ -2740,14 +2827,7 @@ function resolveHyperliquidSpotSymbol(asset, defaultQuote = "USDC") {
 }
 
 // src/adapters/hyperliquid/info.ts
-var HYPERLIQUID_HIP3_DEXES = [
-  "xyz",
-  "flx",
-  "vntl",
-  "hyna",
-  "km",
-  "cash"
-];
+var HYPERLIQUID_HIP3_DEXES = ["xyz", "flx", "vntl", "hyna", "km", "cash"];
 async function postInfo(environment, payload) {
   const baseUrl = API_BASES[environment];
   const response = await fetch(`${baseUrl}/info`, {
@@ -4101,11 +4181,7 @@ function formatDirectionalHyperliquidPrice(price, params) {
   const szDecimals = resolveSizeDecimals(params.szDecimals);
   const maxDecimals2 = Math.max((params.marketType === "perp" ? 6 : 8) - szDecimals, 0);
   const decimalsAdjusted = StringMath.toFixedDirectional(normalized, maxDecimals2, params.mode);
-  const sigFigAdjusted = StringMath.toPrecisionDirectional(
-    decimalsAdjusted,
-    5,
-    params.mode
-  );
+  const sigFigAdjusted = StringMath.toPrecisionDirectional(decimalsAdjusted, 5, params.mode);
   return sigFigAdjusted === "0" ? null : sigFigAdjusted;
 }
 function roundHyperliquidPriceToTick(price, tick, side) {
@@ -4120,11 +4196,7 @@ function roundHyperliquidPriceToTick(price, tick, side) {
   if (Number.parseFloat(normalized) <= 0) {
     throw new Error("Price must be positive.");
   }
-  const scaled = scaleDecimalToInt(
-    normalized,
-    tick.tickDecimals,
-    side === "buy" ? "up" : "down"
-  );
+  const scaled = scaleDecimalToInt(normalized, tick.tickDecimals, side === "buy" ? "up" : "down");
   const tickSize = tick.tickSizeInt;
   const rounded = side === "sell" ? scaled / tickSize * tickSize : (scaled + tickSize - 1n) / tickSize * tickSize;
   return formatScaledDecimal(rounded, tick.tickDecimals);
@@ -4153,9 +4225,7 @@ function formatHyperliquidMarketablePrice(params) {
   const baseDecimals = countDecimalPlaces(midString);
   const workDecimals = Math.max(baseDecimals + 4, tick?.tickDecimals ?? 0, 8);
   const scaledMid = scaleDecimalToInt(midString, workDecimals, "down");
-  const slippageNumerator = BigInt(
-    side === "buy" ? 1e4 + slippageBps : 1e4 - slippageBps
-  );
+  const slippageNumerator = BigInt(side === "buy" ? 1e4 + slippageBps : 1e4 - slippageBps);
   const adjustedScaled = side === "buy" ? ceilDiv(scaledMid * slippageNumerator, 10000n) : scaledMid * slippageNumerator / 10000n;
   const adjustedString = formatScaledDecimal(adjustedScaled, workDecimals);
   if (tick) {
@@ -5161,11 +5231,7 @@ async function buildTpSlChildOrder(params) {
       throw new Error(`${params.legType} buy limit price must be at or above the trigger price.`);
     }
   }
-  const price = execution === "limit" ? formatHyperliquidPrice(
-    explicitLimitPrice,
-    szDecimals,
-    marketType
-  ) : formatHyperliquidMarketablePrice({
+  const price = execution === "limit" ? formatHyperliquidPrice(explicitLimitPrice, szDecimals, marketType) : formatHyperliquidMarketablePrice({
     mid: triggerPxNumeric,
     side: childSide,
     slippageBps: params.triggerMarketSlippageBps,
@@ -5189,30 +5255,28 @@ async function buildTpSlChildOrder(params) {
 }
 async function buildAttachedTpSlOrders(params) {
   const referencePrice = toPositiveNumber(params.referencePrice, "referencePrice");
-  const legs = await Promise.all(
-    [
-      params.takeProfit ? buildTpSlChildOrder({
-        symbol: params.symbol,
-        parentSide: params.parentSide,
-        size: params.size,
-        referencePrice,
-        legType: "tp",
-        leg: params.takeProfit,
-        environment: params.environment,
-        triggerMarketSlippageBps: params.triggerMarketSlippageBps
-      }) : null,
-      params.stopLoss ? buildTpSlChildOrder({
-        symbol: params.symbol,
-        parentSide: params.parentSide,
-        size: params.size,
-        referencePrice,
-        legType: "sl",
-        leg: params.stopLoss,
-        environment: params.environment,
-        triggerMarketSlippageBps: params.triggerMarketSlippageBps
-      }) : null
-    ]
-  );
+  const legs = await Promise.all([
+    params.takeProfit ? buildTpSlChildOrder({
+      symbol: params.symbol,
+      parentSide: params.parentSide,
+      size: params.size,
+      referencePrice,
+      legType: "tp",
+      leg: params.takeProfit,
+      environment: params.environment,
+      triggerMarketSlippageBps: params.triggerMarketSlippageBps
+    }) : null,
+    params.stopLoss ? buildTpSlChildOrder({
+      symbol: params.symbol,
+      parentSide: params.parentSide,
+      size: params.size,
+      referencePrice,
+      legType: "sl",
+      leg: params.stopLoss,
+      environment: params.environment,
+      triggerMarketSlippageBps: params.triggerMarketSlippageBps
+    }) : null
+  ]);
   return legs.filter((entry) => Boolean(entry));
 }
 async function placeHyperliquidOrderWithTpSl(options) {
@@ -6263,9 +6327,7 @@ async function createOrDerivePolymarketApiKey(args) {
   if (deriveError) {
     throw deriveError;
   }
-  throw new PolymarketAuthError(
-    "Failed to derive or create Polymarket API key."
-  );
+  throw new PolymarketAuthError("Failed to derive or create Polymarket API key.");
 }
 async function placePolymarketOrder(args) {
   const environment = args.environment ?? "mainnet";
@@ -7031,9 +7093,7 @@ async function requestJson4(url, init) {
 function resolvePolymarketBootstrapContracts(environment) {
   const contracts = POLYMARKET_BOOTSTRAP_CONTRACTS_BY_ENV[environment];
   if (!contracts) {
-    throw new Error(
-      `Polymarket bootstrap contracts are not configured for ${environment}.`
-    );
+    throw new Error(`Polymarket bootstrap contracts are not configured for ${environment}.`);
   }
   return contracts;
 }
@@ -8959,7 +9019,10 @@ function evaluateQuantRule(params) {
     signal = prices.map(() => 1);
   } else if (kind === "ma_cross" || kind === "moving_average_crossover") {
     const fastPeriod = Math.max(1, Math.trunc(numberParam(ruleParams, "fastPeriod", 20)));
-    const slowPeriod = Math.max(fastPeriod + 1, Math.trunc(numberParam(ruleParams, "slowPeriod", 100)));
+    const slowPeriod = Math.max(
+      fastPeriod + 1,
+      Math.trunc(numberParam(ruleParams, "slowPeriod", 100))
+    );
     const averageType = stringParam(ruleParams, "averageType", "ema");
     const fast = ma(prices, averageType, fastPeriod);
     const slow = ma(prices, averageType, slowPeriod);
@@ -9018,7 +9081,9 @@ function evaluateQuantRule(params) {
     condition = signal.map((value) => value != null && value <= threshold);
     positions = condition.map((active) => active ? 1 : 0);
   } else {
-    warnings.push(`Rule kind ${kind} is not supported by the V1 evaluator; using signal-only flat positions.`);
+    warnings.push(
+      `Rule kind ${kind} is not supported by the V1 evaluator; using signal-only flat positions.`
+    );
     condition = prices.map(() => false);
     positions = prices.map(() => 0);
     signal = prices.map(() => null);
@@ -9042,7 +9107,9 @@ function buildQuantTestPlan(idea) {
   return {
     supportedTestKinds: capability.supportedTestKinds,
     supportLevel: capability.supportLevel,
-    warnings: capability.supportLevel === "advanced_research" || capability.supportLevel === "unsupported_until_data" ? [`Family ${idea.family} is ${capability.supportLevel}; do not mark it strict-backtest-ready.`] : []
+    warnings: capability.supportLevel === "advanced_research" || capability.supportLevel === "unsupported_until_data" ? [
+      `Family ${idea.family} is ${capability.supportLevel}; do not mark it strict-backtest-ready.`
+    ] : []
   };
 }
 

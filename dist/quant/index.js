@@ -777,7 +777,10 @@ function evaluateQuantRule(params) {
     signal = prices.map(() => 1);
   } else if (kind === "ma_cross" || kind === "moving_average_crossover") {
     const fastPeriod = Math.max(1, Math.trunc(numberParam(ruleParams, "fastPeriod", 20)));
-    const slowPeriod = Math.max(fastPeriod + 1, Math.trunc(numberParam(ruleParams, "slowPeriod", 100)));
+    const slowPeriod = Math.max(
+      fastPeriod + 1,
+      Math.trunc(numberParam(ruleParams, "slowPeriod", 100))
+    );
     const averageType = stringParam(ruleParams, "averageType", "ema");
     const fast = ma(prices, averageType, fastPeriod);
     const slow = ma(prices, averageType, slowPeriod);
@@ -836,7 +839,9 @@ function evaluateQuantRule(params) {
     condition = signal.map((value) => value != null && value <= threshold);
     positions = condition.map((active) => active ? 1 : 0);
   } else {
-    warnings.push(`Rule kind ${kind} is not supported by the V1 evaluator; using signal-only flat positions.`);
+    warnings.push(
+      `Rule kind ${kind} is not supported by the V1 evaluator; using signal-only flat positions.`
+    );
     condition = prices.map(() => false);
     positions = prices.map(() => 0);
     signal = prices.map(() => null);
@@ -860,7 +865,9 @@ function buildQuantTestPlan(idea) {
   return {
     supportedTestKinds: capability.supportedTestKinds,
     supportLevel: capability.supportLevel,
-    warnings: capability.supportLevel === "advanced_research" || capability.supportLevel === "unsupported_until_data" ? [`Family ${idea.family} is ${capability.supportLevel}; do not mark it strict-backtest-ready.`] : []
+    warnings: capability.supportLevel === "advanced_research" || capability.supportLevel === "unsupported_until_data" ? [
+      `Family ${idea.family} is ${capability.supportLevel}; do not mark it strict-backtest-ready.`
+    ] : []
   };
 }
 

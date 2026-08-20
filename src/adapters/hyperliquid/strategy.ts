@@ -82,8 +82,7 @@ export function resolveHyperliquidDcaSymbolEntries(
         typeof rawWeight === "string" && rawWeight.trim().length > 0
           ? Number.parseFloat(rawWeight.trim())
           : 1;
-      const weight =
-        Number.isFinite(parsedWeight) && parsedWeight > 0 ? parsedWeight : 1;
+      const weight = Number.isFinite(parsedWeight) && parsedWeight > 0 ? parsedWeight : 1;
       entries.push({ symbol, weight });
       continue;
     }
@@ -92,9 +91,7 @@ export function resolveHyperliquidDcaSymbolEntries(
     const symbol = input.symbol?.trim();
     if (!symbol) continue;
     const parsedWeight =
-      typeof input.weight === "number" && Number.isFinite(input.weight)
-        ? input.weight
-        : 1;
+      typeof input.weight === "number" && Number.isFinite(input.weight) ? input.weight : 1;
     const weight = parsedWeight > 0 ? parsedWeight : 1;
     entries.push({ symbol, weight });
   }

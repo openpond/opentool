@@ -105,7 +105,10 @@ export const QUANT_FAMILY_CAPABILITIES: QuantFamilyCapability[] = [
 ];
 
 export function resolveQuantFamilyCapability(value: string): QuantFamilyCapability | null {
-  const normalized = value.trim().toLowerCase().replace(/[\s-]+/g, "_");
+  const normalized = value
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, "_");
   return (
     QUANT_FAMILY_CAPABILITIES.find(
       (capability) =>

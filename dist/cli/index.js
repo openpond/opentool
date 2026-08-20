@@ -2345,7 +2345,9 @@ program.command("dev").description("Start HTTP dev server (optional MCP stdio)")
   });
 });
 program.command("build").description("Build tools for deployment").option("-i, --input <dir>", "Input directory containing tools", "tools").option("-o, --output <dir>", "Output directory for built tools", "dist").option("--name <name>", "Server name", "opentool-server").option("--version <version>", "Server version", "1.0.0").action(buildCommand);
-program.command("validate").description("Validate OpenTool project (tool handlers, profile/schema rules, metadata synthesis)").option("-i, --input <dir>", "Input directory containing tools", "tools").action(validateCommand);
+program.command("validate").description(
+  "Validate OpenTool project (tool handlers, profile/schema rules, metadata synthesis)"
+).option("-i, --input <dir>", "Input directory containing tools", "tools").action(validateCommand);
 program.command("validate-full").description("Full OpenTool validation with detailed tool summary").option("-i, --input <dir>", "Input directory containing tools", "tools").action(validateFullCommand);
 program.command("metadata").description("Generate OpenTool metadata JSON without building").option("-i, --input <dir>", "Input directory containing tools", "tools").option("-o, --output <file>", "Output file path for metadata.json", "metadata.json").option("--name <name>", "Server name", "opentool-server").option("--version <version>", "Server version", "1.0.0").action(generateMetadataCommand);
 program.command("init").description("Create a new OpenTool project in the target directory").option("-d, --dir <dir>", "Target directory", ".").option("-n, --name <name>", "Project name").option("--description <description>", "Project description").option("--force", "Overwrite existing files", false).action(async (cmdOptions) => {

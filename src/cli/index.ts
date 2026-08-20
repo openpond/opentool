@@ -42,7 +42,9 @@ program
 // Validate command
 program
   .command("validate")
-  .description("Validate OpenTool project (tool handlers, profile/schema rules, metadata synthesis)")
+  .description(
+    "Validate OpenTool project (tool handlers, profile/schema rules, metadata synthesis)",
+  )
   .option("-i, --input <dir>", "Input directory containing tools", "tools")
   .action(validateCommand);
 

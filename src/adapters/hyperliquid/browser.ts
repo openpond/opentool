@@ -116,9 +116,7 @@ export {
   formatHyperliquidPrice,
   formatHyperliquidSize,
 } from "./order-utils";
-export {
-  estimateHyperliquidLiquidationPrice,
-} from "./risk-utils";
+export { estimateHyperliquidLiquidationPrice } from "./risk-utils";
 export type { HyperliquidApproximateLiquidationParams } from "./risk-utils";
 export type {
   HyperliquidMarketDescriptor,

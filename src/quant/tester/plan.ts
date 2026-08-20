@@ -22,7 +22,9 @@ export function buildQuantTestPlan(idea: QuantIdeaSpecV1): QuantTestPlan {
     warnings:
       capability.supportLevel === "advanced_research" ||
       capability.supportLevel === "unsupported_until_data"
-        ? [`Family ${idea.family} is ${capability.supportLevel}; do not mark it strict-backtest-ready.`]
+        ? [
+            `Family ${idea.family} is ${capability.supportLevel}; do not mark it strict-backtest-ready.`,
+          ]
         : [],
   };
 }

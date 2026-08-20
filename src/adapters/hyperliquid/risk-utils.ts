@@ -51,8 +51,7 @@ export function estimateHyperliquidLiquidationPrice(
     return null;
   }
 
-  const liquidationPrice =
-    entryPrice - (sideSign * (marginAvailable / size)) / denominator;
+  const liquidationPrice = entryPrice - (sideSign * (marginAvailable / size)) / denominator;
 
   if (!Number.isFinite(liquidationPrice) || liquidationPrice <= 0) {
     return null;
