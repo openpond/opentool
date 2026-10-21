@@ -141,7 +141,7 @@ declare function createL1ActionHash(args: {
     expiresAfter?: number | undefined;
 }): `0x${string}`;
 
-declare const HYPERLIQUID_HIP3_DEXES: readonly ["xyz", "flx", "vntl", "hyna", "km", "cash"];
+declare const HYPERLIQUID_HIP3_DEXES: readonly ["xyz", "flx", "vntl", "hyna", "km", "abcd", "cash", "para", "mkts", "io"];
 type HyperliquidHip3Dex = (typeof HYPERLIQUID_HIP3_DEXES)[number];
 type HyperliquidOpenOrderLike = {
     oid?: number;

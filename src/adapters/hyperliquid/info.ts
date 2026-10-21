@@ -28,7 +28,18 @@ type InfoPayload =
   | { type: "spotClearinghouseState"; user: `0x${string}` }
   | { type: "activeAssetData"; user: `0x${string}`; coin: string };
 
-export const HYPERLIQUID_HIP3_DEXES = ["xyz", "flx", "vntl", "hyna", "km", "cash"] as const;
+export const HYPERLIQUID_HIP3_DEXES = [
+  "xyz",
+  "flx",
+  "vntl",
+  "hyna",
+  "km",
+  "abcd",
+  "cash",
+  "para",
+  "mkts",
+  "io",
+] as const;
 
 export type HyperliquidHip3Dex = (typeof HYPERLIQUID_HIP3_DEXES)[number];
 

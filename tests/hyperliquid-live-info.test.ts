@@ -13,7 +13,18 @@ import {
   resolveHyperliquidPair,
 } from "../src/adapters/hyperliquid";
 
-const LIVE_DEXES = ["xyz", "flx", "vntl", "hyna", "km", "cash"] as const;
+const LIVE_DEXES = [
+  "xyz",
+  "flx",
+  "vntl",
+  "hyna",
+  "km",
+  "abcd",
+  "cash",
+  "para",
+  "mkts",
+  "io",
+] as const;
 
 type MetaUniverseEntry = { name?: string };
 type SpotMetaUniverseEntry = { name?: string };

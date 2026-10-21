@@ -563,6 +563,53 @@ test("open order aggregation merges primary and dex-scoped open orders", async (
   );
 });
 
+test("known dex list includes every HIP-3 dex in Hyperliquid perpDexs", () => {
+  for (const dex of ["xyz", "flx", "vntl", "hyna", "km", "abcd", "cash", "para", "mkts", "io"]) {
+    assert.ok(getKnownHyperliquidDexes("mainnet").includes(dex), `missing ${dex}`);
+  }
+});
+
+test("open order aggregation queries the para dex when requested", async (t) => {
+  const originalFetch = globalThis.fetch;
+  const seenBodies: Array<Record<string, unknown>> = [];
+  globalThis.fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+    const body = init?.body ? (JSON.parse(String(init.body)) as Record<string, unknown>) : {};
+    seenBodies.push(body);
+    const payload =
+      body.dex === "para"
+        ? [{ oid: 7, cloid: "0xpara", coin: "para:AVGO" }]
+        : [{ oid: 1, cloid: "0xbase", coin: "BTC" }];
+    return new Response(JSON.stringify(payload), { status: 200 });
+  }) as typeof globalThis.fetch;
+
+  t.after(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  const openOrders = await fetchHyperliquidOpenOrdersAcrossDexes({
+    environment: "mainnet",
+    user: "0x0000000000000000000000000000000000000001",
+    dexes: ["para"],
+  });
+  assert.equal(openOrders.find((order) => order.oid === 7)?.dex ?? null, "para");
+  assert.deepEqual(
+    seenBodies.map((body) => body.dex ?? null),
+    [null, "para"],
+  );
+
+  seenBodies.length = 0;
+  const frontendOrders = await fetchHyperliquidFrontendOpenOrdersAcrossDexes({
+    environment: "mainnet",
+    user: "0x0000000000000000000000000000000000000001",
+    dexes: ["para"],
+  });
+  assert.equal(frontendOrders.find((order) => order.oid === 7)?.dex ?? null, "para");
+  assert.deepEqual(
+    seenBodies.map((body) => body.dex ?? null),
+    [null, "para"],
+  );
+});
+
 test("active asset helper resolves canonical order symbol before request", async (t) => {
   const originalFetch = globalThis.fetch;
   let seenBody: Record<string, unknown> | null = null;

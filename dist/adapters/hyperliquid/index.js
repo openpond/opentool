@@ -1332,7 +1332,18 @@ function resolveHyperliquidSpotSymbol(asset, defaultQuote = "USDC") {
 }
 
 // src/adapters/hyperliquid/info.ts
-var HYPERLIQUID_HIP3_DEXES = ["xyz", "flx", "vntl", "hyna", "km", "cash"];
+var HYPERLIQUID_HIP3_DEXES = [
+  "xyz",
+  "flx",
+  "vntl",
+  "hyna",
+  "km",
+  "abcd",
+  "cash",
+  "para",
+  "mkts",
+  "io"
+];
 async function postInfo(environment, payload) {
   const baseUrl = API_BASES[environment];
   const response = await fetch(`${baseUrl}/info`, {
