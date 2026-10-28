@@ -111,7 +111,7 @@ export const metadata = {
   // MCP annotations for behavior hints
   annotations: {
     readOnlyHint: true,     // Safe, only reads data
-    idempotentHint: true,   // Same input = same output
+    idempotentHint: true,   // Repeated calls have no additional effect
   },
   
   // Rich discovery metadata
@@ -316,7 +316,7 @@ Use tool-level metadata for:
 Always set accurate MCP annotations:
 - `readOnlyHint: true` for data-reading tools
 - `destructiveHint: true` for irreversible operations
-- `idempotentHint: true` if same input always gives same result
+- `idempotentHint: true` if repeating a call with the same arguments has no additional effect. Responses may differ.
 
 ## On-Chain Registration
 
